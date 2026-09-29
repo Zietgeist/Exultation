@@ -8,9 +8,11 @@ var energy_bar = null
 var orb_bar = null
 var boost_label = null
 var zone_label = null
+var flow_label = null
 
 func _ready():
 	zone_label = get_node("VBoxContainer/ZoneLabel")
+	flow_label = get_node("VBoxContainer/FlowLabel")
 	health_bar = get_node("VBoxContainer/HealthBar")
 	energy_bar = get_node("VBoxContainer/EnergyBar")
 	kill_label = get_node("VBoxContainer/KillLabel")
@@ -45,4 +47,11 @@ func _process(_delta):
 	orb_bar.max_value = GameState.orb_slots
 	orb_bar.value = GameState.orbs_collected
 	zone_label.text = GameState.current_zone
-	
+
+	# Pomodoro flow timer
+	flow_label.text = SessionManager.flow_text()
+	if SessionManager.is_flow_done():
+		flow_label.text += "  - The air grows heavy. Return home to rest."
+		flow_label.modulate = Color(1.0, 0.85, 0.3)  # Gold
+	else:
+		flow_label.modulate = Color(1, 1, 1)
