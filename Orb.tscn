@@ -1,0 +1,20 @@
+[gd_scene load_steps=5 format=3 uid="uid://kmajioro0yp0"]
+
+[ext_resource type="Script" uid="uid://c3fidhq721c00" path="res://orb.gd" id="1_3ycgy"]
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_l3w6f"]
+
+[sub_resource type="SphereMesh" id="SphereMesh_3ycgy"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_0gjs3"]
+albedo_color = Color(0.03137255, 1, 1, 1)
+
+[node name="Area3D" type="Area3D"]
+script = ExtResource("1_3ycgy")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("SphereShape3D_l3w6f")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = SubResource("SphereMesh_3ycgy")
+surface_material_override/0 = SubResource("StandardMaterial3D_0gjs3")

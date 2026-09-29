@@ -1,0 +1,20 @@
+[gd_scene load_steps=5 format=3 uid="uid://l3d0kunx8iw0"]
+
+[ext_resource type="Script" uid="uid://gfj6pubeljt5" path="res://enemy.gd" id="1_7k104"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_7xaro"]
+albedo_color = Color(0.14901961, 0.89411765, 0.1254902, 1)
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_7k104"]
+material = SubResource("StandardMaterial3D_7xaro")
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_4gyqm"]
+
+[node name="Enemy" type="CharacterBody3D" groups=["enemy"]]
+script = ExtResource("1_7k104")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = SubResource("CapsuleMesh_7k104")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("CapsuleShape3D_4gyqm")

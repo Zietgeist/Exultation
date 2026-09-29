@@ -1,0 +1,80 @@
+[gd_scene load_steps=13 format=3 uid="uid://bmwm65703flgj"]
+
+[ext_resource type="PackedScene" uid="uid://dq20m85amb4uu" path="res://Player.tscn" id="2_maaha"]
+[ext_resource type="PackedScene" uid="uid://bxutcwjn115q2" path="res://HUD.tscn" id="3_08a7v"]
+[ext_resource type="Script" uid="uid://ffbg04tych5d" path="res://homefloor.gd" id="3_55kc7"]
+[ext_resource type="Script" uid="uid://bk6klv7iok6b2" path="res://door.gd" id="4_08a7v"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_bspk3"]
+size = Vector3(300, 0.2, 300)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_1f81l"]
+size = Vector3(300, 0.2, 300)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_fs37c"]
+size = Vector3(5, 2, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_08a7v"]
+albedo_color = Color(0, 1, 1, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_55kc7"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_08a7v"]
+size = Vector3(5, 2, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_fs37c"]
+size = Vector3(2, 2, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_f516x"]
+albedo_color = Color(0, 1, 1, 1)
+
+[node name="Home" type="Node3D"]
+
+[node name="StaticBody3D" type="StaticBody3D" parent="."]
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.70710677, 0.70710677, 0, -0.70710677, 0.70710677, -5, 8, 0)
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.70710677, 0.70710677, 0, -0.70710677, 0.70710677, 0, 8, 5)
+
+[node name="StaticBody3D2" type="StaticBody3D" parent="."]
+script = ExtResource("3_55kc7")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="StaticBody3D2"]
+mesh = SubResource("BoxMesh_bspk3")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="StaticBody3D2"]
+shape = SubResource("BoxShape3D_1f81l")
+
+[node name="Player" parent="." node_paths=PackedStringArray("camera") instance=ExtResource("2_maaha")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+camera = NodePath("../Camera3D")
+
+[node name="HUD" parent="." instance=ExtResource("3_08a7v")]
+
+[node name="DoorToZone2" type="Area3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, -50)
+script = ExtResource("4_08a7v")
+target_scene = "res://Zone2.tscn"
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="DoorToZone2"]
+shape = SubResource("BoxShape3D_fs37c")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="DoorToZone2"]
+material_override = SubResource("StandardMaterial3D_08a7v")
+mesh = SubResource("BoxMesh_55kc7")
+
+[node name="DoorToZone1" type="Area3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -50, 1, 0)
+script = ExtResource("4_08a7v")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="DoorToZone1"]
+shape = SubResource("BoxShape3D_08a7v")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="DoorToZone1"]
+mesh = SubResource("BoxMesh_fs37c")
+surface_material_override/0 = SubResource("StandardMaterial3D_f516x")
+
+[connection signal="body_shape_entered" from="DoorToZone2" to="DoorToZone2" method="_on_body_shape_entered"]
+[connection signal="body_shape_entered" from="DoorToZone1" to="DoorToZone1" method="_on_body_shape_entered"]

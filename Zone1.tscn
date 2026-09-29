@@ -1,0 +1,98 @@
+[gd_scene load_steps=17 format=3 uid="uid://ccwkoj3mw8fsk"]
+
+[ext_resource type="PackedScene" uid="uid://dq20m85amb4uu" path="res://Player.tscn" id="1_pe76i"]
+[ext_resource type="Script" uid="uid://dlaqeelc8nqi4" path="res://zone1floor.gd" id="1_uy5g2"]
+[ext_resource type="PackedScene" uid="uid://l3d0kunx8iw0" path="res://enemy.tscn" id="3_n350s"]
+[ext_resource type="Script" uid="uid://crhvmtj8fkdlr" path="res://spawner.gd" id="4_25isr"]
+[ext_resource type="Script" uid="uid://sfp2ig6rhl8v" path="res://obstacles.gd" id="5_2h68i"]
+[ext_resource type="Script" uid="uid://b2ooyhxpkkopw" path="res://terrain_generator.gd" id="6_s6wwu"]
+[ext_resource type="PackedScene" uid="uid://bxutcwjn115q2" path="res://HUD.tscn" id="7_uy5g2"]
+[ext_resource type="Script" uid="uid://bk6klv7iok6b2" path="res://door.gd" id="9_n350s"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_glv2v"]
+size = Vector3(300, 0.2, 300)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_glv2v"]
+size = Vector3(300, 0.2, 300)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_2h68i"]
+size = Vector3(5, 2, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_n350s"]
+albedo_color = Color(0, 1, 1, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_25isr"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_uy5g2"]
+albedo_color = Color(0, 1, 1, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_n350s"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_25isr"]
+size = Vector3(2, 2, 1)
+
+[node name="Node3D" type="Node3D"]
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.49999997, 0.86602545, 0, -0.86602545, 0.49999997, 0, 8, 5)
+
+[node name="zone1floor" type="StaticBody3D" parent="."]
+script = ExtResource("1_uy5g2")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="zone1floor"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -11.380875, -4.7280884, 2.795288)
+mesh = SubResource("BoxMesh_glv2v")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="zone1floor"]
+shape = SubResource("BoxShape3D_glv2v")
+
+[node name="Enemy" parent="." instance=ExtResource("3_n350s")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.6374817, 1.677063, -1.526001)
+
+[node name="Spawner" type="Node3D" parent="." groups=["spawner"]]
+script = ExtResource("4_25isr")
+
+[node name="Obstacles" type="Node3D" parent="."]
+script = ExtResource("5_2h68i")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.70710677, 0.49999997, -0.49999997, 0, 0.70710677, 0.70710677, 0.70710677, -0.49999997, 0.49999997, 0, 0, 0)
+
+[node name="DirectionalLight3D2" type="DirectionalLight3D" parent="."]
+transform = Transform3D(-0.70710677, -0.49999997, 0.49999997, 0, 0.70710677, 0.70710677, -0.70710677, 0.49999997, -0.49999997, 0, 0, 0)
+light_energy = 0.5
+
+[node name="TerrainGenerator" type="Node3D" parent="."]
+script = ExtResource("6_s6wwu")
+
+[node name="HUD" parent="." instance=ExtResource("7_uy5g2")]
+
+[node name="Player" parent="." node_paths=PackedStringArray("camera") instance=ExtResource("1_pe76i")]
+camera = NodePath("../Camera3D")
+
+[node name="DoorToZone2" type="Area3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, -50)
+script = ExtResource("9_n350s")
+target_scene = "res://Zone2.tscn"
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="DoorToZone2"]
+shape = SubResource("BoxShape3D_2h68i")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="DoorToZone2"]
+material_override = SubResource("StandardMaterial3D_n350s")
+mesh = SubResource("BoxMesh_25isr")
+
+[node name="DoorToHome" type="Area3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 31, 1, 0)
+script = ExtResource("9_n350s")
+target_scene = "res://Home.tscn"
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="DoorToHome"]
+material_override = SubResource("StandardMaterial3D_uy5g2")
+mesh = SubResource("BoxMesh_n350s")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="DoorToHome"]
+shape = SubResource("BoxShape3D_25isr")
+
+[connection signal="body_shape_entered" from="DoorToZone2" to="DoorToZone2" method="_on_body_shape_entered"]
+[connection signal="body_shape_entered" from="DoorToHome" to="DoorToHome" method="_on_body_shape_entered"]

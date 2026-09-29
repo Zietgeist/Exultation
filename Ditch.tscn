@@ -1,0 +1,20 @@
+[gd_scene load_steps=4 format=3 uid="uid://xsmvsfc2ultn"]
+
+[ext_resource type="Script" uid="uid://d0j2kjn0i1lcq" path="res://ditch.gd" id="1_j4pbv"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_qgb10"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_q2vdj"]
+
+[node name="Ditch" type="StaticBody3D"]
+script = ExtResource("1_j4pbv")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+visibility_range_begin_margin = 5.0
+visibility_range_end = 30.0
+visibility_range_end_margin = 5.0
+visibility_range_fade_mode = 1
+mesh = SubResource("BoxMesh_qgb10")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("BoxShape3D_q2vdj")

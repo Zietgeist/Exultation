@@ -1,0 +1,117 @@
+[gd_scene load_steps=21 format=3 uid="uid://hy7uxmtt56hu"]
+
+[ext_resource type="Script" uid="uid://te4lmq6i0n1x" path="res://zonebasefloor.gd" id="1_jianv"]
+[ext_resource type="PackedScene" uid="uid://l3d0kunx8iw0" path="res://enemy.tscn" id="2_jianv"]
+[ext_resource type="Script" uid="uid://crhvmtj8fkdlr" path="res://spawner.gd" id="3_i2c3k"]
+[ext_resource type="Script" uid="uid://sfp2ig6rhl8v" path="res://obstacles.gd" id="4_5o7rk"]
+[ext_resource type="Script" uid="uid://b2ooyhxpkkopw" path="res://terrain_generator.gd" id="5_72vte"]
+[ext_resource type="PackedScene" uid="uid://bxutcwjn115q2" path="res://HUD.tscn" id="6_ymi7i"]
+[ext_resource type="PackedScene" uid="uid://dq20m85amb4uu" path="res://Player.tscn" id="7_jshv6"]
+[ext_resource type="Script" uid="uid://bk6klv7iok6b2" path="res://door.gd" id="8_fkwtp"]
+[ext_resource type="Script" uid="uid://d4chtens1rpef" path="res://guardian.gd" id="9_i2c3k"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_glv2v"]
+size = Vector3(300, 0.2, 300)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_glv2v"]
+size = Vector3(300, 0.2, 300)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_2h68i"]
+size = Vector3(5, 2, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_n350s"]
+albedo_color = Color(0, 1, 1, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_25isr"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_uy5g2"]
+albedo_color = Color(0, 1, 1, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_n350s"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_25isr"]
+size = Vector3(2, 2, 1)
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_5o7rk"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_72vte"]
+albedo_color = Color(0.8908681, 0.49513716, 0.51632416, 1)
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_ymi7i"]
+
+[node name="ZoneBase" type="Node3D"]
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.49999997, 0.86602545, 0, -0.86602545, 0.49999997, 0, 8, 5)
+
+[node name="zoneBasefloor" type="StaticBody3D" parent="."]
+script = ExtResource("1_jianv")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="zoneBasefloor"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -11.380875, -4.7280884, 2.795288)
+mesh = SubResource("BoxMesh_glv2v")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="zoneBasefloor"]
+shape = SubResource("BoxShape3D_glv2v")
+
+[node name="Enemy" parent="." instance=ExtResource("2_jianv")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.6374817, 1.677063, -1.526001)
+
+[node name="Spawner" type="Node3D" parent="." groups=["spawner"]]
+script = ExtResource("3_i2c3k")
+
+[node name="Obstacles" type="Node3D" parent="."]
+script = ExtResource("4_5o7rk")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.70710677, 0.49999997, -0.49999997, 0, 0.70710677, 0.70710677, 0.70710677, -0.49999997, 0.49999997, 0, 0, 0)
+
+[node name="DirectionalLight3D2" type="DirectionalLight3D" parent="."]
+transform = Transform3D(-0.70710677, -0.49999997, 0.49999997, 0, 0.70710677, 0.70710677, -0.70710677, 0.49999997, -0.49999997, 0, 0, 0)
+light_energy = 0.5
+
+[node name="TerrainGenerator" type="Node3D" parent="."]
+script = ExtResource("5_72vte")
+
+[node name="HUD" parent="." instance=ExtResource("6_ymi7i")]
+
+[node name="Player" parent="." node_paths=PackedStringArray("camera") instance=ExtResource("7_jshv6")]
+camera = NodePath("../Camera3D")
+
+[node name="DoorToZoneX" type="Area3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, -50)
+script = ExtResource("8_fkwtp")
+target_scene = ""
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="DoorToZoneX"]
+shape = SubResource("BoxShape3D_2h68i")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="DoorToZoneX"]
+material_override = SubResource("StandardMaterial3D_n350s")
+mesh = SubResource("BoxMesh_25isr")
+
+[node name="DoorToHome" type="Area3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 31, 1, 0)
+script = ExtResource("8_fkwtp")
+target_scene = "res://Home.tscn"
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="DoorToHome"]
+material_override = SubResource("StandardMaterial3D_uy5g2")
+mesh = SubResource("BoxMesh_n350s")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="DoorToHome"]
+shape = SubResource("BoxShape3D_25isr")
+
+[node name="Guardian" type="StaticBody3D" parent="." groups=["guardian"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+script = ExtResource("9_i2c3k")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Guardian"]
+shape = SubResource("CapsuleShape3D_5o7rk")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Guardian"]
+material_override = SubResource("StandardMaterial3D_72vte")
+mesh = SubResource("CapsuleMesh_ymi7i")
+
+[connection signal="body_shape_entered" from="DoorToZoneX" to="DoorToZoneX" method="_on_body_shape_entered"]
+[connection signal="body_shape_entered" from="DoorToHome" to="DoorToHome" method="_on_body_shape_entered"]

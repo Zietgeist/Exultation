@@ -1,0 +1,17 @@
+config_version=5
+
+[application]
+
+config/name="Exultation (4.5)"
+run/main_scene="uid://drawuo2tj0gse"
+config/features=PackedStringArray("4.5", "Forward Plus")
+config/icon="res://icon.svg"
+
+[autoload]
+
+GameState="*res://GameState.gd"
+
+[global_group]
+
+Spawner=""
+guardian=""
