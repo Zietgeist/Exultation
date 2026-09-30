@@ -1,0 +1,15 @@
+{
+	"name": "Retro Adventure",
+	"colors": {
+		"enemy_trash": "#e05a2b",
+		"enemy_thug": "#2b8fe0",
+		"enemy_master": "#f2e8c9",
+		"enemy_boss": "#c0162b"
+	},
+	"names": {
+		"enemy_trash": "Grubs",
+		"enemy_thug": "Brutes",
+		"enemy_master": "Warlords",
+		"enemy_boss": "Overlords"
+	}
+}

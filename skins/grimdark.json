@@ -1,0 +1,15 @@
+{
+	"name": "Grimdark",
+	"colors": {
+		"enemy_trash": "#5c5347",
+		"enemy_thug": "#6e2b2b",
+		"enemy_master": "#2e2a3d",
+		"enemy_boss": "#8a0b0b"
+	},
+	"names": {
+		"enemy_trash": "Husks",
+		"enemy_thug": "Reavers",
+		"enemy_master": "Wardens",
+		"enemy_boss": "Dread Lords"
+	}
+}

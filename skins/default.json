@@ -1,0 +1,15 @@
+{
+	"name": "Default",
+	"colors": {
+		"enemy_trash": "#26e521",
+		"enemy_thug": "#3366ff",
+		"enemy_master": "#9900e6",
+		"enemy_boss": "#ffcc00"
+	},
+	"names": {
+		"enemy_trash": "Trash",
+		"enemy_thug": "Thugs",
+		"enemy_master": "Masters",
+		"enemy_boss": "Bosses"
+	}
+}

@@ -37,11 +37,11 @@ func _process(_delta):
 		boost_label.modulate = Color(0.6, 0.6, 0.6)  # Gray when inactive
 
 	if spawner:
-		kill_label.text = "Trash: %d | Thugs: %d | Masters: %d | Bosses: %d" % [
-			spawner.trash_killed,
-			spawner.thugs_killed,
-			spawner.masters_killed,
-			spawner.bosses_killed
+		kill_label.text = "%s: %d | %s: %d | %s: %d | %s: %d" % [
+			SkinManager.name_of("enemy_trash"), spawner.trash_killed,
+			SkinManager.name_of("enemy_thug"), spawner.thugs_killed,
+			SkinManager.name_of("enemy_master"), spawner.masters_killed,
+			SkinManager.name_of("enemy_boss"), spawner.bosses_killed
 		]
 
 	orb_bar.max_value = GameState.orb_slots

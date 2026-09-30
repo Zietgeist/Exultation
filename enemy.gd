@@ -4,6 +4,7 @@ signal enemy_died(tier)
 # Tier settings
 enum Tier {TRASH, THUG, MASTER, BOSS}
 var tier = Tier.TRASH
+const TIER_IDS = {Tier.TRASH: "enemy_trash", Tier.THUG: "enemy_thug", Tier.MASTER: "enemy_master", Tier.BOSS: "enemy_boss"}
 
 # Base stats per tier
 const TIER_STATS = {
@@ -36,14 +37,18 @@ func setup(diff, t = Tier.TRASH):
 	SPEED = stats.speed
 	AGGRO_RANGE = stats.aggro
 	
-	# Set color
-	var mat = StandardMaterial3D.new()
-	mat.albedo_color = stats.color
+	# Set color (from the current skin)
 	$MeshInstance3D.mesh = $MeshInstance3D.mesh.duplicate()
-	$MeshInstance3D.mesh.surface_set_material(0, mat)
+	apply_skin()
 
 func _ready():
 	player = get_tree().get_first_node_in_group("player")
+	SkinManager.skin_changed.connect(apply_skin)
+
+func apply_skin():
+	var mat = StandardMaterial3D.new()
+	mat.albedo_color = SkinManager.color(TIER_IDS[tier], TIER_STATS[tier].color)
+	$MeshInstance3D.mesh.surface_set_material(0, mat)
 
 func _physics_process(delta):
 	velocity.y += GRAVITY * delta
