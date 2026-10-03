@@ -1,6 +1,6 @@
 extends Node3D
 
-const ENEMY_SCENE = preload("res://Enemy.tscn")
+const ENEMY_SCENE = preload("res://enemy.tscn")
 const SPAWN_INTERVAL = 2.0
 const SPAWN_RADIUS = 35.0
 const MAX_ENEMIES_ON_MAP = 150

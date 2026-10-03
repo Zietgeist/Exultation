@@ -9,6 +9,8 @@ var orb_bar = null
 var boost_label = null
 var zone_label = null
 var flow_label = null
+var death_label = null
+var death_timer = 0.0
 
 func _ready():
 	zone_label = get_node("VBoxContainer/ZoneLabel")
@@ -21,14 +23,38 @@ func _ready():
 	boost_label = get_node("VBoxContainer/BoostLabel")
 
 	player = get_tree().get_first_node_in_group("player")
+	if player:
+		player.died.connect(_on_player_died)
+
+	# Big message in the middle of the screen when you fall
+	death_label = Label.new()
+	death_label.set_anchors_preset(Control.PRESET_CENTER)
+	death_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	death_label.grow_vertical = Control.GROW_DIRECTION_BOTH
+	death_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	death_label.add_theme_font_size_override("font_size", 32)
+	death_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	death_label.add_theme_constant_override("outline_size", 8)
+	death_label.visible = false
+	get_parent().add_child.call_deferred(death_label)
 	spawner = get_tree().get_first_node_in_group("spawner")
 
-func _process(_delta):
+func _on_player_died():
+	death_label.text = "You fell... back at the gate."
+	death_label.visible = true
+	death_timer = 3.0
+
+
+func _process(delta):
+	if death_timer > 0.0:
+		death_timer -= delta
+		if death_timer <= 0.0:
+			death_label.visible = false
 	if player:
 		health_bar.value = (player.health / player.MAX_HEALTH) * 100
 		energy_bar.value = (player.energy / player.MAX_ENERGY) * 100
 		speed_label.text = "Attack Speed: %d" % player.speed_level
-	if player.dps_boost_stacks > 0:
+	if player and player.dps_boost_stacks > 0:
 		var multiplier = pow(2.0, player.dps_boost_stacks)
 		boost_label.text = "DMG BOOST: x%.0f (%d stacks)" % [multiplier, player.dps_boost_stacks]
 		boost_label.modulate = Color(1.0, 0.3, 0.1)  # Orange-red when active

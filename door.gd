@@ -10,6 +10,7 @@ var label: Label3D = null
 
 
 func _ready():
+	add_to_group("door")
 	body_entered.connect(_on_body_entered)
 	label = Label3D.new()
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
@@ -57,6 +58,7 @@ func _on_body_entered(body: Node) -> void:
 		return
 	for enemy in get_tree().get_nodes_in_group("enemy"):
 		enemy.queue_free()
+	GameState.previous_scene = get_tree().current_scene.scene_file_path
 	get_tree().call_deferred("change_scene_to_file", target_scene)
 
 

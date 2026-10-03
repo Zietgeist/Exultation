@@ -10,6 +10,8 @@ var is_overfilled: bool = false
 var orbs_collected = 0
 var orb_slots = 10
 var current_zone = "Home"
+var previous_scene = ""	# the zone we just came from (used to place the player at the right door)
+var deaths = 0
 
 
 func _process(delta: float) -> void:

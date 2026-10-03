@@ -67,9 +67,31 @@ var health = MAX_HEALTH
 
 @export var camera: Camera3D
 
+signal died
+
+# Respawn
+const RESPAWN_SAFE_TIME = 2.0	# seconds you can't be hurt after respawning
+var spawn_point = Vector3.ZERO
+var invulnerable_time = 0.0
+
+
 func _ready():
 	player_class = GameState.player_class
 	print("Playing as class: ", player_class)
+	_place_at_entry.call_deferred()
+
+
+## Start next to the door we came in through. That spot is also where we respawn.
+func _place_at_entry():
+	spawn_point = global_position
+	for door in get_tree().get_nodes_in_group("door"):
+		if door.target_scene == GameState.previous_scene:
+			var inward = -door.global_position
+			inward.y = 0
+			spawn_point = door.global_position + inward.normalized() * 4.0
+			spawn_point.y = global_position.y
+			break
+	global_position = spawn_point
 
 func _input(event):
 	# Ability keys fire once per press (holding the key no longer drains energy)
@@ -96,6 +118,14 @@ func update_attack_speed():
 
 func _physics_process(delta):
 	var direction = Vector3.ZERO
+
+	# Blink while safe after respawning
+	if invulnerable_time > 0.0:
+		invulnerable_time -= delta
+		var show_mesh = invulnerable_time <= 0.0 or int(invulnerable_time * 10) % 2 == 0
+		for child in get_children():
+			if child is MeshInstance3D:
+				child.visible = show_mesh
 	
 	st_cooldown -= delta
 	aoe_cooldown -= delta
@@ -194,6 +224,8 @@ func aoe_attack():
 				energy = min(energy + damage * TANK_ENERGY_PER_DAMAGE_DEALT, MAX_ENERGY)
 
 func take_damage(amount):
+	if invulnerable_time > 0.0:
+		return
 	health -= amount
 	print("Player health: ", roundi(health))
 	
@@ -204,9 +236,18 @@ func take_damage(amount):
 	if health <= 0:
 		die()
 
+## Token death: back to the entry door with full health. Nothing is lost (for now).
 func die():
-	print("Player died!")
-	queue_free()
+	GameState.deaths += 1
+	print("You fell! Respawning at the entry door. Deaths: ", GameState.deaths)
+	health = MAX_HEALTH
+	velocity = Vector3.ZERO
+	global_position = spawn_point
+	invulnerable_time = RESPAWN_SAFE_TIME
+	# Enemies lose track of you
+	for enemy in get_tree().get_nodes_in_group("enemy"):
+		enemy.aggroed = false
+	died.emit()
 
 func get_damage_multiplier():
 	var pct = health / MAX_HEALTH * 100

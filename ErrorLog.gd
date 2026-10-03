@@ -21,6 +21,8 @@ var _mutex := Mutex.new()
 var _banner: Label = null
 var _banner_timer := 0.0
 var _logger = null
+var _last_line = ""
+var _repeats = 0
 
 
 func _ready():
@@ -65,10 +67,18 @@ func warn(message: String):
 func record(kind: String, message: String, where: String):
 	_mutex.lock()
 	var stamp = Time.get_time_string_from_system()
-	var line = "[%s] %s: %s" % [stamp, kind, message]
+	var line = "%s: %s" % [kind, message]
 	if where != "":
 		line += "   (at %s)" % where
-	_write_line(line)
+	if line == _last_line:
+		_repeats += 1	# same error again (e.g. every frame): count it, don't flood the log
+		if _repeats == 10 or _repeats == 100 or _repeats == 1000:
+			_write_line("[%s]   ...repeated %d times" % [stamp, _repeats])
+		_mutex.unlock()
+		return
+	_last_line = line
+	_repeats = 0
+	_write_line("[%s] %s" % [stamp, line])
 	_mutex.unlock()
 	if kind == "ERROR":
 		call_deferred("_show_banner", message)
