@@ -18,6 +18,7 @@ const DPS_ENERGY_PER_DAMAGE = 0.01
 const TANK_ENERGY_PER_DAMAGE_DEALT = 0.008
 const TANK_ENERGY_PER_DAMAGE_TAKEN = 0.015
 const HEALER_ENERGY_REGEN = 0.5
+const BASE_ENERGY_REGEN = 0.15  # slow trickle for DPS and Tank, so skills work in long boss fights
 
 # Skills (names and energy costs). The skill HUD reads these too.
 const SKILL_E = {
@@ -135,9 +136,9 @@ func _physics_process(delta):
 		if aoe_cooldown <= 0:
 			aoe_attack()
 			aoe_cooldown = aoe_cooldown_time
-# Healer auto regen
-	if player_class == Class.HEALER:
-		energy = min(energy + HEALER_ENERGY_REGEN * delta, MAX_ENERGY)
+	# Energy regen: Healer fast, everyone else a slow trickle
+	var regen = HEALER_ENERGY_REGEN if player_class == Class.HEALER else BASE_ENERGY_REGEN
+	energy = min(energy + regen * delta, MAX_ENERGY)
 		
 	move_and_slide()
 	

@@ -207,7 +207,9 @@ func _on_enemy_died(tier):
 		0: trash_killed += 1
 		1: thugs_killed += 1
 		2: masters_killed += 1
-		3: bosses_killed += 1
+		3:
+			bosses_killed += 1
+			GameState.on_boss_killed(bosses_killed)
 	var guardian = get_tree().get_first_node_in_group("guardian")
 	if guardian:
 		guardian.notify_boss_killed(bosses_killed)
