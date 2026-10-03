@@ -42,11 +42,10 @@ func add_border_walls():
 		# North — gap at center for future zone
 		[Vector3(-42, 1, -85), Vector3(86, 2, 1)],
 		[Vector3( 42, 1, -85), Vector3(86, 2, 1)],
-		# South — two gaps: one for Home door, one for Zone1 door
-		# Zone1 door at x=-50 (left side), Home door at x=+20 (right side)
-		[Vector3(-80, 1, 85), Vector3(30, 2, 1)],   # Far left
-		[Vector3(-42, 1, 85), Vector3(26, 2, 1)],   # Between doors
-		[Vector3( 20, 1, 85), Vector3(90, 2, 1)],   # Right of Home door
+		# South — two 5-wide gaps: Zone1 door at x=-60, Home door at x=20
+		[Vector3(-73.75, 1, 85), Vector3(22.5, 2, 1)],
+		[Vector3(-20, 1, 85), Vector3(75, 2, 1)],
+		[Vector3(53.75, 1, 85), Vector3(62.5, 2, 1)],
 		# West
 		[Vector3(-85, 1, 0), Vector3(1, 2, 170)],
 		# East

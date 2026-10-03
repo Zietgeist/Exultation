@@ -32,9 +32,11 @@ const SKILL_Q = {
 }
 const SKILL_F = {
 	Class.DPS: {name = "Class Skill", cost = 0.0, soon = true},
-	Class.TANK: {name = "Taunt", cost = 50.0, soon = true},
+	Class.TANK: {name = "Taunt", cost = 2.0},
 	Class.HEALER: {name = "Energy Transfer", cost = 0.0, soon = true},
 }
+
+const TAUNT_RANGE = 15.0
 
 # Attack cooldowns
 var st_cooldown = 0.0
@@ -288,7 +290,13 @@ func use_class_ability():
 			print("DPS class ability - TBD")
 		Class.TANK:
 			if spend_energy(SKILL_F[Class.TANK].cost):
-				print("Taunt activated - TBD")
+				# Pull every enemy within range onto the tank
+				var pulled = 0
+				for enemy in get_tree().get_nodes_in_group("enemy"):
+					if global_position.distance_to(enemy.global_position) <= TAUNT_RANGE:
+						enemy.aggroed = true
+						pulled += 1
+				print("Taunt! Pulled ", pulled, " enemies")
 		Class.HEALER:
 			print("Energy transfer - TBD")
 
