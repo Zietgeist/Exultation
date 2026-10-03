@@ -19,6 +19,23 @@ const TANK_ENERGY_PER_DAMAGE_DEALT = 0.008
 const TANK_ENERGY_PER_DAMAGE_TAKEN = 0.015
 const HEALER_ENERGY_REGEN = 0.5
 
+# Skills (names and energy costs). The skill HUD reads these too.
+const SKILL_E = {
+	Class.DPS: {name = "Boost", cost = 2.0},
+	Class.TANK: {name = "Shield", cost = 4.0},
+	Class.HEALER: {name = "Big Heal", cost = 5.0},
+}
+const SKILL_Q = {
+	Class.DPS: {name = "Self Heal", cost = 4.0},
+	Class.TANK: {name = "Self Heal", cost = 4.0},
+	Class.HEALER: {name = "Self Heal", cost = 3.0},
+}
+const SKILL_F = {
+	Class.DPS: {name = "Class Skill", cost = 0.0, soon = true},
+	Class.TANK: {name = "Taunt", cost = 50.0, soon = true},
+	Class.HEALER: {name = "Energy Transfer", cost = 0.0, soon = true},
+}
+
 # Attack cooldowns
 var st_cooldown = 0.0
 var aoe_cooldown = 0.0
@@ -52,6 +69,12 @@ func _ready():
 	print("Playing as class: ", player_class)
 
 func _input(event):
+	# Ability keys fire once per press (holding the key no longer drains energy)
+	if event is InputEventKey and event.pressed and not event.echo:
+		match event.keycode:
+			KEY_E: use_energy_ability()
+			KEY_Q: use_secondary_ability()
+			KEY_F: use_class_ability()
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
 			speed_level = min(speed_level + 1, MAX_SPEED_LEVELS)
@@ -116,13 +139,6 @@ func _physics_process(delta):
 		
 	move_and_slide()
 	
-	# Energy ability
-	if Input.is_key_pressed(KEY_E):
-		use_energy_ability()
-	if Input.is_action_just_pressed("ui_focus_next") or Input.is_key_pressed(KEY_Q):
-		use_secondary_ability()
-	if Input.is_key_pressed(KEY_F):
-		use_class_ability()
 
 func single_target_attack():
 	var enemies = get_tree().get_nodes_in_group("enemy")
@@ -224,7 +240,7 @@ func use_energy_ability():
 			if dps_boost_stacks >= 5:
 				print("Boost at max stacks!")
 				return
-			if spend_energy(2.0):
+			if spend_energy(SKILL_E[Class.DPS].cost):
 				dps_boost_stacks += 1
 				var multiplier = pow(2.0, dps_boost_stacks)
 				# Recalculate from base each time
@@ -242,10 +258,10 @@ func use_energy_ability():
 					aoe_damage = 50.0
 				print("Boost stack expired — stacks remaining: ", dps_boost_stacks)
 		Class.TANK:
-			if spend_energy(4.0):
+			if spend_energy(SKILL_E[Class.TANK].cost):
 				print("Tank shield activated!")
 		Class.HEALER:
-			if spend_energy(5.0):
+			if spend_energy(SKILL_E[Class.HEALER].cost):
 				health = min(health + 50.0, MAX_HEALTH)
 				print("Healer self heal!")
 				
@@ -254,15 +270,15 @@ func use_energy_ability():
 func use_secondary_ability():
 	match player_class:
 		Class.DPS:
-			if spend_energy(4.0):
+			if spend_energy(SKILL_Q[Class.DPS].cost):
 				health = min(health + 40.0, MAX_HEALTH)
 				print("DPS self heal!")
 		Class.TANK:
-			if spend_energy(4.0):
+			if spend_energy(SKILL_Q[Class.TANK].cost):
 				health = min(health + 40.0, MAX_HEALTH)
 				print("Tank self heal!")
 		Class.HEALER:
-			if spend_energy(3.0):
+			if spend_energy(SKILL_Q[Class.HEALER].cost):
 				health = min(health + 60.0, MAX_HEALTH)
 				print("Healer self heal!")
 				
@@ -271,7 +287,18 @@ func use_class_ability():
 		Class.DPS:
 			print("DPS class ability - TBD")
 		Class.TANK:
-			if spend_energy(50.0):
+			if spend_energy(SKILL_F[Class.TANK].cost):
 				print("Taunt activated - TBD")
 		Class.HEALER:
 			print("Energy transfer - TBD")
+
+
+## List of skills for the skill HUD: key to press, name, energy cost, cooldown left.
+func get_skills() -> Array:
+	return [
+		{key = "LMB", name = "Strike", cost = 0.0, cooldown = max(st_cooldown, 0.0), soon = false},
+		{key = "RMB", name = "Sweep", cost = 0.0, cooldown = max(aoe_cooldown, 0.0), soon = false},
+		{key = "E", name = SKILL_E[player_class].name, cost = SKILL_E[player_class].cost, cooldown = 0.0, soon = false},
+		{key = "Q", name = SKILL_Q[player_class].name, cost = SKILL_Q[player_class].cost, cooldown = 0.0, soon = false},
+		{key = "F", name = SKILL_F[player_class].name, cost = SKILL_F[player_class].cost, cooldown = 0.0, soon = SKILL_F[player_class].get("soon", false)},
+	]

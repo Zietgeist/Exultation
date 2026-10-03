@@ -1,10 +1,10 @@
 extends Node3D
 
 const OBSTACLE_COUNT = 50
-const MAP_SIZE = 140.0
 
 func _ready():
 	print("Obstacles script running, creating ", OBSTACLE_COUNT, " obstacles")
+	var half = map_half_size()
 	for i in range(OBSTACLE_COUNT):
 		var obstacle = StaticBody3D.new()
 		
@@ -28,7 +28,14 @@ func _ready():
 		add_child(obstacle)
 		
 		obstacle.position = Vector3(
-			randf_range(-MAP_SIZE, MAP_SIZE),
+			randf_range(-half.x, half.x),
 			0.75,
-			randf_range(-MAP_SIZE, MAP_SIZE)
+			randf_range(-half.y, half.y)
 		)
+
+## Half the size of the current zone's floor (x, z), minus a margin so things stay inside the walls.
+func map_half_size(margin := 4.0) -> Vector2:
+	var floor_node = get_tree().get_first_node_in_group("map_floor")
+	if floor_node and floor_node.has_method("get_half_size"):
+		return floor_node.get_half_size() - Vector2(margin, margin)
+	return Vector2(45.0, 45.0)
