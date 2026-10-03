@@ -4,6 +4,7 @@
 [ext_resource type="PackedScene" uid="uid://bxutcwjn115q2" path="res://HUD.tscn" id="3_08a7v"]
 [ext_resource type="Script" uid="uid://ffbg04tych5d" path="res://homefloor.gd" id="3_55kc7"]
 [ext_resource type="Script" uid="uid://bk6klv7iok6b2" path="res://door.gd" id="4_08a7v"]
+[ext_resource type="Script" path="res://pomodoro_gate.gd" id="5_gate"]
 
 [sub_resource type="BoxMesh" id="BoxMesh_bspk3"]
 size = Vector3(300, 0.2, 300)
@@ -75,6 +76,10 @@ shape = SubResource("BoxShape3D_08a7v")
 [node name="MeshInstance3D" type="MeshInstance3D" parent="DoorToZone1"]
 mesh = SubResource("BoxMesh_fs37c")
 surface_material_override/0 = SubResource("StandardMaterial3D_f516x")
+
+[node name="PomodoroGate" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 14)
+script = ExtResource("5_gate")
 
 [connection signal="body_shape_entered" from="DoorToZone2" to="DoorToZone2" method="_on_body_shape_entered"]
 [connection signal="body_shape_entered" from="DoorToZone1" to="DoorToZone1" method="_on_body_shape_entered"]

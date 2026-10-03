@@ -12,6 +12,7 @@ const SAVE_PATH := "user://session.cfg"
 var flow_seconds := 0.0
 var blocks_today := 0
 var play_seconds_today := 0.0
+var rest_left := 0.0	# seconds of rest left after a deposit
 
 var _flow_signal_sent := false
 var _today := ""
@@ -33,6 +34,8 @@ func _process(delta):
 	_last_zone = zone
 
 	play_seconds_today += delta
+	if rest_left > 0.0:
+		rest_left = max(rest_left - delta, 0.0)
 
 	if zone != "Home":
 		flow_seconds += delta
@@ -55,6 +58,20 @@ func _start_break():
 	_flow_signal_sent = false
 	break_started.emit(blocks_today)
 	_save()
+
+
+func start_rest(seconds: float):
+	rest_left = seconds
+
+
+func is_resting() -> bool:
+	return rest_left > 0.0
+
+
+# Test key: F11 skips the rest (only in debug builds)
+func _unhandled_input(event):
+	if OS.is_debug_build() and event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F11:
+		rest_left = 0.0
 
 
 func is_flow_done() -> bool:

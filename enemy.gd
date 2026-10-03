@@ -88,9 +88,20 @@ func drop_orb() -> void:
 		orb.slot_cost = 5
 	get_parent().add_child(orb)
 
+func drop_gold() -> void:
+	var amount = GameState.take_gold_drop()
+	if amount <= 0:
+		return
+	var orb = preload("res://Orb.tscn").instantiate()
+	orb.kind = "gold"
+	orb.value = amount
+	orb.position = global_position + Vector3(randf_range(-1, 1), 0, randf_range(-1, 1))
+	get_parent().add_child(orb)
+
 func die():
 	emit_signal("enemy_died", tier)
 	drop_orb()
+	drop_gold()
 	queue_free()
 
 func get_damage_multiplier():

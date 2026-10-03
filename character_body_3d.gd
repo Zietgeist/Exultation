@@ -86,14 +86,23 @@ func _ready():
 ## Start next to the door we came in through. That spot is also where we respawn.
 func _place_at_entry():
 	spawn_point = global_position
+	if GameState.pending_spawn != null:	# arrived by portal
+		spawn_point = GameState.pending_spawn
+		GameState.pending_spawn = null
+	else:
+		_place_at_door()
+	spawn_point.y = SPAWN_HEIGHT	# always above the floor
+	global_position = spawn_point
+	GameState.spawn_home_portal()	# bag still full? the portal home is waiting
+
+
+func _place_at_door():
 	for door in get_tree().get_nodes_in_group("door"):
 		if door.target_scene == GameState.previous_scene:
 			var inward = -door.global_position
 			inward.y = 0
 			spawn_point = door.global_position + inward.normalized() * 4.0
 			break
-	spawn_point.y = SPAWN_HEIGHT	# always above the floor
-	global_position = spawn_point
 
 func _input(event):
 	# Ability keys fire once per press (holding the key no longer drains energy)

@@ -11,6 +11,8 @@ var zone_label = null
 var flow_label = null
 var death_label = null
 var death_timer = 0.0
+var gold_bar = null
+var gold_label = null
 
 func _ready():
 	zone_label = get_node("VBoxContainer/ZoneLabel")
@@ -21,6 +23,19 @@ func _ready():
 	speed_label = get_node("VBoxContainer/SpeedLabel")
 	orb_bar = get_node("VBoxContainer/OrbBar")
 	boost_label = get_node("VBoxContainer/BoostLabel")
+
+	# Gold bag (Pomodoro) bar
+	gold_label = Label.new()
+	gold_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+	$VBoxContainer.add_child(gold_label)
+	gold_bar = ProgressBar.new()
+	gold_bar.custom_minimum_size = Vector2(220, 14)
+	gold_bar.show_percentage = false
+	gold_bar.max_value = GameState.GOLD_CAPACITY
+	var fill = StyleBoxFlat.new()
+	fill.bg_color = Color(1.0, 0.8, 0.15)
+	gold_bar.add_theme_stylebox_override("fill", fill)
+	$VBoxContainer.add_child(gold_bar)
 
 	player = get_tree().get_first_node_in_group("player")
 	if player:
@@ -50,6 +65,10 @@ func _on_player_died(cause := ""):
 
 
 func _process(delta):
+	gold_bar.value = GameState.gold_carried
+	gold_label.text = "Gold: %d / %d" % [GameState.gold_carried, GameState.GOLD_CAPACITY]
+	if GameState.is_bag_full():
+		gold_label.text += "  - FULL! Take the gold portal home"
 	if death_timer > 0.0:
 		death_timer -= delta
 		if death_timer <= 0.0:
