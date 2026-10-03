@@ -117,6 +117,13 @@ func on_boss_killed(bosses_killed_here: int):
 	unlock(ZONE_ORDER[i + 1])
 
 
+func reset_zone_progress():
+	unlocked_zones = ["res://Home.tscn", "res://Zone1.tscn"]
+	save_progress()
+	print("Zone progress reset: only Home and Zone 1 are open.")
+	zone_unlocked.emit("")	# doors refresh their color and label
+
+
 func unlock(scene_path: String):
 	if is_unlocked(scene_path):
 		return
@@ -126,9 +133,14 @@ func unlock(scene_path: String):
 	zone_unlocked.emit(scene_path)
 
 
-# Test key: F10 unlocks the next zone (only in debug builds)
+# Test keys (only in debug builds):
+#   F10         = unlock the next zone
+#   Shift + F10 = lock everything again (back to a fresh start)
 func _unhandled_input(event):
 	if OS.is_debug_build() and event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F10:
+		if event.shift_pressed:
+			reset_zone_progress()
+			return
 		for z in ZONE_ORDER:
 			if not is_unlocked(z):
 				unlock(z)
