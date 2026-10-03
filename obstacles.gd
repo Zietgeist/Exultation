@@ -3,9 +3,10 @@ extends Node3D
 const OBSTACLE_COUNT = 50
 
 func _ready():
-	print("Obstacles script running, creating ", OBSTACLE_COUNT, " obstacles")
+	var count = roundi(OBSTACLE_COUNT * GameState.obstacle_multiplier())
+	print("Obstacles: creating ", count)
 	var half = map_half_size()
-	for i in range(OBSTACLE_COUNT):
+	for i in range(count):
 		var obstacle = StaticBody3D.new()
 		
 		var mesh_instance = MeshInstance3D.new()

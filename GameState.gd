@@ -43,6 +43,35 @@ const ZONE_NAMES = {
 const BOSSES_TO_UNLOCK = 2
 const PROGRESS_PATH = "user://progress.cfg"
 
+# Zone size and obstacle density
+const BASE_ZONE_AREA = 6000.0	# Zone 1 floor: 60 x 100
+const OBSTACLE_DENSITY = 0.7	# Zone 1 has 70% of the original obstacle count
+var _obstacle_floor = null
+var _obstacle_mult = 1.0
+
+
+## How big the current zone is compared to Zone 1 (Zone 1 = 1.0)
+func zone_area_scale() -> float:
+	var floor_node = get_tree().get_first_node_in_group("map_floor")
+	if floor_node == null:
+		ErrorLog.fail("zone_area_scale: no map floor found (floor must be in group map_floor)")
+		return 1.0
+	var half = floor_node.get_half_size()
+	return (half.x * 2.0) * (half.y * 2.0) / BASE_ZONE_AREA
+
+
+## How many obstacles to make, compared to the original counts.
+## Zone 1: exactly 70%. Other zones: same density for their size, +/- 20% random.
+func obstacle_multiplier() -> float:
+	var floor_node = get_tree().get_first_node_in_group("map_floor")
+	if floor_node != null and floor_node == _obstacle_floor:
+		return _obstacle_mult	# same zone visit: obstacles and terrain share one roll
+	_obstacle_floor = floor_node
+	_obstacle_mult = OBSTACLE_DENSITY * zone_area_scale()
+	if floor_node == null or floor_node.get_script().resource_path != "res://zone1floor.gd":
+		_obstacle_mult *= randf_range(0.8, 1.2)
+	return _obstacle_mult
+
 var unlocked_zones = ["res://Home.tscn", "res://Zone1.tscn"]
 
 

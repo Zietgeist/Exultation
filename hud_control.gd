@@ -73,6 +73,8 @@ func _process(delta):
 			SkinManager.name_of("enemy_master"), spawner.masters_killed,
 			SkinManager.name_of("enemy_boss"), spawner.bosses_killed
 		]
+		if spawner.targets_ready:
+			kill_label.text += "   |   Cleared %d / %d" % [spawner.total_killed, spawner.min_clear]
 
 	orb_bar.max_value = GameState.orb_slots
 	orb_bar.value = GameState.orbs_collected

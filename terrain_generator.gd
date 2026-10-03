@@ -5,9 +5,10 @@ const SOLID_WALL_SCENE = preload("res://SolidWall.tscn")
 const CLEAR_RADIUS = 10.0
 
 func _ready():
-	spawn_terrain(DITCH_SCENE, 30)
-	spawn_clusters(LOW_WALL_SCENE, 15)
-	spawn_clusters(SOLID_WALL_SCENE, 10)
+	var m = GameState.obstacle_multiplier()
+	spawn_terrain(DITCH_SCENE, roundi(30 * m))
+	spawn_clusters(LOW_WALL_SCENE, roundi(15 * m))
+	spawn_clusters(SOLID_WALL_SCENE, roundi(10 * m))
 
 func get_clear_pos() -> Vector3:
 	var pos = Vector3.ZERO

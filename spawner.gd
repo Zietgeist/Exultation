@@ -7,11 +7,22 @@ const MAX_ENEMIES_ON_MAP = 150
 const CLEARED_RADIUS = 20.0
 
 # Level population caps
-const MAX_TRASH = 200
-const MAX_THUGS = 20
-const MAX_MASTERS = 5
-const MAX_BOSSES = 2
-const MAX_TOTAL = 400
+# Zone 1 numbers. Bigger zones scale these up by floor area (see GameState.zone_area_scale).
+const BASE_MIN_CLEAR = 227	# must kill at least this many before the 2nd boss can appear
+const BASE_MAX_CLEAR = 400	# the zone never holds more than this many
+const BASE_THUGS = 20
+const BASE_MASTERS = 5
+const MAX_BOSSES = 2		# always 2: beating both unlocks the next zone
+
+# Set when the zone loads (random each visit, so no two runs are the same)
+var zone_scale = 1.0
+var min_clear = BASE_MIN_CLEAR
+var target_total = BASE_MAX_CLEAR	# how many enemies this visit will have
+var MAX_TRASH = 200
+var MAX_THUGS = BASE_THUGS
+var MAX_MASTERS = BASE_MASTERS
+var total_killed = 0
+var targets_ready = false
 
 # Kill tracking
 var trash_killed = 0
@@ -35,9 +46,22 @@ var level_complete = false
 
 func _ready():
 	player = get_tree().get_first_node_in_group("player")
+	_setup_zone_targets.call_deferred()	# wait for the floor so we know the zone size
+
+func _setup_zone_targets():
+	zone_scale = GameState.zone_area_scale()
+	min_clear = roundi(BASE_MIN_CLEAR * zone_scale)
+	target_total = randi_range(min_clear, roundi(BASE_MAX_CLEAR * zone_scale))
+	MAX_MASTERS = maxi(1, roundi(BASE_MASTERS * zone_scale))
+	MAX_THUGS = maxi(1, roundi(BASE_THUGS * zone_scale))
+	MAX_TRASH = target_total - MAX_THUGS - MAX_MASTERS - MAX_BOSSES
+	targets_ready = true
+	print("Zone size x%.1f: %d enemies this visit (2nd boss after %d kills). Trash %d, Thugs %d, Masters %d, Bosses %d" % [
+		zone_scale, target_total, min_clear, MAX_TRASH, MAX_THUGS, MAX_MASTERS, MAX_BOSSES])
+
 
 func _process(delta):
-	if level_complete:
+	if level_complete or not targets_ready:
 		return
 
 	# Clump spawner
@@ -55,7 +79,8 @@ func _process(delta):
 		spawn_solo_mid()
 
 	# Force spawn bosses at max total
-	if total_spawned >= MAX_TOTAL and bosses_spawned < MAX_BOSSES:
+	# Bring in any missing bosses once the zone is spent and enough enemies are cleared
+	if total_spawned >= target_total and bosses_spawned < MAX_BOSSES and total_killed >= min_clear:
 		force_spawn_remaining_bosses()
 
 	# Track cleared areas
@@ -80,11 +105,11 @@ func is_cleared(pos):
 	return false
 
 func get_spawn_odds():
-	if trash_killed < 50:
+	if trash_killed < 50 * zone_scale:
 		return {trash = 95.0, thug = 4.0, master = 0.5, boss = 0.5}
-	elif trash_killed < 100:
+	elif trash_killed < 100 * zone_scale:
 		return {trash = 80.0, thug = 15.0, master = 3.0, boss = 2.0}
-	elif trash_killed < 150:
+	elif trash_killed < 150 * zone_scale:
 		return {trash = 60.0, thug = 25.0, master = 12.0, boss = 3.0}
 	else:
 		return {trash = 35.0, thug = 30.0, master = 25.0, boss = 10.0}
@@ -98,6 +123,7 @@ func pick_tier():
 	if thugs_spawned >= MAX_THUGS: weights[1] = 0.0
 	if masters_spawned >= MAX_MASTERS: weights[2] = 0.0
 	if bosses_spawned >= MAX_BOSSES: weights[3] = 0.0
+	if bosses_spawned >= 1 and total_killed < min_clear: weights[3] = 0.0	# 2nd boss waits
 
 	var total = weights[0] + weights[1] + weights[2] + weights[3]
 	if total <= 0.0:
@@ -112,7 +138,7 @@ func pick_tier():
 func spawn_clump():
 	if not player:
 		return
-	if total_spawned >= MAX_TOTAL:
+	if total_spawned >= target_total:
 		return
 
 	var attempts = 0
@@ -129,7 +155,7 @@ func spawn_clump():
 
 	var clump_size = randi_range(3, 6)
 	for i in range(clump_size):
-		if total_spawned >= MAX_TOTAL:
+		if total_spawned >= target_total:
 			break
 
 		var offset = Vector3(randf_range(-3.0, 3.0), 0, randf_range(-3.0, 3.0))
@@ -160,7 +186,7 @@ func spawn_clump():
 func spawn_solo_mid():
 	if not player:
 		return
-	if total_spawned >= MAX_TOTAL:
+	if total_spawned >= target_total:
 		return
 
 	var angle = randf() * TAU
@@ -205,6 +231,7 @@ func force_spawn_remaining_bosses():
 	print("BOSSES HAVE ARRIVED!")
 
 func _on_enemy_died(tier):
+	total_killed += 1
 	match tier:
 		0: trash_killed += 1
 		1: thugs_killed += 1
