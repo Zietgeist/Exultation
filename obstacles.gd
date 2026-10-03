@@ -38,4 +38,5 @@ func map_half_size(margin := 4.0) -> Vector2:
 	var floor_node = get_tree().get_first_node_in_group("map_floor")
 	if floor_node and floor_node.has_method("get_half_size"):
 		return floor_node.get_half_size() - Vector2(margin, margin)
+	ErrorLog.fail("%s: no map floor found (floor must be in group map_floor). Using a guess of 45." % name)
 	return Vector2(45.0, 45.0)

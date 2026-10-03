@@ -8,7 +8,7 @@ func _ready():
 func _on_body_entered(body: Node) -> void:
 	if body.name == "Player":
 		if not ResourceLoader.exists(target_scene):
-			print("Door: zone not built yet: ", target_scene)
+			ErrorLog.fail("Door '%s' leads to a zone that doesn't exist: %s" % [name, target_scene])
 			return
 		for enemy in get_tree().get_nodes_in_group("enemy"):
 			enemy.queue_free()

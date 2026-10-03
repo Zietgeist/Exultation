@@ -89,4 +89,4 @@ func _load_folder(path: String):
 			if data is Dictionary:
 				skins[file.get_basename()] = data
 			else:
-				print("Skin file has a mistake and was skipped: ", path + file)
+				ErrorLog.fail("Skin file has a mistake and was skipped: " + path + file)

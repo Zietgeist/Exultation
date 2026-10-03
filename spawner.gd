@@ -217,6 +217,8 @@ func clamp_to_map(pos: Vector3) -> Vector3:
 	var floor_node = get_tree().get_first_node_in_group("map_floor")
 	if floor_node and floor_node.has_method("get_half_size"):
 		half = floor_node.get_half_size() - Vector2(3.0, 3.0)  # stay a little inside the walls
+	else:
+		ErrorLog.fail("Spawner: no map floor found (floor must be in group map_floor). Using a guess of 45.")
 	pos.x = clamp(pos.x, -half.x, half.x)
 	pos.z = clamp(pos.z, -half.y, half.y)
 	return pos
