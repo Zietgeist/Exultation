@@ -157,7 +157,7 @@ func spawn_clump():
 		spawn_pos = clamp_to_map(spawn_pos)
 		var enemy = ENEMY_SCENE.instantiate()
 		enemy.connect("enemy_died", _on_enemy_died)
-		get_tree().root.add_child(enemy)
+		get_tree().current_scene.add_child(enemy)  # enemies belong to the zone, so they vanish when we leave
 		enemy.global_position = spawn_pos
 		enemy.call("setup", 1.0, t)
 
@@ -179,7 +179,7 @@ func spawn_solo_mid():
 		var offset = Vector3(randf_range(-2.0, 2.0), 0, randf_range(-2.0, 2.0))
 		var enemy = ENEMY_SCENE.instantiate()
 		enemy.connect("enemy_died", _on_enemy_died)
-		get_tree().root.add_child(enemy)
+		get_tree().current_scene.add_child(enemy)  # enemies belong to the zone, so they vanish when we leave
 		enemy.global_position = clamp_to_map(spawn_pos + offset)
 		enemy.call("setup", 1.0, t)
 		match t:
@@ -196,7 +196,7 @@ func force_spawn_remaining_bosses():
 		spawn_pos = clamp_to_map(spawn_pos)
 		var enemy = ENEMY_SCENE.instantiate()
 		enemy.connect("enemy_died", _on_enemy_died)
-		get_tree().root.add_child(enemy)
+		get_tree().current_scene.add_child(enemy)  # enemies belong to the zone, so they vanish when we leave
 		enemy.global_position = spawn_pos
 		enemy.call("setup", 1.0, 3)
 		bosses_spawned += 1

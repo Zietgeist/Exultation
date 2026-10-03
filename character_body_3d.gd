@@ -70,6 +70,8 @@ var health = MAX_HEALTH
 signal died
 
 # Respawn
+const SPAWN_HEIGHT = 1.5	# start a little above the floor and drop onto it
+const FALL_LIMIT = -10.0	# below this, we fell out of the world
 const RESPAWN_SAFE_TIME = 2.0	# seconds you can't be hurt after respawning
 var spawn_point = Vector3.ZERO
 var invulnerable_time = 0.0
@@ -89,8 +91,8 @@ func _place_at_entry():
 			var inward = -door.global_position
 			inward.y = 0
 			spawn_point = door.global_position + inward.normalized() * 4.0
-			spawn_point.y = global_position.y
 			break
+	spawn_point.y = SPAWN_HEIGHT	# always above the floor
 	global_position = spawn_point
 
 func _input(event):
@@ -118,6 +120,13 @@ func update_attack_speed():
 
 func _physics_process(delta):
 	var direction = Vector3.ZERO
+
+	# Safety net: fell out of the world -> loud warning, back to the gate
+	if global_position.y < FALL_LIMIT:
+		ErrorLog.fail("Player fell through the floor at %s in %s" % [global_position.round(), GameState.current_zone])
+		velocity = Vector3.ZERO
+		global_position = spawn_point
+		return
 
 	# Blink while safe after respawning
 	if invulnerable_time > 0.0:

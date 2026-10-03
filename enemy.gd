@@ -52,6 +52,8 @@ func apply_skin():
 
 func _physics_process(delta):
 	velocity.y += GRAVITY * delta
+	if player == null or not is_instance_valid(player) or not player.is_inside_tree():
+		player = get_tree().get_first_node_in_group("player")
 	if player:
 		var distance = global_position.distance_to(player.global_position)
 		
