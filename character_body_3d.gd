@@ -67,7 +67,7 @@ var health = MAX_HEALTH
 
 @export var camera: Camera3D
 
-signal died
+signal died(cause)
 
 # Respawn
 const SPAWN_HEIGHT = 1.5	# start a little above the floor and drop onto it
@@ -232,9 +232,13 @@ func aoe_attack():
 			Class.TANK:
 				energy = min(energy + damage * TANK_ENERGY_PER_DAMAGE_DEALT, MAX_ENERGY)
 
-func take_damage(amount):
+var last_attacker = ""	# who hit us last (for the death message)
+
+func take_damage(amount, source = null):
 	if invulnerable_time > 0.0:
 		return
+	if source and "tier" in source:
+		last_attacker = SkinManager.name_of(source.TIER_IDS[source.tier] + "_one")
 	health -= amount
 	print("Player health: ", roundi(health))
 	
@@ -243,12 +247,12 @@ func take_damage(amount):
 		energy = min(energy + amount * TANK_ENERGY_PER_DAMAGE_TAKEN, MAX_ENERGY)
 	
 	if health <= 0:
-		die()
+		die(last_attacker)
 
 ## Token death: back to the entry door with full health. Nothing is lost (for now).
-func die():
+func die(cause := ""):
 	GameState.deaths += 1
-	print("You fell! Respawning at the entry door. Deaths: ", GameState.deaths)
+	print("DEFEATED by ", cause, ". Respawning at the entry door. Deaths: ", GameState.deaths)
 	health = MAX_HEALTH
 	velocity = Vector3.ZERO
 	global_position = spawn_point
@@ -256,7 +260,7 @@ func die():
 	# Enemies lose track of you
 	for enemy in get_tree().get_nodes_in_group("enemy"):
 		enemy.aggroed = false
-	died.emit()
+	died.emit(cause)
 
 func get_damage_multiplier():
 	var pct = health / MAX_HEALTH * 100

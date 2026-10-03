@@ -36,7 +36,7 @@ func _process(_delta):
 	# Kill player
 	if player_dist < KILL_RANGE:
 		print("Guardian: 'LETHAL FORCE AUTHORIZED.'")
-		player.die()
+		player.die("the Guardian")
 
 	# Handle mobs
 	for enemy in get_tree().get_nodes_in_group("enemy"):

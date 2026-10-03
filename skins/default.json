@@ -10,6 +10,10 @@
 		"enemy_trash": "Trash",
 		"enemy_thug": "Thugs",
 		"enemy_master": "Masters",
-		"enemy_boss": "Bosses"
+		"enemy_boss": "Bosses",
+		"enemy_trash_one": "Trash mob",
+		"enemy_thug_one": "Thug",
+		"enemy_master_one": "Master",
+		"enemy_boss_one": "Boss"
 	}
 }

@@ -70,7 +70,7 @@ func _physics_process(delta):
 			attack_cooldown -= delta
 			if distance <= ATTACK_RANGE:
 				if attack_cooldown <= 0:
-					player.take_damage(ATTACK_DAMAGE * get_damage_multiplier())
+					player.take_damage(ATTACK_DAMAGE * get_damage_multiplier(), self)
 					attack_cooldown = 1.0
 	
 	move_and_slide()

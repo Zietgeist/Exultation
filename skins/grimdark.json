@@ -10,6 +10,10 @@
 		"enemy_trash": "Husks",
 		"enemy_thug": "Reavers",
 		"enemy_master": "Wardens",
-		"enemy_boss": "Dread Lords"
+		"enemy_boss": "Dread Lords",
+		"enemy_trash_one": "Husk",
+		"enemy_thug_one": "Reaver",
+		"enemy_master_one": "Warden",
+		"enemy_boss_one": "Dread Lord"
 	}
 }

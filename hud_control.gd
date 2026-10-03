@@ -32,15 +32,19 @@ func _ready():
 	death_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	death_label.grow_vertical = Control.GROW_DIRECTION_BOTH
 	death_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	death_label.add_theme_font_size_override("font_size", 32)
+	death_label.add_theme_font_size_override("font_size", 40)
+	death_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.6))  # warm gold: a game event, not an error
 	death_label.add_theme_color_override("font_outline_color", Color.BLACK)
 	death_label.add_theme_constant_override("outline_size", 8)
 	death_label.visible = false
 	get_parent().add_child.call_deferred(death_label)
 	spawner = get_tree().get_first_node_in_group("spawner")
 
-func _on_player_died():
-	death_label.text = "You fell... back at the gate."
+func _on_player_died(cause := ""):
+	death_label.text = "DEFEATED"
+	if cause != "":
+		death_label.text += "\nby " + cause
+	death_label.text += "\n\nBack at the gate."
 	death_label.visible = true
 	death_timer = 3.0
 

@@ -89,31 +89,25 @@ func get_spawn_odds():
 	else:
 		return {trash = 35.0, thug = 30.0, master = 25.0, boss = 10.0}
 
+## Pick an enemy tier using the current odds. Tiers that hit their cap are skipped.
+## Returns -1 if every tier is capped.
 func pick_tier():
 	var odds = get_spawn_odds()
+	var weights = [odds.trash, odds.thug, odds.master, odds.boss]
+	if trash_spawned >= MAX_TRASH: weights[0] = 0.0
+	if thugs_spawned >= MAX_THUGS: weights[1] = 0.0
+	if masters_spawned >= MAX_MASTERS: weights[2] = 0.0
+	if bosses_spawned >= MAX_BOSSES: weights[3] = 0.0
 
-	if trash_spawned >= MAX_TRASH:
-		odds.thug += odds.trash
-		odds.trash = 0
-	if thugs_spawned >= MAX_THUGS:
-		odds.master += odds.thug
-		odds.thug = 0
-	if masters_spawned >= MAX_MASTERS:
-		odds.boss += odds.master
-		odds.master = 0
-	if bosses_spawned >= MAX_BOSSES:
-		odds.master += odds.boss
-		odds.boss = 0
-
-	var roll = randf() * 100
-	if roll < odds.boss:
-		return 3
-	elif roll < odds.boss + odds.master:
-		return 2
-	elif roll < odds.boss + odds.master + odds.thug:
-		return 1
-	else:
-		return 0
+	var total = weights[0] + weights[1] + weights[2] + weights[3]
+	if total <= 0.0:
+		return -1
+	var roll = randf() * total
+	for t in range(4):
+		roll -= weights[t]
+		if roll < 0.0:
+			return t
+	return 0
 
 func spawn_clump():
 	if not player:
@@ -145,6 +139,8 @@ func spawn_clump():
 			continue
 
 		var t = pick_tier()
+		if t == -1:
+			break
 
 		match t:
 			0: trash_spawned += 1
@@ -172,8 +168,14 @@ func spawn_solo_mid():
 	spawn_pos.y = 1.5
 	spawn_pos = clamp_to_map(spawn_pos)
 
-	var count = randi_range(1, 2)
-	var t = randi_range(1, 2)
+	# Mostly Thugs; sometimes a Master. Respect the caps.
+	var t = 1
+	if masters_spawned < MAX_MASTERS and randf() < 0.15:
+		t = 2
+	elif thugs_spawned >= MAX_THUGS:
+		return
+	var room = (MAX_THUGS - thugs_spawned) if t == 1 else (MAX_MASTERS - masters_spawned)
+	var count = min(randi_range(1, 2), room)
 
 	for i in range(count):
 		var offset = Vector3(randf_range(-2.0, 2.0), 0, randf_range(-2.0, 2.0))

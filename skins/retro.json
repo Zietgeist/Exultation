@@ -10,6 +10,10 @@
 		"enemy_trash": "Grubs",
 		"enemy_thug": "Brutes",
 		"enemy_master": "Warlords",
-		"enemy_boss": "Overlords"
+		"enemy_boss": "Overlords",
+		"enemy_trash_one": "Grub",
+		"enemy_thug_one": "Brute",
+		"enemy_master_one": "Warlord",
+		"enemy_boss_one": "Overlord"
 	}
 }
