@@ -15,6 +15,7 @@ func add_floor_collision():
 
 func _ready():
 	GameState.current_zone = "Zone 1"
+	add_to_group("map_floor")
 	for x in range(GRID_WIDTH):
 		for z in range(GRID_DEPTH):
 			var tile = MeshInstance3D.new()
@@ -28,9 +29,9 @@ func _ready():
 				mat.albedo_color = COLOR_B
 			tile.mesh.surface_set_material(0, mat)
 			tile.position = Vector3(
-				x * TILE_SIZE - (GRID_WIDTH * TILE_SIZE / 2),
+				x * TILE_SIZE - (GRID_WIDTH * TILE_SIZE / 2) + TILE_SIZE / 2,
 				0.1,
-				z * TILE_SIZE - (GRID_DEPTH * TILE_SIZE / 2)
+				z * TILE_SIZE - (GRID_DEPTH * TILE_SIZE / 2) + TILE_SIZE / 2
 			)
 			add_child(tile)
 	add_border_walls()
@@ -60,3 +61,7 @@ func add_border_walls():
 		body.add_child(col)
 		body.position = w[0]
 		add_child(body)
+
+## Half the floor size (x, z). The spawner uses this to keep enemies on the map.
+func get_half_size() -> Vector2:
+	return Vector2(GRID_WIDTH * TILE_SIZE / 2.0, GRID_DEPTH * TILE_SIZE / 2.0)

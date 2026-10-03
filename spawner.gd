@@ -170,8 +170,7 @@ func spawn_solo_mid():
 	var angle = randf() * TAU
 	var spawn_pos = player.global_position + Vector3(cos(angle), 0, sin(angle)) * SPAWN_RADIUS
 	spawn_pos.y = 1.5
-	spawn_pos.y = 1.5
-	spawn_pos = clamp_to_map(spawn_pos)  # ADD THIS
+	spawn_pos = clamp_to_map(spawn_pos)
 
 	var count = randi_range(1, 2)
 	var t = randi_range(1, 2)
@@ -181,7 +180,7 @@ func spawn_solo_mid():
 		var enemy = ENEMY_SCENE.instantiate()
 		enemy.connect("enemy_died", _on_enemy_died)
 		get_tree().root.add_child(enemy)
-		enemy.global_position = spawn_pos + offset
+		enemy.global_position = clamp_to_map(spawn_pos + offset)
 		enemy.call("setup", 1.0, t)
 		match t:
 			1: thugs_spawned += 1
@@ -194,7 +193,7 @@ func force_spawn_remaining_bosses():
 		var angle = randf() * TAU
 		var spawn_pos = player.global_position + Vector3(cos(angle), 0, sin(angle)) * 15.0
 		spawn_pos.y = 1.5
-		spawn_pos = clamp_to_map(spawn_pos)  # ADD THIS
+		spawn_pos = clamp_to_map(spawn_pos)
 		var enemy = ENEMY_SCENE.instantiate()
 		enemy.connect("enemy_died", _on_enemy_died)
 		get_tree().root.add_child(enemy)
@@ -214,7 +213,11 @@ func _on_enemy_died(tier):
 		guardian.notify_boss_killed(bosses_killed)
 
 func clamp_to_map(pos: Vector3) -> Vector3:
-	pos.x = clamp(pos.x, -45.0, 45.0)
-	pos.z = clamp(pos.z, -45.0, 45.0)
+	var half = Vector2(45.0, 45.0)
+	var floor_node = get_tree().get_first_node_in_group("map_floor")
+	if floor_node and floor_node.has_method("get_half_size"):
+		half = floor_node.get_half_size() - Vector2(3.0, 3.0)  # stay a little inside the walls
+	pos.x = clamp(pos.x, -half.x, half.x)
+	pos.z = clamp(pos.z, -half.y, half.y)
 	return pos
 		
