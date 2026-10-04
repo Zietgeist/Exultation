@@ -1,14 +1,36 @@
 extends Node3D
+## Ditches, low walls and solid walls. The layout is remembered for the whole play session.
+
 const DITCH_SCENE = preload("res://Ditch.tscn")
 const LOW_WALL_SCENE = preload("res://LowWall.tscn")
 const SOLID_WALL_SCENE = preload("res://SolidWall.tscn")
 const CLEAR_RADIUS = 10.0
 
+
 func _ready():
+	add_to_group("zone_terrain")
+	var saved = GameState.saved_zone_part(self, "terrain")
+	if saved != null:
+		for t in saved:
+			var piece = load(t.scene).instantiate()
+			add_child(piece)
+			piece.position = t.p
+			piece.rotation.y = t.r
+		return
+
 	var m = GameState.obstacle_multiplier()
 	spawn_terrain(DITCH_SCENE, roundi(30 * m))
 	spawn_clusters(LOW_WALL_SCENE, roundi(15 * m))
 	spawn_clusters(SOLID_WALL_SCENE, roundi(10 * m))
+
+
+## Snapshot of the layout, so it can be rebuilt exactly.
+func save_state() -> Array:
+	var out = []
+	for piece in get_children():
+		out.append({scene = piece.scene_file_path, p = piece.position, r = piece.rotation.y})
+	return out
+
 
 func get_clear_pos() -> Vector3:
 	var pos = Vector3.ZERO
@@ -23,12 +45,14 @@ func get_clear_pos() -> Vector3:
 		attempts += 1
 	return pos
 
+
 func spawn_terrain(scene, count):
 	for i in range(count):
 		var piece = scene.instantiate()
 		add_child(piece)
 		piece.position = get_clear_pos()
 		piece.rotation.y = randf_range(0, TAU)
+
 
 func spawn_clusters(scene, cluster_count):
 	for i in range(cluster_count):
@@ -46,6 +70,7 @@ func spawn_clusters(scene, cluster_count):
 			piece.position = center + offset
 			# Similar angle with slight variation for L-shapes
 			piece.rotation.y = randf_range(0, TAU)
+
 
 ## Half the size of the current zone's floor (x, z), minus a margin so things stay inside the walls.
 func map_half_size(margin := 4.0) -> Vector2:

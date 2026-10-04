@@ -244,3 +244,32 @@ func spawn_home_portal():
 	get_tree().current_scene.add_child(portal)
 
 const HOME_ARRIVAL = Vector3(0, 1, 8)	# next to the Deposit Shrine
+
+
+# ---------------- Zone memory (this play session only) ----------------
+# Leaving a zone and coming back keeps its kill counts and its map layout.
+# Quitting the game starts fresh.
+var zone_memory = {}	# scene path -> {spawner = {...}, obstacles = [...], terrain = [...]}
+
+
+## Call right before leaving the current zone.
+func remember_current_zone():
+	var scene = get_tree().current_scene
+	if scene == null or scene.scene_file_path == "res://Home.tscn":
+		return
+	var memory = {}
+	var parts = {"spawner": "zone_spawner", "obstacles": "zone_obstacles", "terrain": "zone_terrain"}
+	for part in parts:
+		var node = get_tree().get_first_node_in_group(parts[part])
+		if node:
+			memory[part] = node.save_state()
+	zone_memory[scene.scene_file_path] = memory
+
+
+## What a zone part saved last time (or null if this is the first visit this session).
+func saved_zone_part(node: Node, part: String):
+	if node.owner == null:
+		ErrorLog.fail("saved_zone_part: %s has no owner scene, can't look up its memory" % node.name)
+		return null
+	var memory = zone_memory.get(node.owner.scene_file_path, {})
+	return memory.get(part, null)

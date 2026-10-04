@@ -45,10 +45,22 @@ const CLEARED_EXPIRE_TIME = 150.0  # 2.5 minutes
 var level_complete = false
 
 func _ready():
+	add_to_group("zone_spawner")
 	player = get_tree().get_first_node_in_group("player")
 	_setup_zone_targets.call_deferred()	# wait for the floor so we know the zone size
 
+# Everything needed to pick up where we left off in this zone
+const SAVED_KEYS = ["zone_scale", "min_clear", "target_total", "MAX_TRASH", "MAX_THUGS", "MAX_MASTERS", "total_killed", "trash_killed", "thugs_killed", "masters_killed", "bosses_killed", "total_spawned", "trash_spawned", "thugs_spawned", "masters_spawned", "bosses_spawned", "level_complete"]
+
+
 func _setup_zone_targets():
+	var saved = GameState.saved_zone_part(self, "spawner")
+	if saved != null:
+		for key in SAVED_KEYS:
+			set(key, saved[key])
+		targets_ready = true
+		print("Back in the zone: %d / %d cleared" % [total_killed, min_clear])
+		return
 	zone_scale = GameState.zone_area_scale()
 	min_clear = roundi(BASE_MIN_CLEAR * zone_scale)
 	target_total = randi_range(min_clear, roundi(BASE_MAX_CLEAR * zone_scale))
@@ -58,6 +70,23 @@ func _setup_zone_targets():
 	targets_ready = true
 	print("Zone size x%.1f: %d enemies this visit (2nd boss after %d kills). Trash %d, Thugs %d, Masters %d, Bosses %d" % [
 		zone_scale, target_total, min_clear, MAX_TRASH, MAX_THUGS, MAX_MASTERS, MAX_BOSSES])
+
+
+## Snapshot of progress. Enemies still alive are handed back, so they spawn again later.
+func save_state() -> Dictionary:
+	for enemy in get_tree().get_nodes_in_group("enemy"):
+		if enemy.is_queued_for_deletion() or not enemy.has_meta("from_spawner"):
+			continue
+		total_spawned -= 1
+		match enemy.tier:
+			0: trash_spawned -= 1
+			1: thugs_spawned -= 1
+			2: masters_spawned -= 1
+			3: bosses_spawned -= 1
+	var out = {}
+	for key in SAVED_KEYS:
+		out[key] = get(key)
+	return out
 
 
 func _process(delta):
@@ -179,6 +208,7 @@ func spawn_clump():
 		spawn_pos = clamp_to_map(spawn_pos)
 		var enemy = ENEMY_SCENE.instantiate()
 		enemy.connect("enemy_died", _on_enemy_died)
+		enemy.set_meta("from_spawner", true)
 		get_tree().current_scene.add_child(enemy)  # enemies belong to the zone, so they vanish when we leave
 		enemy.global_position = spawn_pos
 		enemy.call("setup", 1.0, t)
@@ -207,6 +237,7 @@ func spawn_solo_mid():
 		var offset = Vector3(randf_range(-2.0, 2.0), 0, randf_range(-2.0, 2.0))
 		var enemy = ENEMY_SCENE.instantiate()
 		enemy.connect("enemy_died", _on_enemy_died)
+		enemy.set_meta("from_spawner", true)
 		get_tree().current_scene.add_child(enemy)  # enemies belong to the zone, so they vanish when we leave
 		enemy.global_position = clamp_to_map(spawn_pos + offset)
 		enemy.call("setup", 1.0, t)
@@ -224,6 +255,7 @@ func force_spawn_remaining_bosses():
 		spawn_pos = clamp_to_map(spawn_pos)
 		var enemy = ENEMY_SCENE.instantiate()
 		enemy.connect("enemy_died", _on_enemy_died)
+		enemy.set_meta("from_spawner", true)
 		get_tree().current_scene.add_child(enemy)  # enemies belong to the zone, so they vanish when we leave
 		enemy.global_position = spawn_pos
 		enemy.call("setup", 1.0, 3)

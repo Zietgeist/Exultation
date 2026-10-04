@@ -56,6 +56,7 @@ func _on_body_entered(body: Node) -> void:
 		body.global_position += away.normalized() * 2.0
 		print("Locked: ", GameState.unlock_hint(target_scene))
 		return
+	GameState.remember_current_zone()	# before enemies are cleared, so they get handed back
 	for enemy in get_tree().get_nodes_in_group("enemy"):
 		enemy.queue_free()
 	GameState.previous_scene = get_tree().current_scene.scene_file_path
