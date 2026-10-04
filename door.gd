@@ -21,6 +21,7 @@ func _ready():
 	add_child(label)
 	GameState.zone_unlocked.connect(_on_zone_unlocked)
 	_refresh()
+	_add_beacon.call_deferred()
 
 
 func _refresh():
@@ -37,6 +38,15 @@ func _refresh():
 	else:
 		label.text = "LOCKED\n" + GameState.unlock_hint(target_scene)
 		label.modulate = LOCKED_COLOR
+
+
+## Out in a zone, open gates sweep a lighthouse beam every 20 seconds so you can find your way out.
+func _add_beacon():
+	if GameState.current_zone == "Home":
+		return
+	var beacon = load("res://gate_beacon.gd").new()
+	beacon.door = self
+	add_child(beacon)
 
 
 func _on_zone_unlocked(_scene_path):

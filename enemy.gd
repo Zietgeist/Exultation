@@ -28,6 +28,7 @@ const GRAVITY = -9.8
 var player = null
 var attack_cooldown = 0.0
 var aggroed = false
+var hunter = false	# hunters (the 2nd Boss) never stop chasing you
 var difficulty = 1.0
 
 func setup(diff, t = Tier.TRASH):
@@ -60,6 +61,8 @@ func _physics_process(delta):
 			aggroed = true
 
 		# Idle enemies stand still and skip physics (zones can hold hundreds of them)
+		if hunter:
+			aggroed = true
 		if not aggroed:
 			return
 		velocity.y += GRAVITY * delta
@@ -104,6 +107,8 @@ func drop_gold() -> void:
 	get_parent().add_child(orb)
 
 func die():
+	if tier == Tier.BOSS:
+		GameState.add_mark("boss", global_position)
 	emit_signal("enemy_died", tier)
 	drop_orb()
 	drop_gold()

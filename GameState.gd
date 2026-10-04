@@ -286,3 +286,46 @@ func ditch_at(world_pos: Vector3):
 		if d.contains(world_pos):
 			return d
 	return null
+
+
+# ---------------- Notices (big gold message on screen) ----------------
+signal notice(text)
+
+func notify(text: String):
+	print(text)
+	notice.emit(text)
+
+
+# ---------------- Map data ----------------
+# Where each zone sits in the Golden Ratio spiral (x, z, width, depth in world units; Home is 0,0 to 100,100).
+const ZONE_LAYOUT = {
+	"res://Home.tscn": Rect2(0, 0, 100, 100),
+	"res://Zone1.tscn": Rect2(-60, 0, 60, 100),
+	"res://Zone2.tscn": Rect2(-60, -170, 170, 170),
+	"res://Zone3.tscn": Rect2(110, -165, 260, 260),
+}
+
+var zone_marks = {}	# scene path -> [{kind = "death"/"boss", p = position}] (this play session)
+
+
+func add_mark(kind: String, pos: Vector3):
+	var scene = get_tree().current_scene
+	if scene == null:
+		return
+	var path = scene.scene_file_path
+	if not zone_marks.has(path):
+		zone_marks[path] = []
+	zone_marks[path].append({kind = kind, p = pos})
+
+
+## A zone is cleared once both of its bosses are down (or the next zone was unlocked earlier).
+func is_zone_cleared(path: String) -> bool:
+	var i = ZONE_ORDER.find(path)
+	if i != -1 and i + 1 < ZONE_ORDER.size() and is_unlocked(ZONE_ORDER[i + 1]):
+		return true
+	var scene = get_tree().current_scene
+	if scene and scene.scene_file_path == path:
+		var sp = get_tree().get_first_node_in_group("zone_spawner")
+		return sp != null and sp.bosses_killed >= BOSSES_TO_UNLOCK
+	var mem = zone_memory.get(path, {}).get("spawner", null)
+	return mem != null and mem.bosses_killed >= BOSSES_TO_UNLOCK

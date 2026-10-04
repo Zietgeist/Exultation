@@ -272,6 +272,7 @@ func take_damage(amount, source = null):
 ## Token death: back to the entry door with full health. Nothing is lost (for now).
 func die(cause := ""):
 	GameState.deaths += 1
+	GameState.add_mark("death", global_position)
 	print("DEFEATED by ", cause, ". Respawning at the entry door. Deaths: ", GameState.deaths)
 	health = MAX_HEALTH
 	velocity = Vector3.ZERO

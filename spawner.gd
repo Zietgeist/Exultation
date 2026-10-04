@@ -186,11 +186,14 @@ func _pick_from_reserve() -> int:
 	return 0
 
 
+## The 2nd Boss arrives just off-screen and comes straight for you.
 func _spawn_boss_near_player():
 	while bosses_spawned < MAX_BOSSES:
 		var angle = randf() * TAU
-		_make_enemy(3, player.global_position + Vector3(cos(angle), 0, sin(angle)) * 15.0)
-	print("A BOSS HAS ARRIVED!")
+		var boss = _make_enemy(3, player.global_position + Vector3(cos(angle), 0, sin(angle)) * 25.0)
+		boss.hunter = true
+		boss.aggroed = true
+	GameState.notify("A BOSS IS COMING FOR YOU!")
 
 
 ## Create one real enemy of a tier at a spot (kept inside the walls) and count it.
@@ -221,7 +224,7 @@ func _instantiate(t: int, pos: Vector3, h: float):
 	enemy.set_meta("from_spawner", true)
 	get_tree().current_scene.add_child(enemy)  # enemies belong to the zone, so they vanish when we leave
 	pos.y = ENEMY_REST_HEIGHT
-	enemy.global_position = clamp_to_map(pos)
+	enemy.global_position = _clear_spot(clamp_to_map(pos))
 	enemy.call("setup", 1.0, t)
 	if h > 0.0:
 		enemy.health = h
@@ -303,6 +306,8 @@ func _on_enemy_died(tier):
 		3:
 			bosses_killed += 1
 			GameState.on_boss_killed(bosses_killed)
+			if bosses_killed == MAX_BOSSES:
+				GameState.notify("ZONE CLEARED!  Map unlocked (press M)")
 	var guardian = get_tree().get_first_node_in_group("guardian")
 	if guardian:
 		guardian.notify_boss_killed(bosses_killed)
@@ -320,4 +325,28 @@ func clamp_to_map(pos: Vector3) -> Vector3:
 	var half = _half()
 	pos.x = clamp(pos.x, -half.x, half.x)
 	pos.z = clamp(pos.z, -half.y, half.y)
+	return pos
+
+
+## Nudge a spawn spot so the enemy isn't stuck inside a wall or block.
+var _probe: SphereShape3D = null
+
+func _clear_spot(pos: Vector3) -> Vector3:
+	if _probe == null:
+		_probe = SphereShape3D.new()
+		_probe.radius = 0.9
+	var space = get_world_3d().direct_space_state
+	var query = PhysicsShapeQueryParameters3D.new()
+	query.shape = _probe
+	for attempt in range(12):
+		var test = pos if attempt == 0 else clamp_to_map(pos + Vector3(randf_range(-4, 4), 0, randf_range(-4, 4)))
+		test.y = ENEMY_REST_HEIGHT
+		query.transform = Transform3D(Basis(), test)
+		var blocked = false
+		for hit in space.intersect_shape(query, 8):
+			if hit.collider is StaticBody3D:
+				blocked = true
+				break
+		if not blocked:
+			return test
 	return pos

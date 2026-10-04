@@ -11,6 +11,8 @@ var zone_label = null
 var flow_label = null
 var death_label = null
 var death_timer = 0.0
+var notice_label = null
+var notice_timer = 0.0
 var gold_bar = null
 var gold_label = null
 
@@ -54,7 +56,30 @@ func _ready():
 	death_label.add_theme_constant_override("outline_size", 8)
 	death_label.visible = false
 	get_parent().add_child.call_deferred(death_label)
+
+	# Gold notices near the top (boss coming, zone cleared...)
+	notice_label = Label.new()
+	notice_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	notice_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	notice_label.offset_top = 70
+	notice_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	notice_label.add_theme_font_size_override("font_size", 30)
+	notice_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+	notice_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	notice_label.add_theme_constant_override("outline_size", 8)
+	notice_label.visible = false
+	get_parent().add_child.call_deferred(notice_label)
+	GameState.notice.connect(_on_notice)
+
+	# The map (press M)
+	get_parent().add_child.call_deferred(load("res://map_overlay.gd").new())
 	spawner = get_tree().get_first_node_in_group("spawner")
+
+func _on_notice(text: String):
+	notice_label.text = text
+	notice_label.visible = true
+	notice_timer = 4.0
+
 
 func _on_player_died(cause := ""):
 	death_label.text = "DEFEATED"
@@ -66,6 +91,10 @@ func _on_player_died(cause := ""):
 
 
 func _process(delta):
+	if notice_timer > 0.0:
+		notice_timer -= delta
+		if notice_timer <= 0.0:
+			notice_label.visible = false
 	gold_bar.value = GameState.gold_carried
 	gold_label.text = "Gold: %d / %d" % [GameState.gold_carried, GameState.GOLD_CAPACITY]
 	if GameState.is_bag_full():
