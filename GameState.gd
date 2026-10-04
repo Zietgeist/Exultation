@@ -79,7 +79,10 @@ var unlocked_zones = ["res://Home.tscn", "res://Zone1.tscn"]
 func _ready():
 	var cfg = ConfigFile.new()
 	if cfg.load(PROGRESS_PATH) == OK:
-		unlocked_zones = cfg.get_value("progress", "unlocked_zones", unlocked_zones)
+		# While testing from Godot, every run starts with the next zones LOCKED.
+		# (A finished, exported game remembers unlocks between plays.)
+		if not OS.is_debug_build():
+			unlocked_zones = cfg.get_value("progress", "unlocked_zones", unlocked_zones)
 		gold_carried = cfg.get_value("gold", "carried", 0)
 		gold_banked = cfg.get_value("gold", "banked", 0)
 	bag_full.connect(_on_bag_full)
@@ -133,14 +136,9 @@ func unlock(scene_path: String):
 	zone_unlocked.emit(scene_path)
 
 
-# Test keys (only in debug builds):
-#   F10         = unlock the next zone
-#   Shift + F10 = lock everything again (back to a fresh start)
+# Test key (only in debug builds): Shift + F10 = unlock the next zone
 func _unhandled_input(event):
-	if OS.is_debug_build() and event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F10:
-		if event.shift_pressed:
-			reset_zone_progress()
-			return
+	if OS.is_debug_build() and event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F10 and event.shift_pressed:
 		for z in ZONE_ORDER:
 			if not is_unlocked(z):
 				unlock(z)
