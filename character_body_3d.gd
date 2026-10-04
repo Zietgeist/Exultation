@@ -222,7 +222,11 @@ func single_target_attack():
 	
 	if closest:
 		var damage = st_damage * get_damage_multiplier()
+		_show_beam(closest.global_position, Color(1.0, 0.9, 0.3))
 		closest.take_damage(damage)
+	else:
+		# Miss: a short, faint swing toward where you're facing
+		_show_beam(global_position - global_transform.basis.z * 3.0, Color(1.0, 0.9, 0.3, 0.35))
 
 func aoe_attack():
 	var enemies = get_tree().get_nodes_in_group("enemy")
@@ -241,6 +245,7 @@ func aoe_attack():
 		return global_position.distance_to(a.global_position) < global_position.distance_to(b.global_position))
 	
 	var targets = in_range.slice(0, aoe_max_targets)
+	_show_cone()
 	for enemy in targets:
 		var damage = aoe_damage * get_damage_multiplier()
 		enemy.take_damage(damage)
@@ -473,3 +478,73 @@ func add_energy(amount: float) -> bool:
 		return false
 	energy = min(energy + amount, MAX_ENERGY)
 	return true
+
+
+# ---------------- Attack visuals ----------------
+
+## Single target (left click): a bright bolt from you to the target.
+func _show_beam(to: Vector3, color: Color):
+	var from = global_position
+	from.y = 1.2
+	to.y = 1.2
+	var length = from.distance_to(to)
+	if length < 0.1:
+		return
+	var mesh = BoxMesh.new()
+	mesh.size = Vector3(0.18, 0.18, length)
+	var beam = MeshInstance3D.new()
+	beam.mesh = mesh
+	beam.material_override = _fx_material(color)
+	beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	get_tree().current_scene.add_child(beam)
+	beam.global_position = (from + to) / 2.0
+	beam.look_at(to, Vector3.UP)
+	_fade_and_free(beam, 0.15)
+
+
+## Multi target (right click): flash the cone that the attack covers.
+var _cone_mesh: ArrayMesh = null
+var _cone_built_for = Vector2.ZERO	# (range, cone) the mesh was built for
+
+func _show_cone():
+	var key = Vector2(AOE_RANGE, aoe_cone)
+	if _cone_mesh == null or _cone_built_for != key:
+		_cone_mesh = _build_cone_mesh(AOE_RANGE, acos(clamp(aoe_cone, -1.0, 1.0)))
+		_cone_built_for = key
+	var cone = MeshInstance3D.new()
+	cone.mesh = _cone_mesh
+	cone.material_override = _fx_material(Color(0.3, 0.85, 1.0, 0.45))
+	cone.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	get_tree().current_scene.add_child(cone)
+	cone.global_position = Vector3(global_position.x, 0.3, global_position.z)
+	cone.rotation.y = rotation.y	# face the same way as the player
+	_fade_and_free(cone, 0.2)
+
+
+## A flat fan shape pointing forward (-Z): radius = reach, half_angle in radians.
+func _build_cone_mesh(radius: float, half_angle: float) -> ArrayMesh:
+	var st = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var steps = 18
+	for i in range(steps):
+		var a0 = -half_angle + 2.0 * half_angle * i / steps
+		var a1 = -half_angle + 2.0 * half_angle * (i + 1) / steps
+		st.add_vertex(Vector3.ZERO)
+		st.add_vertex(Vector3(sin(a0) * radius, 0, -cos(a0) * radius))
+		st.add_vertex(Vector3(sin(a1) * radius, 0, -cos(a1) * radius))
+	return st.commit()
+
+
+func _fx_material(color: Color) -> StandardMaterial3D:
+	var mat = StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.albedo_color = color
+	return mat
+
+
+func _fade_and_free(node: MeshInstance3D, seconds: float):
+	var t = node.create_tween()
+	t.tween_property(node.material_override, "albedo_color:a", 0.0, seconds)
+	t.tween_callback(node.queue_free)

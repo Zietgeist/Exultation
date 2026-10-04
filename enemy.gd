@@ -82,6 +82,7 @@ func _physics_process(delta):
 
 func take_damage(amount):
 	health -= amount
+	flash()
 	if health <= 0:
 		die()
 
@@ -117,3 +118,11 @@ func get_damage_multiplier():
 	else:
 		return 0.5
 		
+
+
+## Quick white flash so you can see the hit land.
+func flash():
+	$MeshInstance3D.material_override = SkinManager.material("hit_flash", Color(1, 1, 1))
+	var t = create_tween()
+	t.tween_interval(0.08)
+	t.tween_callback(apply_skin)
