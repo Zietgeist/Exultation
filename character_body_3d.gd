@@ -82,7 +82,9 @@ signal died(cause)
 # Respawn
 const SPAWN_HEIGHT = 1.5	# start a little above the floor and drop onto it
 const FALL_LIMIT = -10.0	# below this, we fell out of the world
-const CAMERA_OFFSET = Vector3(0, 8, 5) * 1.5	# 1.5x farther out than before (same angle)
+const BASE_CAMERA_OFFSET = Vector3(0, 8, 5)	# the original, closer camera
+const CAMERA_ZOOM = 1.5	# camera is 1.5x farther out than the original (same angle)
+const CAMERA_OFFSET = BASE_CAMERA_OFFSET * CAMERA_ZOOM
 const RESPAWN_SAFE_TIME = 2.0	# seconds you can't be hurt after respawning
 var spawn_point = Vector3.ZERO
 var invulnerable_time = 0.0
@@ -383,7 +385,8 @@ func special_radius() -> float:
 	var corners = [Vector2(0, 0), Vector2(size.x, 0), Vector2(size.x, size.y), Vector2(0, size.y)]
 	var pts = []
 	for c in corners:
-		var o = cam.project_ray_origin(c)
+		# Measure from where the ORIGINAL (closer) camera would be, so zooming out doesn't grow the specials
+		var o = cam.project_ray_origin(c) - (CAMERA_OFFSET - BASE_CAMERA_OFFSET)
 		var d = cam.project_ray_normal(c)
 		if d.y >= -0.01:
 			ErrorLog.warn("special_radius: a screen corner doesn't hit the ground; using 10")
