@@ -17,7 +17,7 @@ var _redraw_timer = 0.0
 
 
 func _ready():
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)	# fill the whole screen
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	visible = false
 
@@ -68,6 +68,7 @@ func _draw_world(font):
 		var r = GameState.ZONE_LAYOUT[p]
 		var screen = Rect2(fit.offset + r.position * fit.scale, r.size * fit.scale)
 		var zone_label = GameState.ZONE_NAMES.get(p, p)
+		var status = ""
 		if p == "res://Home.tscn":
 			draw_rect(screen, EXPLORED)
 			var player = get_tree().get_first_node_in_group("player")
@@ -76,14 +77,19 @@ func _draw_world(font):
 				draw_circle(fit.offset + pp * fit.scale, 5, Color.WHITE)
 		elif not GameState.is_unlocked(p):
 			draw_rect(screen, LOCKED)
-			zone_label += "  (locked)"
+			status = "locked"
 		else:
 			var fog = GameState.zone_memory.get(p, {}).get("fog", null)
 			_draw_fog_cells(screen, r.size / 2.0, fog)
 			if GameState.is_zone_cleared(p):
-				zone_label += "  - cleared"
+				status = "cleared"
+			elif fog == null:
+				status = "not explored yet"
 		draw_rect(screen, GOLD if GameState.is_zone_cleared(p) else Color(0.5, 0.5, 0.55), false, 2.0)
-		draw_string(font, screen.position + Vector2(6, 22), zone_label, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color.WHITE)
+		# Name and status, centered near the top of each zone
+		draw_string(font, screen.position + Vector2(0, 20), zone_label, HORIZONTAL_ALIGNMENT_CENTER, screen.size.x, 15, Color.WHITE)
+		if status != "":
+			draw_string(font, screen.position + Vector2(0, 36), status, HORIZONTAL_ALIGNMENT_CENTER, screen.size.x, 12, GOLD if status == "cleared" else Color(0.7, 0.7, 0.75))
 
 
 # ---------- Zone map (cleared zone) ----------

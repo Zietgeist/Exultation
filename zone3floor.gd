@@ -59,9 +59,25 @@ func add_border_walls():
 		shape.size = w[1]
 		col.shape = shape
 		body.add_child(col)
+		# Visible wall (they used to be invisible, so gaps looked like doors)
+		var wall_mesh = BoxMesh.new()
+		wall_mesh.size = w[1]
+		var wall_view = MeshInstance3D.new()
+		wall_view.mesh = wall_mesh
+		wall_view.material_override = _wall_material()
+		body.add_child(wall_view)
 		body.position = w[0]
 		add_child(body)
 
 ## Half the floor size (x, z). The spawner uses this to keep enemies on the map.
 func get_half_size() -> Vector2:
 	return Vector2(GRID_WIDTH * TILE_SIZE / 2.0, GRID_DEPTH * TILE_SIZE / 2.0)
+
+
+var _wall_mat: StandardMaterial3D = null
+
+func _wall_material() -> StandardMaterial3D:
+	if _wall_mat == null:
+		_wall_mat = StandardMaterial3D.new()
+		_wall_mat.albedo_color = Color(0.15, 0.13, 0.12)
+	return _wall_mat
