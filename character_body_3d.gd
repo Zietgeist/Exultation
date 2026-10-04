@@ -82,6 +82,7 @@ signal died(cause)
 # Respawn
 const SPAWN_HEIGHT = 1.5	# start a little above the floor and drop onto it
 const FALL_LIMIT = -10.0	# below this, we fell out of the world
+const CAMERA_OFFSET = Vector3(0, 8, 5) * 1.5	# 1.5x farther out than before (same angle)
 const RESPAWN_SAFE_TIME = 2.0	# seconds you can't be hurt after respawning
 var spawn_point = Vector3.ZERO
 var invulnerable_time = 0.0
@@ -189,7 +190,7 @@ func _physics_process(delta):
 	look_at(Vector3(mouse_world.x, global_position.y, mouse_world.z), Vector3.UP)
 
 	if camera:
-		camera.global_position = global_position + Vector3(0, 8, 5)
+		camera.global_position = global_position + CAMERA_OFFSET
 
 	_tick_aura(delta)
 
