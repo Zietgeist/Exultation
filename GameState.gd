@@ -156,6 +156,7 @@ const BAG_MINUTES_MIN = 20.0
 const BAG_MINUTES_MAX = 25.0
 const MAX_GOLD_PER_ORB = 4
 const MAX_GOLD_BUDGET = 8.0	# don't let gold pile up while standing around
+const GOLD_TEST_SPEED = 2.0	# TESTING: gold comes 2x faster (bag fills in ~10-12 min). Set back to 1.0 for real play.
 
 var gold_carried = 0
 var gold_banked = 0
@@ -175,7 +176,7 @@ func is_bag_full() -> bool:
 func _tick_gold(delta):
 	if current_zone == "Home" or is_bag_full():
 		return
-	_gold_budget = min(_gold_budget + delta * GOLD_CAPACITY / (_bag_minutes * 60.0), MAX_GOLD_BUDGET)
+	_gold_budget = min(_gold_budget + delta * GOLD_TEST_SPEED * GOLD_CAPACITY / (_bag_minutes * 60.0), MAX_GOLD_BUDGET)
 
 
 ## Called when an enemy dies. Returns how much gold its orb holds (0 = no gold orb).
