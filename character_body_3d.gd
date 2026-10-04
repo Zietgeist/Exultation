@@ -14,8 +14,7 @@ var energy = 5.0
 var dps_boost_stacks = 0
 
 # Energy generation rates
-const DPS_ENERGY_PER_DAMAGE = 0.01
-const TANK_ENERGY_PER_DAMAGE_DEALT = 0.008
+# Action energy comes from blue orbs (see orb.gd). Tank also gains a little from being hit.
 const TANK_ENERGY_PER_DAMAGE_TAKEN = 0.015
 const HEALER_ENERGY_REGEN = 0.5
 const BASE_ENERGY_REGEN = 0.15  # slow trickle for DPS and Tank, so skills work in long boss fights
@@ -205,13 +204,6 @@ func single_target_attack():
 	if closest:
 		var damage = st_damage * get_damage_multiplier()
 		closest.take_damage(damage)
-		
-		# Generate energy from dealing damage
-		match player_class:
-			Class.DPS:
-				energy = min(energy + damage * DPS_ENERGY_PER_DAMAGE, MAX_ENERGY)
-			Class.TANK:
-				energy = min(energy + damage * TANK_ENERGY_PER_DAMAGE_DEALT, MAX_ENERGY)
 
 func aoe_attack():
 	var enemies = get_tree().get_nodes_in_group("enemy")
@@ -233,13 +225,6 @@ func aoe_attack():
 	for enemy in targets:
 		var damage = aoe_damage * get_damage_multiplier()
 		enemy.take_damage(damage)
-		
-		# Generate energy from dealing damage
-		match player_class:
-			Class.DPS:
-				energy = min(energy + damage * DPS_ENERGY_PER_DAMAGE, MAX_ENERGY)
-			Class.TANK:
-				energy = min(energy + damage * TANK_ENERGY_PER_DAMAGE_DEALT, MAX_ENERGY)
 
 var last_attacker = ""	# who hit us last (for the death message)
 
@@ -374,3 +359,11 @@ func get_skills() -> Array:
 		{key = "Q", name = SKILL_Q[player_class].name, cost = SKILL_Q[player_class].cost, cooldown = 0.0, soon = false},
 		{key = "F", name = SKILL_F[player_class].name, cost = SKILL_F[player_class].cost, cooldown = 0.0, soon = SKILL_F[player_class].get("soon", false)},
 	]
+
+
+## Blue orbs call this. Returns false if energy is already full (orb stays on the ground).
+func add_energy(amount: float) -> bool:
+	if energy >= MAX_ENERGY:
+		return false
+	energy = min(energy + amount, MAX_ENERGY)
+	return true

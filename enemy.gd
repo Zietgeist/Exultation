@@ -14,6 +14,9 @@ const TIER_STATS = {
 	Tier.BOSS:   {health = 5000, damage = 60, speed = 2.0, aggro = 20.0, color = Color(1.0,  0.8, 0.0)},
 }
 
+# Energy in the blue orb each tier drops
+const ORB_ENERGY = {Tier.TRASH: 1.0, Tier.THUG: 2.0, Tier.MASTER: 4.0, Tier.BOSS: 8.0}
+
 const ATTACK_RANGE = 1.2
 var MAX_HEALTH = 100.0
 var health = MAX_HEALTH
@@ -84,8 +87,7 @@ func drop_orb() -> void:
 	var orb_scene = preload("res://Orb.tscn")
 	var orb = orb_scene.instantiate()
 	orb.position = global_position
-	if tier == Tier.BOSS:
-		orb.slot_cost = 5
+	orb.value = ORB_ENERGY[tier]	# bigger enemies drop more energy
 	get_parent().add_child(orb)
 
 func drop_gold() -> void:

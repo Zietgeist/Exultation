@@ -22,6 +22,7 @@ func _ready():
 	kill_label = get_node("VBoxContainer/KillLabel")
 	speed_label = get_node("VBoxContainer/SpeedLabel")
 	orb_bar = get_node("VBoxContainer/OrbBar")
+	orb_bar.visible = false	# old orb slots bar; blue orbs now go straight to energy
 	boost_label = get_node("VBoxContainer/BoostLabel")
 
 	# Gold bag (Pomodoro) bar
@@ -95,8 +96,6 @@ func _process(delta):
 		if spawner.targets_ready:
 			kill_label.text += "   |   Cleared %d / %d" % [spawner.total_killed, spawner.min_clear]
 
-	orb_bar.max_value = GameState.orb_slots
-	orb_bar.value = GameState.orbs_collected
 	zone_label.text = GameState.current_zone
 
 	# Pomodoro flow timer
