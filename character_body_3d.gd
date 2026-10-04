@@ -31,12 +31,23 @@ const SKILL_Q = {
 	Class.HEALER: {name = "Self Heal", cost = 3.0},
 }
 const SKILL_F = {
-	Class.DPS: {name = "Class Skill", cost = 0.0, soon = true},
-	Class.TANK: {name = "Taunt", cost = 2.0},
+	Class.DPS: {name = "Blast", cost = 8.0},		# 80% of max energy
+	Class.TANK: {name = "Thorns Aura", cost = 5.0},
 	Class.HEALER: {name = "Energy Transfer", cost = 0.0, soon = true},
 }
 
-const TAUNT_RANGE = 15.0
+# Class specials (F). Both cover about 25% of the screen.
+const SPECIAL_SCREEN_SHARE = 0.25
+const BLAST_DAMAGE = 250.0		# DPS: hits everything in the circle around the mouse
+const AURA_DURATION = 8.0		# Tank: seconds the aura lasts
+const AURA_DAMAGE_PER_SECOND = 40.0	# Tank: to every enemy inside the aura
+const AURA_TICK = 0.5
+const THORNS_REFLECT = 0.5		# Tank: while the aura is up, attackers take back 50% of the hit
+
+var mouse_world_point = Vector3.ZERO
+var aura_time_left = 0.0
+var _aura_tick_timer = 0.0
+var _aura_disc: MeshInstance3D = null
 
 # Attack cooldowns
 var st_cooldown = 0.0
@@ -159,8 +170,9 @@ func _physics_process(delta):
 	if direction.length() > 0:
 		direction = direction.normalized()
 
-	velocity.x = direction.x * SPEED
-	velocity.z = direction.z * SPEED
+	var speed_now = SPEED * GameState.slow_factor_at(global_position)	# slow patches
+	velocity.x = direction.x * speed_now
+	velocity.z = direction.z * speed_now
 	velocity.y += GRAVITY * delta
 
 	var mouse_pos = get_viewport().get_mouse_position()
@@ -169,10 +181,13 @@ func _physics_process(delta):
 	var ray_direction = cam.project_ray_normal(mouse_pos)
 	var t = (0.0 - ray_origin.y) / ray_direction.y
 	var mouse_world = ray_origin + ray_direction * t
+	mouse_world_point = mouse_world
 	look_at(Vector3(mouse_world.x, global_position.y, mouse_world.z), Vector3.UP)
 
 	if camera:
 		camera.global_position = global_position + Vector3(0, 8, 5)
+
+	_tick_aura(delta)
 
 	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 		if st_cooldown <= 0:
@@ -233,6 +248,8 @@ func take_damage(amount, source = null):
 		return
 	if source and "tier" in source:
 		last_attacker = SkinManager.name_of(source.TIER_IDS[source.tier] + "_one")
+		if aura_time_left > 0.0 and is_instance_valid(source):
+			source.take_damage(amount * THORNS_REFLECT)	# thorns
 	health -= amount
 	print("Player health: ", roundi(health))
 	
@@ -336,18 +353,103 @@ func use_secondary_ability():
 func use_class_ability():
 	match player_class:
 		Class.DPS:
-			print("DPS class ability - TBD")
+			if spend_energy(SKILL_F[Class.DPS].cost):
+				_blast(mouse_world_point)
 		Class.TANK:
 			if spend_energy(SKILL_F[Class.TANK].cost):
-				# Pull every enemy within range onto the tank
-				var pulled = 0
-				for enemy in get_tree().get_nodes_in_group("enemy"):
-					if global_position.distance_to(enemy.global_position) <= TAUNT_RANGE:
-						enemy.aggroed = true
-						pulled += 1
-				print("Taunt! Pulled ", pulled, " enemies")
+				aura_time_left = AURA_DURATION
+				_aura_tick_timer = 0.0
+				print("Thorns Aura up for ", AURA_DURATION, "s")
 		Class.HEALER:
 			print("Energy transfer - TBD")
+
+
+## Radius of a circle that covers about 25% of what's on screen.
+## Measured from the camera each time, so it stays right if the window or camera changes.
+func special_radius() -> float:
+	var cam = get_viewport().get_camera_3d()
+	var size = get_viewport().get_visible_rect().size
+	var corners = [Vector2(0, 0), Vector2(size.x, 0), Vector2(size.x, size.y), Vector2(0, size.y)]
+	var pts = []
+	for c in corners:
+		var o = cam.project_ray_origin(c)
+		var d = cam.project_ray_normal(c)
+		if d.y >= -0.01:
+			ErrorLog.warn("special_radius: a screen corner doesn't hit the ground; using 10")
+			return 10.0
+		var t = -o.y / d.y
+		pts.append(Vector2(o.x + d.x * t, o.z + d.z * t))
+	var area = 0.0	# shoelace formula for the visible ground area
+	for i in range(4):
+		var p1 = pts[i]
+		var p2 = pts[(i + 1) % 4]
+		area += p1.x * p2.y - p2.x * p1.y
+	area = abs(area) / 2.0
+	return sqrt(area * SPECIAL_SCREEN_SHARE / PI)
+
+
+## DPS Blast: big damage to every enemy in a circle around the mouse.
+func _blast(center: Vector3):
+	var radius = special_radius()
+	var hit = 0
+	for enemy in get_tree().get_nodes_in_group("enemy"):
+		if not is_instance_valid(enemy) or enemy.is_queued_for_deletion():
+			continue
+		var d = Vector2(enemy.global_position.x - center.x, enemy.global_position.z - center.z).length()
+		if d <= radius:
+			enemy.take_damage(BLAST_DAMAGE * get_damage_multiplier())
+			hit += 1
+	print("Blast! radius %.1f, hit %d" % [radius, hit])
+	var disc = _make_disc(radius, Color(1.0, 0.45, 0.1, 0.45))
+	get_tree().current_scene.add_child(disc)
+	disc.global_position = Vector3(center.x, 0.25, center.z)
+	var tween = disc.create_tween()
+	tween.tween_property(disc, "scale", Vector3(1.05, 1, 1.05), 0.35)
+	tween.parallel().tween_property(disc.material_override, "albedo_color:a", 0.0, 0.35)
+	tween.tween_callback(disc.queue_free)
+
+
+## Tank Thorns Aura: damages and pulls every enemy near the tank while it lasts.
+func _tick_aura(delta):
+	if aura_time_left <= 0.0:
+		if _aura_disc:
+			_aura_disc.queue_free()
+			_aura_disc = null
+		return
+	aura_time_left -= delta
+	var radius = special_radius()
+	if _aura_disc == null:
+		_aura_disc = _make_disc(1.0, Color(0.3, 0.9, 0.3, 0.25))
+		add_child(_aura_disc)
+		_aura_disc.position = Vector3(0, -0.9, 0)
+	_aura_disc.scale = Vector3(radius, 1, radius)
+	_aura_tick_timer -= delta
+	if _aura_tick_timer > 0.0:
+		return
+	_aura_tick_timer = AURA_TICK
+	for enemy in get_tree().get_nodes_in_group("enemy"):
+		if not is_instance_valid(enemy) or enemy.is_queued_for_deletion():
+			continue
+		var d = Vector2(enemy.global_position.x - global_position.x, enemy.global_position.z - global_position.z).length()
+		if d <= radius:
+			enemy.aggroed = true
+			enemy.take_damage(AURA_DAMAGE_PER_SECOND * AURA_TICK)
+
+
+func _make_disc(radius: float, color: Color) -> MeshInstance3D:
+	var mesh = CylinderMesh.new()
+	mesh.top_radius = radius
+	mesh.bottom_radius = radius
+	mesh.height = 0.05
+	var mat = StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_color = color
+	var mi = MeshInstance3D.new()
+	mi.mesh = mesh
+	mi.material_override = mat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return mi
 
 
 ## List of skills for the skill HUD: key to press, name, energy cost, cooldown left.

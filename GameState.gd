@@ -258,7 +258,7 @@ func remember_current_zone():
 	if scene == null or scene.scene_file_path == "res://Home.tscn":
 		return
 	var memory = {}
-	var parts = {"spawner": "zone_spawner", "obstacles": "zone_obstacles", "terrain": "zone_terrain"}
+	var parts = {"spawner": "zone_spawner", "obstacles": "zone_obstacles", "terrain": "zone_terrain", "fog": "zone_fog"}
 	for part in parts:
 		var node = get_tree().get_first_node_in_group(parts[part])
 		if node:
@@ -273,3 +273,11 @@ func saved_zone_part(node: Node, part: String):
 		return null
 	var memory = zone_memory.get(node.owner.scene_file_path, {})
 	return memory.get(part, null)
+
+
+## Speed multiplier at a spot: 1.0 normally, lower inside a slow patch (ditch).
+func slow_factor_at(world_pos: Vector3) -> float:
+	for d in get_tree().get_nodes_in_group("ditch"):
+		if d.contains(world_pos):
+			return d.get_slow_factor()
+	return 1.0

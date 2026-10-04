@@ -54,7 +54,6 @@ func apply_skin():
 	$MeshInstance3D.mesh.surface_set_material(0, mat)
 
 func _physics_process(delta):
-	velocity.y += GRAVITY * delta
 	if player == null or not is_instance_valid(player) or not player.is_inside_tree():
 		player = get_tree().get_first_node_in_group("player")
 	if player:
@@ -62,13 +61,19 @@ func _physics_process(delta):
 		
 		if distance <= AGGRO_RANGE:
 			aggroed = true
+
+		# Idle enemies stand still and skip physics (zones can hold hundreds of them)
+		if not aggroed:
+			return
+		velocity.y += GRAVITY * delta
 		
 		if aggroed:
 			var direction = (player.global_position - global_position)
 			direction.y = 0
 			direction = direction.normalized()
-			velocity.x = direction.x * SPEED
-			velocity.z = direction.z * SPEED
+			var speed_now = SPEED * GameState.slow_factor_at(global_position)
+			velocity.x = direction.x * speed_now
+			velocity.z = direction.z * speed_now
 			
 			attack_cooldown -= delta
 			if distance <= ATTACK_RANGE:

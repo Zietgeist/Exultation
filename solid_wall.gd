@@ -1,9 +1,12 @@
 extends StaticBody3D
 
 func _ready():
+	$MeshInstance3D.mesh = $MeshInstance3D.mesh.duplicate()
+	$CollisionShape3D.shape = $CollisionShape3D.shape.duplicate()
 	var mesh = $MeshInstance3D.mesh
-	mesh.size = Vector3(randf_range(3.0, 10.0), 3.0, 0.5)
-	$CollisionShape3D.shape.size = Vector3(4.0, 3.0, 0.5)
+	var length = randf_range(3.0, 10.0)
+	mesh.size = Vector3(length, 3.0, 0.5)
+	$CollisionShape3D.shape.size = Vector3(length, 3.0, 0.5)	# collision now matches what you see
 	
 	# Dark metal color for sci-fi feel
 	var mat = StandardMaterial3D.new()

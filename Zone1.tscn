@@ -46,9 +46,6 @@ mesh = SubResource("BoxMesh_glv2v")
 [node name="CollisionShape3D" type="CollisionShape3D" parent="zone1floor"]
 shape = SubResource("BoxShape3D_glv2v")
 
-[node name="Enemy" parent="." instance=ExtResource("3_n350s")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.6374817, 1.677063, -1.526001)
-
 [node name="Spawner" type="Node3D" parent="." groups=["spawner"]]
 script = ExtResource("4_25isr")
 

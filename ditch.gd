@@ -1,21 +1,34 @@
 extends StaticBody3D
+## A slow patch: a dark sunken area on the ground. Walking through it slows you (and enemies) down.
 
-const SLOW_FACTOR = 0.4
+const SLOW_FACTOR = 0.2		# move at 20% speed while inside (was meant to be 40% before)
+const SIZE = 4.0
+
 
 func _ready():
-	# Ditch is sunken into ground
-	var mesh = $MeshInstance3D.mesh
-	mesh.size = Vector3(4.0, 0.5, 4.0)
-	$CollisionShape3D.shape.size = Vector3(4.0, 0.5, 4.0)
-	
-	# Blue-grey color to show it's a ditch
-	var mat = StandardMaterial3D.new()
-	mat.albedo_color = Color(0.2, 0.25, 0.3)
-	mesh.surface_set_material(0, mat)
-	
-	# Sink it below ground level
-	position.y = -0.3
+	add_to_group("ditch")
+	# Walk-through: no collision, it just slows
+	collision_layer = 0
+	collision_mask = 0
+	$CollisionShape3D.disabled = true
 
-# Called by movement scripts to check slow factor
+	# Each ditch gets its own mesh (they used to share one)
+	var mesh = BoxMesh.new()
+	mesh.size = Vector3(SIZE, 0.04, SIZE)
+	var mat = StandardMaterial3D.new()
+	mat.albedo_color = Color(0.12, 0.16, 0.22)
+	mesh.surface_set_material(0, mat)
+	$MeshInstance3D.mesh = mesh
+
+	# Sit just on top of the floor tiles so it's visible
+	position.y = 0.17
+
+
+## Is this world position inside the patch?
+func contains(world_pos: Vector3) -> bool:
+	var local = to_local(world_pos)
+	return abs(local.x) <= SIZE / 2.0 and abs(local.z) <= SIZE / 2.0
+
+
 func get_slow_factor():
 	return SLOW_FACTOR
