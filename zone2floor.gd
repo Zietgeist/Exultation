@@ -48,8 +48,9 @@ func add_border_walls():
 		[Vector3(53.75, 1, 85), Vector3(62.5, 2, 1)],
 		# West
 		[Vector3(-85, 1, 0), Vector3(1, 2, 170)],
-		# East
-		[Vector3( 85, 1, 0), Vector3(1, 2, 170)],
+		# East — 10-wide gate at center for Zone 3
+		[Vector3(85, 1, -45), Vector3(1, 2, 80)],
+		[Vector3(85, 1, 45), Vector3(1, 2, 80)],
 	]
 	for w in walls:
 		var body = StaticBody3D.new()

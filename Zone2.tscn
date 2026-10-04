@@ -31,6 +31,12 @@ albedo_color = Color(0, 1, 1, 1)
 [sub_resource type="BoxShape3D" id="BoxShape3D_25isr"]
 size = Vector3(5, 2, 1)
 
+[sub_resource type="BoxShape3D" id="Shape_DoorToZone3"]
+size = Vector3(1, 2, 10)
+
+[sub_resource type="BoxMesh" id="Mesh_DoorToZone3"]
+size = Vector3(1, 2, 2)
+
 [node name="Node3D" type="Node3D"]
 
 [node name="Camera3D" type="Camera3D" parent="."]
@@ -91,6 +97,17 @@ mesh = SubResource("BoxMesh_n350s")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="DoorToHome"]
 shape = SubResource("BoxShape3D_25isr")
+
+[node name="DoorToZone3" type="Area3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 85, 1, 0)
+script = ExtResource("9_n350s")
+target_scene = "res://Zone3.tscn"
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="DoorToZone3"]
+shape = SubResource("Shape_DoorToZone3")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="DoorToZone3"]
+mesh = SubResource("Mesh_DoorToZone3")
 
 [connection signal="body_shape_entered" from="DoorToZone1" to="DoorToZone1" method="_on_body_shape_entered"]
 [connection signal="body_shape_entered" from="DoorToHome" to="DoorToHome" method="_on_body_shape_entered"]
