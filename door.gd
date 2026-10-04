@@ -5,6 +5,7 @@ extends Area3D
 
 const OPEN_COLOR = Color(0, 1, 1)
 const LOCKED_COLOR = Color(0.9, 0.1, 0.1)
+const BEACONS_ENABLED = false	# lighthouse beams: mothballed (gate_beacon.gd kept for later)
 
 var label: Label3D = null
 
@@ -42,7 +43,7 @@ func _refresh():
 
 ## Out in a zone, open gates sweep a lighthouse beam every 20 seconds so you can find your way out.
 func _add_beacon():
-	if GameState.current_zone == "Home":
+	if not BEACONS_ENABLED or GameState.current_zone == "Home":
 		return
 	var beacon = load("res://gate_beacon.gd").new()
 	beacon.door = self

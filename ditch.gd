@@ -3,7 +3,7 @@ extends StaticBody3D
 
 const SLOW_FACTOR = 0.2		# move at 20% speed while inside (was meant to be 40% before)
 const SIZE = 4.0
-const HIDDEN_CHANCE = 0.5	# half the slow patches are invisible until you step in one
+const HIDDEN_CHANCE = 0.0	# all slow patches visible (hidden ones were tried and felt annoying)
 
 var hidden = false
 
