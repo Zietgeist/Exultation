@@ -5,6 +5,8 @@ extends Node3D
 ## - The other 10% show up near the player a few at a time.
 ## - The 2nd Boss appears near the player once the minimum number of kills is reached.
 ## - Leaving and coming back (same play session) restores everything, including live enemies.
+## - Speed: only enemies near the player actually exist. The rest wait as simple data
+##   ("dormant") and wake up as you get close, then go back to sleep when you're far away.
 
 const ENEMY_SCENE = preload("res://enemy.tscn")
 const FOG_SCRIPT = preload("res://fog_of_war.gd")
@@ -22,6 +24,13 @@ const NEAR_PLAYER_INTERVAL = 10.0	# seconds between "near the player" groups
 const NEAR_MIN = 12.0
 const NEAR_MAX = 18.0
 const ENEMY_REST_HEIGHT = 1.2	# standing on the floor
+const WAKE_RADIUS = 45.0		# dormant enemies closer than this become real
+const SLEEP_RADIUS = 60.0		# real, calm enemies farther than this go dormant
+const STREAM_EVERY = 0.1		# seconds between wake/sleep checks
+const MAX_WAKES_PER_CHECK = 40	# spread the work so there are no hitches
+
+var dormant = []	# [{t = tier, p = position, h = health (-1 = full)}]
+var _stream_timer = 0.0
 
 # Set when the zone loads (random each visit, so no two runs are the same)
 var zone_scale = 1.0
@@ -77,9 +86,8 @@ func _setup_zone_targets():
 		for key in SAVED_KEYS:
 			set(key, saved[key])
 		for e in saved.alive:
-			var enemy = _make_enemy(e.t, e.p)
-			enemy.health = e.h
-			enemy.aggroed = false
+			_place_dormant(e.t, e.p, e.h)
+		_stream()
 		targets_ready = true
 		print("Back in the zone: %d / %d cleared" % [total_killed, min_clear])
 		return
@@ -94,6 +102,7 @@ func _setup_zone_targets():
 		zone_scale, target_total, min_clear, MAX_TRASH, MAX_THUGS, MAX_MASTERS, MAX_BOSSES])
 	_initial_spawn()
 	targets_ready = true
+	_stream()
 
 
 ## Place 90% of the zone's enemies across the map.
@@ -111,25 +120,25 @@ func _initial_spawn():
 	while placed < up_trash:
 		var center = _random_spot(entry, SAFE_START_RADIUS)
 		for i in range(mini(randi_range(3, 6), up_trash - placed)):
-			_make_enemy(0, center + Vector3(randf_range(-3, 3), 0, randf_range(-3, 3)))
+			_place_dormant(0, center + Vector3(randf_range(-3, 3), 0, randf_range(-3, 3)))
 			placed += 1
 	# Thugs in pairs, a bit farther in
 	placed = 0
 	while placed < up_thugs:
 		var center = _random_spot(entry, max(SAFE_START_RADIUS, far * 0.35))
 		for i in range(mini(randi_range(1, 2), up_thugs - placed)):
-			_make_enemy(1, center + Vector3(randf_range(-2, 2), 0, randf_range(-2, 2)))
+			_place_dormant(1, center + Vector3(randf_range(-2, 2), 0, randf_range(-2, 2)))
 			placed += 1
 	# Masters alone, deep in the zone
 	for i in range(up_masters):
-		_make_enemy(2, _random_spot(entry, max(SAFE_START_RADIUS, far * 0.55)))
+		_place_dormant(2, _random_spot(entry, max(SAFE_START_RADIUS, far * 0.55)))
 	# 1st Boss: the farthest of several random spots
 	var best = Vector3.ZERO
 	for i in range(20):
 		var p = _random_spot(entry, 0.0)
 		if p.distance_to(entry) > best.distance_to(entry):
 			best = p
-	_make_enemy(3, best)
+	_place_dormant(3, best)
 
 
 func _process(delta):
@@ -139,6 +148,11 @@ func _process(delta):
 		player = get_tree().get_first_node_in_group("player")
 		if player == null:
 			return
+
+	_stream_timer += delta
+	if _stream_timer >= STREAM_EVERY:
+		_stream_timer = 0.0
+		_stream()
 
 	# The held-back 10%: a small group near the player every so often
 	near_timer += delta
@@ -179,21 +193,62 @@ func _spawn_boss_near_player():
 	print("A BOSS HAS ARRIVED!")
 
 
-## Create one enemy of a tier at a spot (kept inside the walls) and count it.
+## Create one real enemy of a tier at a spot (kept inside the walls) and count it.
 func _make_enemy(t: int, pos: Vector3):
-	var enemy = ENEMY_SCENE.instantiate()
-	enemy.connect("enemy_died", _on_enemy_died)
-	get_tree().current_scene.add_child(enemy)  # enemies belong to the zone, so they vanish when we leave
+	_count_spawn(t)
+	return _instantiate(t, pos, -1)
+
+
+## Add an enemy that waits as data until the player comes near, and count it.
+func _place_dormant(t: int, pos: Vector3, h := -1.0):
+	_count_spawn(t)
 	pos.y = ENEMY_REST_HEIGHT
-	enemy.global_position = clamp_to_map(pos)
-	enemy.call("setup", 1.0, t)
+	dormant.append({t = t, p = clamp_to_map(pos), h = h})
+
+
+func _count_spawn(t: int):
 	total_spawned += 1
 	match t:
 		0: trash_spawned += 1
 		1: thugs_spawned += 1
 		2: masters_spawned += 1
 		3: bosses_spawned += 1
+
+
+func _instantiate(t: int, pos: Vector3, h: float):
+	var enemy = ENEMY_SCENE.instantiate()
+	enemy.connect("enemy_died", _on_enemy_died)
+	enemy.set_meta("from_spawner", true)
+	get_tree().current_scene.add_child(enemy)  # enemies belong to the zone, so they vanish when we leave
+	pos.y = ENEMY_REST_HEIGHT
+	enemy.global_position = clamp_to_map(pos)
+	enemy.call("setup", 1.0, t)
+	if h > 0.0:
+		enemy.health = h
 	return enemy
+
+
+## Wake dormant enemies near the player; put calm, far-away ones back to sleep.
+func _stream():
+	if not is_instance_valid(player):
+		return
+	var pp = player.global_position
+	var woke = 0
+	var i = dormant.size() - 1
+	while i >= 0 and woke < MAX_WAKES_PER_CHECK:
+		var d = dormant[i]
+		if Vector2(d.p.x - pp.x, d.p.z - pp.z).length() < WAKE_RADIUS:
+			_instantiate(d.t, d.p, d.h)
+			dormant.remove_at(i)
+			woke += 1
+		i -= 1
+	for enemy in get_tree().get_nodes_in_group("enemy"):
+		if enemy.aggroed or enemy.is_queued_for_deletion() or not enemy.has_meta("from_spawner"):
+			continue
+		var ep = enemy.global_position
+		if Vector2(ep.x - pp.x, ep.z - pp.z).length() > SLEEP_RADIUS:
+			dormant.append({t = enemy.tier, p = ep, h = enemy.health})
+			enemy.queue_free()
 
 
 func _random_spot(entry: Vector3, min_dist: float) -> Vector3:
@@ -225,6 +280,8 @@ func save_state() -> Dictionary:
 		if enemy.is_queued_for_deletion():
 			continue
 		alive.append({t = enemy.tier, p = enemy.global_position, h = enemy.health})
+	for d in dormant:
+		alive.append(d.duplicate())
 	out.alive = alive
 	# Live enemies get re-created on return, so don't count them twice
 	out.total_spawned -= alive.size()

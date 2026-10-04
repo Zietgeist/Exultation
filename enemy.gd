@@ -41,7 +41,6 @@ func setup(diff, t = Tier.TRASH):
 	AGGRO_RANGE = stats.aggro
 	
 	# Set color (from the current skin)
-	$MeshInstance3D.mesh = $MeshInstance3D.mesh.duplicate()
 	apply_skin()
 
 func _ready():
@@ -49,9 +48,7 @@ func _ready():
 	SkinManager.skin_changed.connect(apply_skin)
 
 func apply_skin():
-	var mat = StandardMaterial3D.new()
-	mat.albedo_color = SkinManager.color(TIER_IDS[tier], TIER_STATS[tier].color)
-	$MeshInstance3D.mesh.surface_set_material(0, mat)
+	$MeshInstance3D.material_override = SkinManager.material(TIER_IDS[tier], TIER_STATS[tier].color)
 
 func _physics_process(delta):
 	if player == null or not is_instance_valid(player) or not player.is_inside_tree():

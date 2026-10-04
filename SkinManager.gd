@@ -13,6 +13,7 @@ const SETTINGS_PATH := "user://settings.cfg"
 
 var skins := {}	# skin id -> skin data (Dictionary)
 var current_id := "default"
+var _materials := {}	# id -> shared material (one per color, so hundreds of enemies share it)
 
 
 func _ready():
@@ -33,6 +34,15 @@ func _unhandled_input(event):
 
 
 ## Color for a game ID, e.g. color("enemy_trash")
+## One shared material per game ID (much faster than a new material for every enemy).
+func material(id: String, fallback := Color.WHITE) -> StandardMaterial3D:
+	if not _materials.has(id):
+		var mat = StandardMaterial3D.new()
+		mat.albedo_color = color(id, fallback)
+		_materials[id] = mat
+	return _materials[id]
+
+
 func color(id: String, fallback := Color.WHITE) -> Color:
 	var hex = _lookup("colors", id)
 	if hex == null:
@@ -60,6 +70,7 @@ func set_skin(id: String):
 	cfg.set_value("skin", "id", id)
 	cfg.save(SETTINGS_PATH)
 	print("Skin changed to: ", skin_name())
+	_materials.clear()
 	skin_changed.emit()
 
 
