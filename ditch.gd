@@ -3,6 +3,9 @@ extends StaticBody3D
 
 const SLOW_FACTOR = 0.2		# move at 20% speed while inside (was meant to be 40% before)
 const SIZE = 4.0
+const HIDDEN_CHANCE = 0.5	# half the slow patches are invisible until you step in one
+
+var hidden = false
 
 
 func _ready():
@@ -19,6 +22,7 @@ func _ready():
 	mat.albedo_color = Color(0.12, 0.16, 0.22)
 	mesh.surface_set_material(0, mat)
 	$MeshInstance3D.mesh = mesh
+	set_hidden(randf() < HIDDEN_CHANCE)
 
 	# Sit just on top of the floor tiles so it's visible
 	position.y = 0.17
@@ -28,6 +32,18 @@ func _ready():
 func contains(world_pos: Vector3) -> bool:
 	var local = to_local(world_pos)
 	return abs(local.x) <= SIZE / 2.0 and abs(local.z) <= SIZE / 2.0
+
+
+func set_hidden(value: bool):
+	hidden = value
+	$MeshInstance3D.visible = not hidden
+
+
+## Stepping into a hidden patch shows it from then on.
+func reveal():
+	if hidden:
+		set_hidden(false)
+		print("Hidden slow patch found!")
 
 
 func get_slow_factor():

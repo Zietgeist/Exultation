@@ -1,10 +1,11 @@
 extends Node3D
-## Fog of war: a dark cloud layer over parts of the zone you haven't been near yet.
+## Fog of war: a dark layer over the ground in parts of the zone you haven't been near yet.
+## Enemies stand above it, so you can still see them coming.
 ## It lifts as you explore and stays lifted for the rest of the play session.
 
 const CELL = 4.0		# size of one fog square
 const REVEAL_RADIUS = 16.0	# how far around you the fog lifts
-const HEIGHT = 2.6		# above enemies and walls, below the camera
+const HEIGHT = 0.35		# just above the floor: hides the ground, but enemies and tall things stand out of it
 const FOG_COLOR = Color(0.06, 0.07, 0.1, 0.93)
 const CHECK_EVERY = 0.15
 

@@ -16,10 +16,12 @@ func _ready():
 			add_child(piece)
 			piece.position = t.p
 			piece.rotation.y = t.r
+			if "hidden" in piece:
+				piece.set_hidden(t.get("h", false))
 		return
 
 	var m = GameState.obstacle_multiplier()
-	spawn_terrain(DITCH_SCENE, roundi(30 * m))
+	spawn_terrain(DITCH_SCENE, roundi(15 * m))	# half as many slow patches as before
 	spawn_clusters(LOW_WALL_SCENE, roundi(15 * m))
 	spawn_clusters(SOLID_WALL_SCENE, roundi(10 * m))
 
@@ -28,7 +30,7 @@ func _ready():
 func save_state() -> Array:
 	var out = []
 	for piece in get_children():
-		out.append({scene = piece.scene_file_path, p = piece.position, r = piece.rotation.y})
+		out.append({scene = piece.scene_file_path, p = piece.position, r = piece.rotation.y, h = piece.get("hidden") == true})
 	return out
 
 

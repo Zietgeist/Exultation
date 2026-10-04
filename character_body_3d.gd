@@ -170,7 +170,11 @@ func _physics_process(delta):
 	if direction.length() > 0:
 		direction = direction.normalized()
 
-	var speed_now = SPEED * GameState.slow_factor_at(global_position)	# slow patches
+	var speed_now = SPEED
+	var ditch = GameState.ditch_at(global_position)	# slow patches
+	if ditch:
+		speed_now *= ditch.get_slow_factor()
+		ditch.reveal()	# hidden ones show up once you step in
 	velocity.x = direction.x * speed_now
 	velocity.z = direction.z * speed_now
 	velocity.y += GRAVITY * delta

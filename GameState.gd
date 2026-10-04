@@ -277,7 +277,13 @@ func saved_zone_part(node: Node, part: String):
 
 ## Speed multiplier at a spot: 1.0 normally, lower inside a slow patch (ditch).
 func slow_factor_at(world_pos: Vector3) -> float:
+	var d = ditch_at(world_pos)
+	return d.get_slow_factor() if d else 1.0
+
+
+## The slow patch at a spot, or null.
+func ditch_at(world_pos: Vector3):
 	for d in get_tree().get_nodes_in_group("ditch"):
 		if d.contains(world_pos):
-			return d.get_slow_factor()
-	return 1.0
+			return d
+	return null
