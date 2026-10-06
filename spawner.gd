@@ -86,7 +86,7 @@ func _setup_zone_targets():
 		for key in SAVED_KEYS:
 			set(key, saved[key])
 		for e in saved.alive:
-			_place_dormant(e.t, e.p, e.h)
+			_place_dormant(e.t, e.p, e.h, e.get("e", ""))
 		_stream()
 		targets_ready = true
 		print("Back in the zone: %d / %d cleared" % [total_killed, min_clear])
@@ -199,14 +199,21 @@ func _spawn_boss_near_player():
 ## Create one real enemy of a tier at a spot (kept inside the walls) and count it.
 func _make_enemy(t: int, pos: Vector3):
 	_count_spawn(t)
-	return _instantiate(t, pos, -1)
+	return _instantiate(t, pos, -1, _roll_element(t))
 
 
 ## Add an enemy that waits as data until the player comes near, and count it.
-func _place_dormant(t: int, pos: Vector3, h := -1.0):
+## Damage type for a new enemy in this zone.
+func _roll_element(t: int) -> String:
+	return Crafting.roll_enemy_element(owner.scene_file_path if owner else "", t == 3)
+
+
+func _place_dormant(t: int, pos: Vector3, h := -1.0, element := ""):
 	_count_spawn(t)
 	pos.y = ENEMY_REST_HEIGHT
-	dormant.append({t = t, p = clamp_to_map(pos), h = h})
+	if element == "":
+		element = _roll_element(t)
+	dormant.append({t = t, p = clamp_to_map(pos), h = h, e = element})
 
 
 func _count_spawn(t: int):
@@ -218,14 +225,14 @@ func _count_spawn(t: int):
 		3: bosses_spawned += 1
 
 
-func _instantiate(t: int, pos: Vector3, h: float):
+func _instantiate(t: int, pos: Vector3, h: float, element := "physical"):
 	var enemy = ENEMY_SCENE.instantiate()
 	enemy.connect("enemy_died", _on_enemy_died)
 	enemy.set_meta("from_spawner", true)
 	get_tree().current_scene.add_child(enemy)  # enemies belong to the zone, so they vanish when we leave
 	pos.y = ENEMY_REST_HEIGHT
 	enemy.global_position = _clear_spot(clamp_to_map(pos))
-	enemy.call("setup", 1.0, t)
+	enemy.call("setup", 1.0, t, element)
 	if h > 0.0:
 		enemy.health = h
 	return enemy
@@ -241,7 +248,7 @@ func _stream():
 	while i >= 0 and woke < MAX_WAKES_PER_CHECK:
 		var d = dormant[i]
 		if Vector2(d.p.x - pp.x, d.p.z - pp.z).length() < WAKE_RADIUS:
-			_instantiate(d.t, d.p, d.h)
+			_instantiate(d.t, d.p, d.h, d.get("e", "physical"))
 			dormant.remove_at(i)
 			woke += 1
 		i -= 1
@@ -250,7 +257,7 @@ func _stream():
 			continue
 		var ep = enemy.global_position
 		if Vector2(ep.x - pp.x, ep.z - pp.z).length() > SLEEP_RADIUS:
-			dormant.append({t = enemy.tier, p = ep, h = enemy.health})
+			dormant.append({t = enemy.tier, p = ep, h = enemy.health, e = enemy.damage_type})
 			enemy.queue_free()
 
 
@@ -282,7 +289,7 @@ func save_state() -> Dictionary:
 	for enemy in get_tree().get_nodes_in_group("enemy"):
 		if enemy.is_queued_for_deletion():
 			continue
-		alive.append({t = enemy.tier, p = enemy.global_position, h = enemy.health})
+		alive.append({t = enemy.tier, p = enemy.global_position, h = enemy.health, e = enemy.damage_type})
 	for d in dormant:
 		alive.append(d.duplicate())
 	out.alive = alive

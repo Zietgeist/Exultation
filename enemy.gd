@@ -31,9 +31,12 @@ var aggroed = false
 var hunter = false	# hunters (the 2nd Boss) never stop chasing you
 var difficulty = 1.0
 
-func setup(diff, t = Tier.TRASH):
+var damage_type = "physical"	# radiant, shadow, nature, storm... (armor can resist these)
+
+func setup(diff, t = Tier.TRASH, element := "physical"):
 	difficulty = diff
 	tier = t
+	damage_type = element
 	var stats = TIER_STATS[tier]
 	MAX_HEALTH = roundi(stats.health * difficulty)
 	health = MAX_HEALTH
@@ -49,7 +52,10 @@ func _ready():
 	SkinManager.skin_changed.connect(apply_skin)
 
 func apply_skin():
-	$MeshInstance3D.material_override = SkinManager.material(TIER_IDS[tier], TIER_STATS[tier].color)
+	if damage_type == "physical":
+		$MeshInstance3D.material_override = SkinManager.material(TIER_IDS[tier], TIER_STATS[tier].color)
+	else:	# glows with its damage type's color
+		$MeshInstance3D.material_override = SkinManager.element_material(TIER_IDS[tier], TIER_STATS[tier].color, damage_type, Crafting.ELEMENT_COLORS[damage_type])
 
 func _physics_process(delta):
 	if player == null or not is_instance_valid(player) or not player.is_inside_tree():

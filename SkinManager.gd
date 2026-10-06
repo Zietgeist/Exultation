@@ -43,6 +43,19 @@ func material(id: String, fallback := Color.WHITE) -> StandardMaterial3D:
 	return _materials[id]
 
 
+## Same as material(), plus a glow showing the enemy's damage type.
+func element_material(id: String, fallback: Color, element: String, glow: Color) -> StandardMaterial3D:
+	var key = id + ":" + element
+	if not _materials.has(key):
+		var mat = StandardMaterial3D.new()
+		mat.albedo_color = color(id, fallback)
+		mat.emission_enabled = true
+		mat.emission = glow
+		mat.emission_energy_multiplier = 0.6
+		_materials[key] = mat
+	return _materials[key]
+
+
 func color(id: String, fallback := Color.WHITE) -> Color:
 	var hex = _lookup("colors", id)
 	if hex == null:

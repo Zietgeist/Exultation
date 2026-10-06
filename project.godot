@@ -13,6 +13,7 @@ ErrorLog="*res://ErrorLog.gd"
 GameState="*res://GameState.gd"
 SessionManager="*res://SessionManager.gd"
 SkinManager="*res://SkinManager.gd"
+Crafting="*res://crafting.gd"
 
 [global_group]
 

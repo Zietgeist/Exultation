@@ -58,10 +58,12 @@ func _build(skills: Array):
 
 func _update_slot(slot: Dictionary, s: Dictionary):
 	slot.name.text = s.name
-	var can_use = player.energy >= s.cost and s.cooldown <= 0.0 and not s.soon
+	var can_use = player.energy >= s.cost and s.cooldown <= 0.0 and not s.soon and s.get("note", "") != "Make at Chemist"
 
 	if s.soon:
 		slot.info.text = "Coming soon"
+	elif s.get("note", "") != "":
+		slot.info.text = s.note
 	elif s.cooldown > 0.0:
 		slot.info.text = "%.1fs" % s.cooldown
 	elif s.cost > 0.0:

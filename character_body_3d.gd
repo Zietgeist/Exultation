@@ -1,8 +1,10 @@
 extends CharacterBody3D
 
-const SPEED = 10.0
+var SPEED = 10.0		# armor can change this
+const BASE_SPEED = 10.0
 const GRAVITY = -9.8
-const MAX_HEALTH = 100.0
+var MAX_HEALTH = 100.0	# armor vitality can raise this
+const BASE_MAX_HEALTH = 100.0
 
 # Class types
 enum Class {DPS, TANK, HEALER}
@@ -54,7 +56,7 @@ var st_cooldown = 0.0
 var aoe_cooldown = 0.0
 
 # Base attack stats
-const ST_RANGE = 10.0
+var ST_RANGE = 10.0		# weapon reach (spears reach farther)
 const AOE_RANGE = 8.0
 
 # Current weapon stats
@@ -91,6 +93,8 @@ var invulnerable_time = 0.0
 
 
 func _ready():
+	Crafting.changed.connect(apply_gear)
+	apply_gear()
 	player_class = GameState.player_class
 	print("Playing as class: ", player_class)
 	_place_at_entry.call_deferred()
@@ -119,8 +123,11 @@ func _place_at_door():
 
 func _input(event):
 	# Ability keys fire once per press (holding the key no longer drains energy)
+	if GameState.ui_open:
+		return	# a shop window is open: keys and clicks go to the window
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
+			KEY_1: drink_potion()
 			KEY_E: use_energy_ability()
 			KEY_Q: use_secondary_ability()
 			KEY_F: use_class_ability()
@@ -134,11 +141,7 @@ func _input(event):
 			update_attack_speed()
 
 func update_attack_speed():
-	var modifier = speed_level * SPEED_DAMAGE_MODIFIER
-	st_cooldown_time = BASE_ST_COOLDOWN * (1.0 - modifier)
-	aoe_cooldown_time = BASE_AOE_COOLDOWN * (1.0 - modifier)
-	st_damage = 100.0 * (1.0 - modifier)
-	aoe_damage = 50.0 * (1.0 - modifier)
+	_refresh_damage()
 	print("Speed level: ", speed_level, " ST damage: ", roundi(st_damage), " Cooldown: ", snapped(st_cooldown_time, 0.01))
 
 func _physics_process(delta):
@@ -174,7 +177,7 @@ func _physics_process(delta):
 	if direction.length() > 0:
 		direction = direction.normalized()
 
-	var speed_now = SPEED
+	var speed_now = SPEED * (1.0 + haste)
 	var ditch = GameState.ditch_at(global_position)	# slow patches
 	if ditch:
 		speed_now *= ditch.get_slow_factor()
@@ -197,14 +200,15 @@ func _physics_process(delta):
 
 	_tick_aura(delta)
 	_tick_gathering(delta)
+	_tick_potion(delta)
 	_update_gather_hint(delta)
 
-	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+	if not GameState.ui_open and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 		if st_cooldown <= 0:
 			single_target_attack()
 			st_cooldown = st_cooldown_time
 
-	if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+	if not GameState.ui_open and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
 		if aoe_cooldown <= 0:
 			aoe_attack()
 			aoe_cooldown = aoe_cooldown_time
@@ -227,9 +231,10 @@ func single_target_attack():
 			closest = enemy
 	
 	if closest:
-		var damage = st_damage * get_damage_multiplier()
-		_show_beam(closest.global_position, Color(1.0, 0.9, 0.3))
+		var damage = st_damage * get_damage_multiplier() + _element_damage()
+		_show_beam(closest.global_position, _beam_color())
 		closest.take_damage(damage)
+		_on_hit()
 	else:
 		# Miss: a short, faint swing toward where you're facing
 		_show_beam(global_position - global_transform.basis.z * 3.0, Color(1.0, 0.9, 0.3, 0.35))
@@ -253,8 +258,9 @@ func aoe_attack():
 	var targets = in_range.slice(0, aoe_max_targets)
 	_show_cone()
 	for enemy in targets:
-		var damage = aoe_damage * get_damage_multiplier()
+		var damage = aoe_damage * get_damage_multiplier() + _element_damage() * 0.5
 		enemy.take_damage(damage)
+		_on_hit()
 
 var last_attacker = ""	# who hit us last (for the death message)
 
@@ -267,8 +273,12 @@ func take_damage(amount, source = null):
 		last_attacker = SkinManager.name_of(source.TIER_IDS[source.tier] + "_one")
 		if aura_time_left > 0.0 and is_instance_valid(source):
 			source.take_damage(amount * THORNS_REFLECT)	# thorns
+	# Damage types: armor and potion wards soak their element
+	var element = source.damage_type if source and "damage_type" in source else "physical"
+	if element != "physical" and source and "tier" in source:
+		last_attacker = SkinManager.name_of(source.TIER_IDS[source.tier] + "_one") + " (" + element + ")"
+	amount *= 1.0 - resistance(element)
 	health -= amount
-	print("Player health: ", roundi(health))
 	
 	# Tank gains energy from taking damage
 	if player_class == Class.TANK:
@@ -329,19 +339,11 @@ func use_energy_ability():
 			if spend_energy(SKILL_E[Class.DPS].cost):
 				dps_boost_stacks += 1
 				var multiplier = pow(2.0, dps_boost_stacks)
-				# Recalculate from base each time
-				st_damage = 100.0 * multiplier
-				aoe_damage = 50.0 * multiplier
+				_refresh_damage()
 				print("DPS boost x", dps_boost_stacks, " — damage multiplier: ", multiplier)
 				await get_tree().create_timer(10.0).timeout
 				dps_boost_stacks -= 1
-				if dps_boost_stacks > 0:
-					var remaining = pow(2.0, dps_boost_stacks)
-					st_damage = 100.0 * remaining
-					aoe_damage = 50.0 * remaining
-				else:
-					st_damage = 100.0
-					aoe_damage = 50.0
+				_refresh_damage()
 				print("Boost stack expired — stacks remaining: ", dps_boost_stacks)
 		Class.TANK:
 			if spend_energy(SKILL_E[Class.TANK].cost):
@@ -478,6 +480,7 @@ func get_skills() -> Array:
 		{key = "RMB", name = "Sweep", cost = 0.0, cooldown = max(aoe_cooldown, 0.0), soon = false},
 		{key = "E", name = SKILL_E[player_class].name, cost = SKILL_E[player_class].cost, cooldown = 0.0, soon = false},
 		{key = "Q", name = SKILL_Q[player_class].name, cost = SKILL_Q[player_class].cost, cooldown = 0.0, soon = false},
+		{key = "1", name = "Potion x%d" % Crafting.potions().size(), cost = 0.0, cooldown = 0.0, soon = false, note = "Make at Chemist" if Crafting.potions().is_empty() else "Drink"},
 		{key = "F", name = SKILL_F[player_class].name, cost = SKILL_F[player_class].cost, cooldown = 0.0, soon = SKILL_F[player_class].get("soon", false)},
 	]
 
@@ -575,7 +578,7 @@ var _label_tween: Tween = null
 func _nearest_gatherable():
 	var best = null
 	var best_d = INF
-	for n in get_tree().get_nodes_in_group("resource_node"):
+	for n in get_tree().get_nodes_in_group("resource_node") + get_tree().get_nodes_in_group("npc"):
 		var d = n.horizontal_distance(global_position)
 		var score = d - n.reach	# nodes up on a hill or trunk count as a bit closer
 		if d <= GATHER_RANGE + n.reach and score < best_d:
@@ -606,7 +609,12 @@ func _update_gather_hint(delta):
 func start_gathering():
 	if gather_node != null:
 		return
+	if GameState.ui_open:
+		return
 	var best = _nearest_gatherable()
+	if best != null and best.is_in_group("npc"):
+		best.talk()
+		return
 	if best == null:
 		_float_text("Nothing to gather here", Color(0.8, 0.8, 0.8))
 		return
@@ -662,3 +670,104 @@ func _float_text(text: String, color: Color):
 	_label_tween = _gather_label.create_tween()
 	_label_tween.tween_interval(0.8)
 	_label_tween.tween_property(_gather_label, "modulate:a", 0.0, 0.5)
+
+
+# ---------------- Gear, damage types and potions ----------------
+var weapon_st_base = 100.0
+var weapon_aoe_base = 50.0
+var gear_st_cd = BASE_ST_COOLDOWN
+var gear_aoe_cd = BASE_AOE_COOLDOWN
+var element_bonus = {}		# weapon: extra damage per hit, by type
+var lifesteal = 0.0
+var armor_resist = {}		# armor: share of each damage type it soaks (0..1)
+var ward = {}				# potion: short extra resistances
+var ward_time = 0.0
+var haste = 0.0
+const MAX_RESIST = 0.8
+
+
+## Read what's equipped (Crafting) and set up the character to match.
+func apply_gear():
+	var w = Crafting.item_by_id(Crafting.equipped.weapon)
+	if w:
+		var e = Crafting.effects(w)
+		weapon_name = w.name
+		weapon_st_base = e.st
+		weapon_aoe_base = e.aoe
+		aoe_cone = e.cone
+		aoe_max_targets = e.targets
+		ST_RANGE = e.reach
+		gear_st_cd = e.st_cd
+		gear_aoe_cd = e.aoe_cd
+		element_bonus = e.element_bonus
+		lifesteal = e.lifesteal
+	var a = Crafting.item_by_id(Crafting.equipped.armor)
+	if a:
+		var e = Crafting.effects(a)
+		armor_resist = e.resist
+		var old_max = MAX_HEALTH
+		MAX_HEALTH = BASE_MAX_HEALTH + e.max_health
+		health = min(health + (MAX_HEALTH - old_max), MAX_HEALTH)
+		SPEED = BASE_SPEED * (1.0 + e.move)
+	_refresh_damage()
+
+
+## Damage and attack times = weapon x attack-speed wheel x DPS boost.
+func _refresh_damage():
+	var modifier = speed_level * SPEED_DAMAGE_MODIFIER
+	var boost = pow(2.0, dps_boost_stacks)
+	st_damage = weapon_st_base * (1.0 - modifier) * boost
+	aoe_damage = weapon_aoe_base * (1.0 - modifier) * boost
+	st_cooldown_time = gear_st_cd * (1.0 - modifier)
+	aoe_cooldown_time = gear_aoe_cd * (1.0 - modifier)
+
+
+func _element_damage() -> float:
+	var total = 0.0
+	for el in element_bonus:
+		total += element_bonus[el]
+	return total
+
+
+func _on_hit():
+	if lifesteal > 0.0:
+		health = min(health + lifesteal, MAX_HEALTH)
+
+
+## Bolt color follows your weapon's strongest element.
+func _beam_color() -> Color:
+	var best = "physical"
+	var best_v = 0.0
+	for el in element_bonus:
+		if element_bonus[el] > best_v:
+			best = el
+			best_v = element_bonus[el]
+	return Color(1.0, 0.9, 0.3) if best == "physical" else Crafting.ELEMENT_COLORS[best]
+
+
+## How much of a damage type you shrug off right now (armor + potion ward), capped at 80%.
+func resistance(element: String) -> float:
+	var r = armor_resist.get(element, 0.0)
+	if ward_time > 0.0:
+		r += ward.get(element, 0.0)
+	return min(r, MAX_RESIST)
+
+
+func drink_potion():
+	var e = Crafting.drink_potion()
+	if e == null:
+		_float_text("No potions", Color(0.8, 0.8, 0.8))
+		return
+	health = min(health + e.heal, MAX_HEALTH)
+	ward = e.ward
+	haste = e.haste
+	ward_time = 30.0
+	_float_text("+%d health" % e.heal, Color(0.5, 1.0, 0.5))
+
+
+func _tick_potion(delta):
+	if ward_time > 0.0:
+		ward_time -= delta
+		if ward_time <= 0.0:
+			ward = {}
+			haste = 0.0

@@ -12,6 +12,7 @@ var orb_slots = 10
 var current_zone = "Home"
 var previous_scene = ""	# the zone we just came from (used to place the player at the right door)
 var deaths = 0
+var ui_open = false	# a shop window is open (the player ignores attack/ability input)
 
 
 func _process(delta: float) -> void:

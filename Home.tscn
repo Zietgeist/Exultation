@@ -5,6 +5,7 @@
 [ext_resource type="Script" uid="uid://ffbg04tych5d" path="res://homefloor.gd" id="3_55kc7"]
 [ext_resource type="Script" uid="uid://bk6klv7iok6b2" path="res://door.gd" id="4_08a7v"]
 [ext_resource type="Script" path="res://pomodoro_gate.gd" id="5_gate"]
+[ext_resource type="Script" path="res://town.gd" id="6_town"]
 
 [sub_resource type="BoxMesh" id="BoxMesh_bspk3"]
 size = Vector3(300, 0.2, 300)
@@ -97,6 +98,9 @@ shape = SubResource("Shape_DoorToZone3")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="DoorToZone3"]
 mesh = SubResource("Mesh_DoorToZone3")
+
+[node name="Town" type="Node3D" parent="."]
+script = ExtResource("6_town")
 
 [connection signal="body_shape_entered" from="DoorToZone2" to="DoorToZone2" method="_on_body_shape_entered"]
 [connection signal="body_shape_entered" from="DoorToZone1" to="DoorToZone1" method="_on_body_shape_entered"]
