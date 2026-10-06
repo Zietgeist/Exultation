@@ -7,6 +7,8 @@ const OBSTACLE_COUNT = 50
 
 func _ready():
 	add_to_group("zone_obstacles")
+	if Zones.zone_of(self) == null:
+		return	# not inside the World yet (see zones.gd)
 	var saved = GameState.saved_zone_part(self, "obstacles")
 	if saved != null:
 		for o in saved:
@@ -17,11 +19,11 @@ func _ready():
 
 
 func _build():
-	var terrain = get_tree().get_first_node_in_group("zone_terrain")
+	var terrain = Zones.first(self, "zone_terrain")
 	var share = 1.0
 	if terrain:
 		share = preload("res://map_templates.gd").get_def(terrain.template).boxes
-	var count = roundi(OBSTACLE_COUNT * share * GameState.obstacle_multiplier())
+	var count = roundi(OBSTACLE_COUNT * share * GameState.obstacle_multiplier(self))
 	print("Obstacles: creating ", count)
 	var half = map_half_size()
 	var base = SkinManager.color("obstacle", Color(0.38, 0.36, 0.34))
@@ -66,7 +68,7 @@ func save_state() -> Array:
 
 ## Half the size of the current zone's floor (x, z), minus a margin so things stay inside the walls.
 func map_half_size(margin := 4.0) -> Vector2:
-	var floor_node = get_tree().get_first_node_in_group("map_floor")
+	var floor_node = Zones.first(self, "map_floor")
 	if floor_node and floor_node.has_method("get_half_size"):
 		return floor_node.get_half_size() - Vector2(margin, margin)
 	ErrorLog.fail("%s: no map floor found (floor must be in group map_floor). Using a guess of 45." % name)

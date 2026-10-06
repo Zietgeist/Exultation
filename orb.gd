@@ -9,7 +9,7 @@ var value = 1		# gold amount (gold orbs) or energy amount (blue orbs)
 const PICKUP_RANGE = 1.2
 
 func _ready() -> void:
-	player = get_tree().get_first_node_in_group("player")
+	player = Zones.first(self, "player")	# only the local player in this zone
 	body_entered.connect(_on_body_entered)
 	if kind == "gold":
 		var mat = StandardMaterial3D.new()

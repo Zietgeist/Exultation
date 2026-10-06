@@ -307,7 +307,7 @@ func _drain_tick():
 	if total <= 0.0:
 		return
 	var heal = total * drain.heal_share
-	for m in GameState.party():
+	for m in GameState.party(player):
 		m.heal(heal)
 
 
@@ -321,7 +321,7 @@ func _trigger_vow():
 		return
 	v.jumps -= 1
 	v.time = max(v.time, 10.0)
-	var others = GameState.party().filter(func(m): return m != player and is_instance_valid(m))
+	var others = GameState.party(player).filter(func(m): return m != player and is_instance_valid(m))
 	if others.is_empty():
 		v.wait = 1.0	# alone: it settles back on you after a moment
 		mending = v
@@ -347,7 +347,7 @@ func _plant_totem(at: Vector3, p: Dictionary):
 	mesh.height = 2.5
 	node.mesh = mesh
 	node.material_override = player._fx_material(Color(0.4, 1.0, 0.6, 0.9))
-	get_tree().current_scene.add_child(node)
+	Zones.root_of(player).add_child(node)
 	node.global_position = Vector3(at.x, 1.25, at.z)
 	totems.append({node = node, time = float(p.duration), dps = p.damage_per_second, radius = p.radius, tick = 0.0})
 
@@ -381,7 +381,7 @@ func _root_field(center: Vector3, p: Dictionary):
 
 func _enemies_near(center: Vector3, radius: float) -> Array:
 	var out = []
-	for e in get_tree().get_nodes_in_group("enemy"):
+	for e in Zones.all(player, "enemy"):
 		if not is_instance_valid(e) or e.is_queued_for_deletion():
 			continue
 		if Vector2(e.global_position.x - center.x, e.global_position.z - center.z).length() <= radius:
@@ -393,7 +393,7 @@ func _enemies_near(center: Vector3, radius: float) -> Array:
 func _party_member_near(spot: Vector3):
 	var best = player
 	var best_d = 3.0	# must point fairly close to someone else
-	for m in GameState.party():
+	for m in GameState.party(player):
 		if m == player:
 			continue
 		var d = Vector2(m.global_position.x - spot.x, m.global_position.z - spot.z).length()
@@ -458,7 +458,7 @@ func _show_ball(var_name: String, on: bool, color: Color, radius: float, offset:
 
 func _flash_disc(center: Vector3, radius: float, color: Color, seconds: float):
 	var disc = player._make_disc(radius, color)
-	get_tree().current_scene.add_child(disc)
+	Zones.root_of(player).add_child(disc)
 	disc.global_position = Vector3(center.x, 0.25, center.z)
 	var tween = disc.create_tween()
 	tween.tween_property(disc, "scale", Vector3(1.05, 1, 1.05), min(seconds, 0.35))
@@ -479,7 +479,7 @@ func _line(from: Vector3, to: Vector3, color: Color, seconds := 0.25):
 	line.mesh = mesh
 	line.material_override = player._fx_material(color)
 	line.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	get_tree().current_scene.add_child(line)
+	Zones.root_of(player).add_child(line)
 	line.global_position = (from + to) / 2.0
 	line.look_at(to, Vector3.UP)
 	player._fade_and_free(line, seconds)

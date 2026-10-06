@@ -49,13 +49,12 @@ const PROGRESS_PATH = "user://progress.cfg"
 # Zone size and obstacle density
 const BASE_ZONE_AREA = 6000.0	# Zone 1 floor: 60 x 100
 const OBSTACLE_DENSITY = 0.7	# Zone 1 has 70% of the original obstacle count
-var _obstacle_floor = null
-var _obstacle_mult = 1.0
+var _obstacle_mults = {}	# floor node -> this visit's obstacle roll
 
 
 ## How big the current zone is compared to Zone 1 (Zone 1 = 1.0)
-func zone_area_scale() -> float:
-	var floor_node = get_tree().get_first_node_in_group("map_floor")
+func zone_area_scale(node = null) -> float:
+	var floor_node = Zones.first(node, "map_floor") if node else Zones.local_first("map_floor")
 	if floor_node == null:
 		ErrorLog.fail("zone_area_scale: no map floor found (floor must be in group map_floor)")
 		return 1.0
@@ -65,15 +64,16 @@ func zone_area_scale() -> float:
 
 ## How many obstacles to make, compared to the original counts.
 ## Zone 1: exactly 70%. Other zones: same density for their size, +/- 20% random.
-func obstacle_multiplier() -> float:
-	var floor_node = get_tree().get_first_node_in_group("map_floor")
-	if floor_node != null and floor_node == _obstacle_floor:
-		return _obstacle_mult	# same zone visit: obstacles and terrain share one roll
-	_obstacle_floor = floor_node
-	_obstacle_mult = OBSTACLE_DENSITY * zone_area_scale()
+func obstacle_multiplier(node = null) -> float:
+	var floor_node = Zones.first(node, "map_floor") if node else Zones.local_first("map_floor")
+	if floor_node != null and _obstacle_mults.has(floor_node):
+		return _obstacle_mults[floor_node]	# same zone visit: obstacles and terrain share one roll
+	var mult = OBSTACLE_DENSITY * zone_area_scale(node)
 	if floor_node == null or floor_node.get_script().resource_path != "res://zone1floor.gd":
-		_obstacle_mult *= randf_range(0.8, 1.2)
-	return _obstacle_mult
+		mult *= randf_range(0.8, 1.2)
+	if floor_node:
+		_obstacle_mults[floor_node] = mult
+	return mult
 
 var unlocked_zones = ["res://Home.tscn", "res://Zone1.tscn"]
 
@@ -114,10 +114,11 @@ func unlock_hint(scene_path: String) -> String:
 
 
 ## Called by the spawner each time a boss dies in the current zone.
-func on_boss_killed(bosses_killed_here: int):
+func on_boss_killed(bosses_killed_here: int, here := ""):
 	if bosses_killed_here < BOSSES_TO_UNLOCK:
 		return
-	var here = get_tree().current_scene.scene_file_path
+	if here == "":
+		here = Zones.local_path()
 	var i = ZONE_ORDER.find(here)
 	if i == -1 or i + 1 >= ZONE_ORDER.size():
 		return
@@ -227,10 +228,10 @@ func _on_bag_full():
 func spawn_home_portal():
 	if current_zone == "Home" or not is_bag_full():
 		return
-	if get_tree().get_first_node_in_group("home_portal") != null:
+	if Zones.local_first("home_portal") != null:
 		return
-	var player = get_tree().get_first_node_in_group("player")
-	if player == null:
+	var player = Zones.player
+	if player == null or Zones.local_root() == null:
 		return
 	var portal = load("res://portal.gd").new()
 	portal.add_to_group("home_portal")
@@ -242,9 +243,9 @@ func spawn_home_portal():
 	portal.position = player.global_position + toward_center.normalized() * 4.0
 	portal.position.y = 0
 	portal.before_travel = func():
-		return_scene = get_tree().current_scene.scene_file_path
+		return_scene = Zones.path_of(player)
 		return_position = player.global_position
-	get_tree().current_scene.add_child(portal)
+	Zones.local_root().add_child(portal)
 
 const HOME_ARRIVAL = Vector3(0, 1, 8)	# next to the Deposit Shrine
 
@@ -255,18 +256,22 @@ const HOME_ARRIVAL = Vector3(0, 1, 8)	# next to the Deposit Shrine
 var zone_memory = {}	# scene path -> {spawner = {...}, obstacles = [...], terrain = [...]}
 
 
-## Call right before leaving the current zone.
-func remember_current_zone():
-	var scene = get_tree().current_scene
-	if scene == null or scene.scene_file_path == "res://Home.tscn":
+## Save a loaded zone's state (Zones calls this when a zone is unloaded).
+func remember_zone(z):
+	if z == null or z.path == "res://Home.tscn" or z.root == null:
 		return
 	var memory = {}
 	var parts = {"spawner": "zone_spawner", "obstacles": "zone_obstacles", "terrain": "zone_terrain", "fog": "zone_fog"}
 	for part in parts:
-		var node = get_tree().get_first_node_in_group(parts[part])
+		var node = Zones.first(z.root, parts[part])
 		if node:
 			memory[part] = node.save_state()
-	zone_memory[scene.scene_file_path] = memory
+	zone_memory[z.path] = memory
+
+
+## Old name: save the local player's zone.
+func remember_current_zone():
+	remember_zone(Zones.local_zone())
 
 
 ## What a zone part saved last time (or null if this is the first visit this session).
@@ -279,14 +284,14 @@ func saved_zone_part(node: Node, part: String):
 
 
 ## Speed multiplier at a spot: 1.0 normally, lower inside a slow patch (ditch).
-func slow_factor_at(world_pos: Vector3) -> float:
-	var d = ditch_at(world_pos)
+func slow_factor_at(world_pos: Vector3, node = null) -> float:
+	var d = ditch_at(world_pos, node)
 	return d.get_slow_factor() if d else 1.0
 
 
 ## The slow patch at a spot, or null.
-func ditch_at(world_pos: Vector3):
-	for d in get_tree().get_nodes_in_group("ditch"):
+func ditch_at(world_pos: Vector3, node = null):
+	for d in (Zones.all(node, "ditch") if node else Zones.local_all("ditch")):
 		if d.contains(world_pos):
 			return d
 	return null
@@ -305,8 +310,8 @@ func zone_template(scene_path: String) -> String:
 
 
 ## Everyone in the party (just you for now; other players join this group in multiplayer).
-func party() -> Array:
-	return get_tree().get_nodes_in_group("party")
+func party(node = null) -> Array:
+	return Zones.all(node, "party") if node else get_tree().get_nodes_in_group("party")
 
 
 func notify(text: String):
@@ -326,11 +331,10 @@ const ZONE_LAYOUT = {
 var zone_marks = {}	# scene path -> [{kind = "death"/"boss", p = position}] (this play session)
 
 
-func add_mark(kind: String, pos: Vector3):
-	var scene = get_tree().current_scene
-	if scene == null:
+func add_mark(kind: String, pos: Vector3, node = null):
+	var path = Zones.path_of(node) if node else Zones.local_path()
+	if path == "":
 		return
-	var path = scene.scene_file_path
 	if not zone_marks.has(path):
 		zone_marks[path] = []
 	zone_marks[path].append({kind = kind, p = pos})
@@ -341,9 +345,9 @@ func is_zone_cleared(path: String) -> bool:
 	var i = ZONE_ORDER.find(path)
 	if i != -1 and i + 1 < ZONE_ORDER.size() and is_unlocked(ZONE_ORDER[i + 1]):
 		return true
-	var scene = get_tree().current_scene
-	if scene and scene.scene_file_path == path:
-		var sp = get_tree().get_first_node_in_group("zone_spawner")
+	var z = Zones.get_zone(path)
+	if z:
+		var sp = Zones.first(z.root, "zone_spawner")
 		return sp != null and sp.bosses_killed >= BOSSES_TO_UNLOCK
 	var mem = zone_memory.get(path, {}).get("spawner", null)
 	return mem != null and mem.bosses_killed >= BOSSES_TO_UNLOCK

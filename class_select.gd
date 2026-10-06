@@ -88,7 +88,7 @@ func _ready():
 		net_status.text = "Steam: " + SteamLink.why_not()
 	Net.status.connect(func(t): net_status.text = t)
 	SteamLink.invite_waiting.connect(_on_invite)
-	SteamLink.lobby_ready.connect(func(): get_tree().change_scene_to_file("res://Home.tscn"))
+	SteamLink.lobby_ready.connect(func(): Zones.start("res://Home.tscn"))
 	if SteamLink.pending_lobby != 0:
 		_on_invite.call_deferred()
 
@@ -204,7 +204,7 @@ func _start(class_id: String):
 			if Net.join(ip_box.text.strip_edges()):
 				_waiting = true
 			return
-	get_tree().change_scene_to_file("res://Home.tscn")
+	Zones.start("res://Home.tscn")
 
 
 func _on_mode(i: int):

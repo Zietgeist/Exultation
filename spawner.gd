@@ -69,13 +69,15 @@ const SAVED_KEYS = ["zone_scale", "min_clear", "target_total", "MAX_TRASH", "MAX
 
 func _ready():
 	add_to_group("zone_spawner")
-	player = get_tree().get_first_node_in_group("player")
+	if Zones.zone_of(self) == null:
+		return	# not inside the World (zone scene opened on its own): the World reloads it properly
+	player = Zones.first(self, "party")
 	_setup_zone_targets.call_deferred()	# wait for the floor so we know the zone size
 
 
 func _setup_zone_targets():
 	await get_tree().physics_frame	# let the player finish moving to the entry door
-	player = get_tree().get_first_node_in_group("player")
+	player = Zones.first(self, "party")
 	var saved = GameState.saved_zone_part(self, "spawner")
 
 	fog = FOG_SCRIPT.new()
@@ -96,7 +98,7 @@ func _setup_zone_targets():
 		print("Back in the zone: %d / %d cleared" % [total_killed, min_clear])
 		return
 
-	zone_scale = GameState.zone_area_scale()
+	zone_scale = GameState.zone_area_scale(self)
 	min_clear = roundi(BASE_MIN_CLEAR * zone_scale)
 	target_total = randi_range(min_clear, roundi(BASE_MAX_CLEAR * zone_scale))
 	MAX_MASTERS = maxi(1, roundi(BASE_MASTERS * zone_scale))
@@ -149,7 +151,7 @@ func _process(delta):
 	if level_complete or not targets_ready:
 		return
 	if not is_instance_valid(player):
-		player = get_tree().get_first_node_in_group("player")
+		player = Zones.first(self, "party")
 		if player == null:
 			return
 
@@ -226,7 +228,7 @@ func _place_dormant(t: int, pos: Vector3, h := -1.0, element := ""):
 const SHRINE_CLEAR = 9.0
 
 func _away_from_shrines(pos: Vector3) -> Vector3:
-	for s in get_tree().get_nodes_in_group("shrine"):
+	for s in Zones.all(self, "shrine"):
 		var d = Vector3(pos.x - s.global_position.x, 0, pos.z - s.global_position.z)
 		if d.length() < SHRINE_CLEAR:
 			if d.length() < 0.1:
@@ -237,7 +239,7 @@ func _away_from_shrines(pos: Vector3) -> Vector3:
 
 ## Island maps: slide a spot toward the middle until it's on land.
 func _on_land(pos: Vector3) -> Vector3:
-	var terrain = get_tree().get_first_node_in_group("zone_terrain")
+	var terrain = Zones.first(self, "zone_terrain")
 	if terrain == null:
 		return pos
 	for i in range(25):
@@ -261,7 +263,7 @@ func _instantiate(t: int, pos: Vector3, h: float, element := "physical"):
 	var enemy = ENEMY_SCENE.instantiate()
 	enemy.connect("enemy_died", _on_enemy_died)
 	enemy.set_meta("from_spawner", true)
-	get_tree().current_scene.add_child(enemy)  # enemies belong to the zone, so they vanish when we leave
+	Zones.root_of(self).add_child(enemy)  # enemies belong to the zone, so they vanish when it unloads
 	pos.y = ENEMY_REST_HEIGHT
 	enemy.global_position = _clear_spot(clamp_to_map(pos))
 	enemy.call("setup", 1.0, t, element)
@@ -275,7 +277,7 @@ func _stream():
 	if not is_instance_valid(player):
 		return
 	var spots = []	# everyone in the party keeps enemies awake around them
-	for m in GameState.party():
+	for m in GameState.party(self):
 		if is_instance_valid(m) and m.is_inside_tree():
 			spots.append(m.global_position)
 	var woke = 0
@@ -287,7 +289,7 @@ func _stream():
 			dormant.remove_at(i)
 			woke += 1
 		i -= 1
-	for enemy in get_tree().get_nodes_in_group("enemy"):
+	for enemy in Zones.all(self, "enemy"):
 		if enemy.aggroed or enemy.is_queued_for_deletion() or not enemy.has_meta("from_spawner"):
 			continue
 		var ep = enemy.global_position
@@ -329,7 +331,7 @@ func save_state() -> Dictionary:
 		out[key] = get(key)
 	out.reserve = reserve.duplicate()
 	var alive = []
-	for enemy in get_tree().get_nodes_in_group("enemy"):
+	for enemy in Zones.all(self, "enemy"):
 		if enemy.is_queued_for_deletion():
 			continue
 		alive.append({t = enemy.tier, p = enemy.global_position, h = enemy.health, e = enemy.damage_type})
@@ -355,16 +357,16 @@ func _on_enemy_died(tier):
 		2: masters_killed += 1
 		3:
 			bosses_killed += 1
-			GameState.on_boss_killed(bosses_killed)
+			GameState.on_boss_killed(bosses_killed, Zones.path_of(self))
 			if bosses_killed == MAX_BOSSES:
 				GameState.notify("ZONE CLEARED!  Map unlocked (press M)")
-	var guardian = get_tree().get_first_node_in_group("guardian")
+	var guardian = Zones.first(self, "guardian")
 	if guardian:
 		guardian.notify_boss_killed(bosses_killed)
 
 
 func _half() -> Vector2:
-	var floor_node = get_tree().get_first_node_in_group("map_floor")
+	var floor_node = Zones.first(self, "map_floor")
 	if floor_node and floor_node.has_method("get_half_size"):
 		return floor_node.get_half_size() - Vector2(3.0, 3.0)  # stay a little inside the walls
 	ErrorLog.fail("Spawner: no map floor found (floor must be in group map_floor). Using a guess of 45.")

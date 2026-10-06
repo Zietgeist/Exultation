@@ -114,6 +114,7 @@ func _fail(text: String):
 	GameState.notify(text)
 	status.emit(text)
 	leave()
+	Zones.reset()
 	get_tree().change_scene_to_file.call_deferred("res://ClassSelect.tscn")
 
 
@@ -157,8 +158,7 @@ func _register(info: Dictionary):
 func _process(delta):
 	if not is_online():
 		return
-	var scene = get_tree().current_scene
-	var path = scene.scene_file_path if scene else ""
+	var path = Zones.local_path()
 
 	# Host: when I change zone, bring the party along (once the zone has built itself)
 	if is_host() and path != _zone and not path in NOT_ZONES:
@@ -171,8 +171,8 @@ func _process(delta):
 	_state_t -= delta
 	if _state_t <= 0.0 and not path in NOT_ZONES:
 		_state_t = STATE_RATE
-		var me = get_tree().get_first_node_in_group("player")
-		if me:
+		var me = Zones.player
+		if me and me.is_inside_tree():
 			_player_state.rpc(path, me.global_position, me.rotation.y, me.health, me.MAX_HEALTH, me.player_class)
 
 	if is_host():
@@ -188,10 +188,10 @@ func _send_zone(to: int):
 	var layout = {}
 	var parts = {"terrain": "zone_terrain", "obstacles": "zone_obstacles"}
 	for part in parts:
-		var node = get_tree().get_first_node_in_group(parts[part])
+		var node = Zones.local_first(parts[part])
 		if node:
 			layout[part] = node.save_state()
-	var me = get_tree().get_first_node_in_group("player")
+	var me = Zones.player
 	var spot = me.global_position if me else Vector3.ZERO
 	if to == 0:
 		_go_to_zone.rpc(_zone, layout, GameState.unlocked_zones, spot)
@@ -208,7 +208,6 @@ func _go_to_zone(path: String, layout: Dictionary, unlocked: Array, host_spot: V
 	for part in layout:
 		memory[part] = layout[part]
 	GameState.zone_memory[path] = memory
-	GameState.previous_scene = get_tree().current_scene.scene_file_path if get_tree().current_scene else ""
 	GameState.pending_spawn = host_spot + Vector3(randf_range(-2, 2), 0, randf_range(2, 3))
 	for id in puppets:
 		if is_instance_valid(puppets[id]):
@@ -216,9 +215,9 @@ func _go_to_zone(path: String, layout: Dictionary, unlocked: Array, host_spot: V
 	puppets.clear()
 	mirrors.clear()
 	_misses.clear()
-	for e in get_tree().get_nodes_in_group("enemy"):
+	for e in Zones.local_all("enemy"):
 		e.queue_free()
-	get_tree().change_scene_to_file.call_deferred(path)
+	Zones.travel.call_deferred(path)	# (starts the World first if we're still on the start screen)
 
 
 # ---------------- Players ----------------
@@ -226,8 +225,8 @@ func _go_to_zone(path: String, layout: Dictionary, unlocked: Array, host_spot: V
 @rpc("any_peer", "call_remote", "unreliable_ordered")
 func _player_state(zone: String, pos: Vector3, rot: float, hp: float, max_hp: float, class_id: String):
 	var id = multiplayer.get_remote_sender_id()
-	var scene = get_tree().current_scene
-	if scene == null or scene.scene_file_path != zone:
+	var scene = Zones.local_root()
+	if scene == null or Zones.local_path() != zone:
 		if puppets.has(id) and is_instance_valid(puppets[id]):	# they left my zone
 			puppets[id].queue_free()
 			puppets.erase(id)
@@ -259,19 +258,19 @@ func vow_player(id: int, vow: Dictionary):
 
 @rpc("any_peer", "call_remote", "reliable")
 func _hurt(amount: float, enemy_id: int):
-	var me = get_tree().get_first_node_in_group("player")
+	var me = Zones.player
 	if me:
 		me.take_damage(amount, mirrors.get(enemy_id))
 
 @rpc("any_peer", "call_remote", "reliable")
 func _heal(amount: float):
-	var me = get_tree().get_first_node_in_group("player")
+	var me = Zones.player
 	if me:
 		me.heal(amount)
 
 @rpc("any_peer", "call_remote", "reliable")
 func _vow(vow: Dictionary):
-	var me = get_tree().get_first_node_in_group("player")
+	var me = Zones.player
 	if me:
 		me.receive_vow(vow)
 
@@ -292,7 +291,7 @@ func _send_snapshot(zone: String):
 		var e = enemies[id]
 		if not is_instance_valid(e) or e.is_queued_for_deletion():
 			enemies.erase(id)
-	var sp = get_tree().get_first_node_in_group("zone_spawner")
+	var sp = Zones.local_first("zone_spawner")
 	var counts = PackedInt32Array()
 	if sp:
 		counts = PackedInt32Array([sp.total_killed, sp.trash_killed, sp.thugs_killed, sp.masters_killed, sp.bosses_killed, sp.min_clear, sp.target_total])
@@ -320,10 +319,10 @@ var _seen := {}		# client: enemies seen in this round of messages
 
 @rpc("authority", "call_remote", "unreliable_ordered")
 func _snapshot(zone: String, counts: PackedInt32Array, data: PackedFloat32Array, last: bool):
-	var scene = get_tree().current_scene
-	if scene == null or scene.scene_file_path != zone:
+	var scene = Zones.local_root()
+	if scene == null or Zones.local_path() != zone:
 		return
-	var sp = get_tree().get_first_node_in_group("zone_spawner")
+	var sp = Zones.local_first("zone_spawner")
 	if sp and counts.size() == 7:
 		sp.total_killed = counts[0]
 		sp.trash_killed = counts[1]
@@ -370,42 +369,42 @@ func _snapshot(zone: String, counts: PackedInt32Array, data: PackedFloat32Array,
 func enemy_died(e):
 	enemies.erase(e.net_id)
 	if players.size() > 1:
-		_enemy_died.rpc(get_tree().current_scene.scene_file_path, e.net_id, e.tier)
+		_enemy_died.rpc(Zones.path_of(e), e.net_id, e.tier)
 
 
 @rpc("authority", "call_remote", "reliable")
 func _enemy_died(zone: String, id: int, tier: int):
-	var scene = get_tree().current_scene
-	if scene == null or scene.scene_file_path != zone:
+	var scene = Zones.local_root()
+	if scene == null or Zones.local_path() != zone:
 		return
 	var m = mirrors.get(id)
 	mirrors.erase(id)
 	if m and is_instance_valid(m):
 		m.mirror_died()	# my own orb and gold
-	var sp = get_tree().get_first_node_in_group("zone_spawner")
+	var sp = Zones.local_first("zone_spawner")
 	if sp:
 		sp._on_enemy_died(tier)	# boss unlocks, "zone cleared"
 
 
 ## Client: I hit / rooted a mirror. The host applies it to the real enemy.
 func hit_enemy(id: int, amount: float):
-	_hit.rpc_id(1, get_tree().current_scene.scene_file_path, id, amount)
+	_hit.rpc_id(1, Zones.local_path(), id, amount)
 
 func root_enemy(id: int, seconds: float):
-	_root.rpc_id(1, get_tree().current_scene.scene_file_path, id, seconds)
+	_root.rpc_id(1, Zones.local_path(), id, seconds)
 
 
 @rpc("any_peer", "call_remote", "reliable")
 func _hit(zone: String, id: int, amount: float):
 	var e = enemies.get(id)
-	if e and is_instance_valid(e) and get_tree().current_scene.scene_file_path == zone:
+	if e and is_instance_valid(e) and Zones.path_of(e) == zone:
 		e.aggroed = true
 		e.take_damage(amount)
 
 @rpc("any_peer", "call_remote", "reliable")
 func _root(zone: String, id: int, seconds: float):
 	var e = enemies.get(id)
-	if e and is_instance_valid(e) and get_tree().current_scene.scene_file_path == zone:
+	if e and is_instance_valid(e) and Zones.path_of(e) == zone:
 		e.root(seconds)
 
 
@@ -414,13 +413,13 @@ func _root(zone: String, id: int, seconds: float):
 ## Host: tell everyone in my zone about something that happened (the scene handles it in net_event).
 func scene_event(event: String, data: Dictionary):
 	if is_host() and puppets.size() > 0:
-		_scene_event.rpc(get_tree().current_scene.scene_file_path, event, data)
+		_scene_event.rpc(Zones.local_path(), event, data)
 
 
 @rpc("authority", "call_remote", "reliable")
 func _scene_event(zone: String, event: String, data: Dictionary):
-	var scene = get_tree().current_scene
-	if scene and scene.scene_file_path == zone and scene.has_method("net_event"):
+	var scene = Zones.local_root()
+	if scene and Zones.local_path() == zone and scene.has_method("net_event"):
 		scene.net_event(event, data)
 
 
@@ -439,7 +438,5 @@ func _request_portal(scene_path: String, spot: Vector3, info: Dictionary):
 	if not ResourceLoader.exists(scene_path):
 		ErrorLog.fail("A player asked to travel to a missing scene: " + scene_path)
 		return
-	GameState.remember_current_zone()
-	GameState.previous_scene = get_tree().current_scene.scene_file_path
 	GameState.pending_spawn = null if spot == Vector3.INF else spot
-	get_tree().change_scene_to_file.call_deferred(scene_path)
+	Zones.travel.call_deferred(scene_path)

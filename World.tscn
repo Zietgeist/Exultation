@@ -1,0 +1,19 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://world.gd" id="1_world"]
+[ext_resource type="PackedScene" path="res://HUD.tscn" id="2_hud"]
+
+[node name="World" type="Node"]
+script = ExtResource("1_world")
+
+[node name="Screen" type="SubViewportContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+stretch = true
+
+[node name="Parked" type="Node" parent="."]
+
+[node name="HUD" parent="." instance=ExtResource("2_hud")]

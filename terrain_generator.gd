@@ -30,6 +30,8 @@ var _half := Vector2(45, 45)
 
 func _ready():
 	add_to_group("zone_terrain")
+	if Zones.zone_of(self) == null:
+		return	# not inside the World yet (see zones.gd)
 	_find_gates()
 	_half = map_half_size(0.0)
 	var saved = GameState.saved_zone_part(self, "terrain")
@@ -45,7 +47,7 @@ func _ready():
 	var path = owner.scene_file_path if owner else ""
 	template = GameState.zone_template(path)
 	var def = MAPS.get_def(template)
-	var m = GameState.obstacle_multiplier()
+	var m = GameState.obstacle_multiplier(self)
 	_quality = GameState.zone_quality(path) if owner else 0
 	match def.layout:
 		"island": _layout_island()
@@ -366,11 +368,11 @@ func _process(delta):
 	if _fade_timer > 0.0:
 		return
 	_fade_timer = 0.1
-	var player = get_tree().get_first_node_in_group("player")
+	var player = Zones.first(self, "player")	# only the local player, if they're in this zone
 	if player == null:
 		return
 	var pp = player.global_position
-	for tree in get_tree().get_nodes_in_group("tree"):
+	for tree in Zones.all(self, "tree"):
 		var tp = tree.global_position
 		var s = tree.get_meta("data").s
 		var in_the_way = tp.z > pp.z - 2.0 and tp.z < pp.z + 14.0 and abs(tp.x - pp.x) < 2.5 * s + 1.0
@@ -408,7 +410,7 @@ func _rebuild(t: Dictionary):
 # ---------------- Resources ----------------
 
 func spawn_resources():
-	for hill in get_tree().get_nodes_in_group("hill"):
+	for hill in Zones.all(self, "hill"):
 		if not hill.get_parent() == self:
 			continue
 		var d = hill.get_meta("data")
@@ -421,7 +423,7 @@ func spawn_resources():
 			var a = randf() * TAU
 			var p = hill.position + Vector3(cos(a) * d.r * 0.82, d.h * 0.35, sin(a) * d.r * 0.82)
 			_make_node(p, {type = "orchid", q = _quality, reach = 1.0})
-	for tree in get_tree().get_nodes_in_group("tree"):
+	for tree in Zones.all(self, "tree"):
 		if not tree.get_parent() == self:
 			continue
 		var d = tree.get_meta("data")
@@ -575,7 +577,7 @@ func _make_deco(t: Dictionary):
 
 ## Half the size of the current zone's floor (x, z), minus a margin so things stay inside the walls.
 func map_half_size(margin := 4.0) -> Vector2:
-	var floor_node = get_tree().get_first_node_in_group("map_floor")
+	var floor_node = Zones.first(self, "map_floor")
 	if floor_node and floor_node.has_method("get_half_size"):
 		return floor_node.get_half_size() - Vector2(margin, margin)
 	ErrorLog.fail("%s: no map floor found (floor must be in group map_floor). Using a guess of 45." % name)

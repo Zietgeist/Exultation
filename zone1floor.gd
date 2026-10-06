@@ -14,7 +14,7 @@ func add_floor_collision():
 	add_child(col)
 
 func _ready():
-	GameState.current_zone = "Zone 1"
+	_name_zone("Zone 1")
 	add_to_group("map_floor")
 	for x in range(GRID_WIDTH):
 		for z in range(GRID_DEPTH):
@@ -79,3 +79,10 @@ func _wall_material() -> StandardMaterial3D:
 		_wall_mat = StandardMaterial3D.new()
 		_wall_mat.albedo_color = Color(0.15, 0.13, 0.12)
 	return _wall_mat
+
+
+## The zone's name for the HUD (set on the zone, since several zones can be loaded at once).
+func _name_zone(n: String):
+	var z = Zones.zone_of(self)
+	if z:
+		z.zone_name = n

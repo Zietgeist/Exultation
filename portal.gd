@@ -78,7 +78,5 @@ func _on_body_entered(body: Node):
 		return
 	if before_travel.is_valid():
 		before_travel.call()
-	GameState.remember_current_zone()
-	GameState.previous_scene = get_tree().current_scene.scene_file_path
 	GameState.pending_spawn = target_position
-	get_tree().call_deferred("change_scene_to_file", target_scene)
+	Zones.travel.call_deferred(target_scene)

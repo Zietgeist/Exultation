@@ -95,7 +95,7 @@ func _rebuild():
 
 
 func _you(p):
-	_title(left, "%s %s  -  %s" % [SkinManager.race().name, SkinManager.class_label(p.player_class), GameState.ZONE_NAMES.get(get_tree().current_scene.scene_file_path, "")])
+	_title(left, "%s %s  -  %s" % [SkinManager.race().name, SkinManager.class_label(p.player_class), GameState.current_zone])
 	_text(left, "World: %s" % SkinManager.skin_name(), DIM)
 	_text(left, "Health %d / %d     Energy %.1f / %d" % [p.health, p.MAX_HEALTH, p.energy, p.MAX_ENERGY], SOFT)
 	_text(left, "Move speed %.1f%s" % [p.SPEED * (1.0 + p.haste), "  (hasted)" if p.haste > 0.0 else ""], SOFT)
@@ -130,7 +130,7 @@ func _you(p):
 
 
 func _gear(p):
-	var in_town = get_tree().current_scene.scene_file_path == "res://Home.tscn"
+	var in_town = Zones.local_path() == "res://Home.tscn"
 	var pots = Crafting.potions()
 	_text(right, "Potions (press 1): %d" % pots.size(), GOLD if pots.size() > 0 else DIM)
 	GEAR_VIEW.build(right, in_town, func(): _rebuild.call_deferred())

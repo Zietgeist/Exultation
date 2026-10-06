@@ -97,18 +97,23 @@ func _ready():
 		mat.albedo_color = Net.color_of(Net.my_id())
 		$MeshInstance3D.material_override = mat
 	print("Playing as class: ", Classes.label(player_class))
-	_place_at_entry.call_deferred()
+	# Zones.travel() places us (arrive) every time we enter a zone
 
 
-## Start next to the door we came in through. That spot is also where we respawn.
-func _place_at_entry():
-	spawn_point = global_position
+## Just entered a zone (Zones.travel calls this): start next to the door we came in through,
+## or at the portal's spot. That's also where we respawn.
+func arrive():
+	gather_node = null
+	_hint_node = null
+	velocity = Vector3.ZERO
+	var z = Zones.zone_of(self)
+	spawn_point = z.default_spawn if z else global_position
 	if GameState.pending_spawn != null:	# arrived by portal
 		spawn_point = GameState.pending_spawn
 		GameState.pending_spawn = null
 	else:
 		_place_at_door()
-	var terrain = get_tree().get_first_node_in_group("zone_terrain")
+	var terrain = Zones.first(self, "zone_terrain")
 	if terrain and terrain.is_water(spawn_point):	# island maps: never start in deep water
 		ErrorLog.warn("Entry point %s was in deep water; moved to land" % spawn_point.round())
 		spawn_point = terrain.nearest_land(spawn_point)
@@ -118,7 +123,7 @@ func _place_at_entry():
 
 
 func _place_at_door():
-	for door in get_tree().get_nodes_in_group("door"):
+	for door in Zones.all(self, "door"):
 		if door.target_scene == GameState.previous_scene:
 			var inward = -door.global_position
 			inward.y = 0
@@ -187,7 +192,7 @@ func _physics_process(delta):
 		direction = direction.normalized()
 
 	var speed_now = SPEED * (1.0 + haste + skill_haste)
-	var ditch = GameState.ditch_at(global_position)	# slow patches
+	var ditch = GameState.ditch_at(global_position, self)	# slow patches
 	if ditch:
 		speed_now *= ditch.get_slow_factor()
 		ditch.reveal()	# hidden ones show up once you step in
@@ -201,12 +206,15 @@ func _physics_process(delta):
 
 	var mouse_pos = get_viewport().get_mouse_position()
 	var cam = get_viewport().get_camera_3d()
-	var ray_origin = cam.project_ray_origin(mouse_pos)
-	var ray_direction = cam.project_ray_normal(mouse_pos)
-	var t = (0.0 - ray_origin.y) / ray_direction.y
-	var mouse_world = ray_origin + ray_direction * t
-	mouse_world_point = mouse_world
-	look_at(Vector3(mouse_world.x, global_position.y, mouse_world.z), Vector3.UP)
+	if cam and abs(cam.project_ray_normal(mouse_pos).y) > 0.001:
+		var ray_origin = cam.project_ray_origin(mouse_pos)
+		var ray_direction = cam.project_ray_normal(mouse_pos)
+		var t = (0.0 - ray_origin.y) / ray_direction.y
+		var mouse_world = ray_origin + ray_direction * t
+		mouse_world_point = mouse_world
+		var look = Vector3(mouse_world.x, global_position.y, mouse_world.z)
+		if look.distance_to(global_position) > 0.05:	# mouse right on top of us: keep facing
+			look_at(look, Vector3.UP)
 
 	if camera:
 		camera.global_position = global_position + CAMERA_OFFSET
@@ -236,7 +244,7 @@ func _physics_process(delta):
 	
 
 func single_target_attack():
-	var enemies = get_tree().get_nodes_in_group("enemy")
+	var enemies = Zones.all(self, "enemy")
 	var closest = null
 	var closest_dist = ST_RANGE
 	
@@ -256,7 +264,7 @@ func single_target_attack():
 		_show_beam(global_position - global_transform.basis.z * 3.0, Color(1.0, 0.9, 0.3, 0.35))
 
 func aoe_attack():
-	var enemies = get_tree().get_nodes_in_group("enemy")
+	var enemies = Zones.all(self, "enemy")
 	var in_range = []
 	
 	for enemy in enemies:
@@ -364,14 +372,14 @@ func _puppet_move(delta):
 ## Token death: back to the entry door with full health. Nothing is lost (for now).
 func die(cause := ""):
 	GameState.deaths += 1
-	GameState.add_mark("death", global_position)
+	GameState.add_mark("death", global_position, self)
 	print("DEFEATED by ", cause, ". Respawning at the entry door. Deaths: ", GameState.deaths)
 	health = MAX_HEALTH
 	velocity = Vector3.ZERO
 	global_position = spawn_point
 	invulnerable_time = RESPAWN_SAFE_TIME
 	# Enemies lose track of you
-	for enemy in get_tree().get_nodes_in_group("enemy"):
+	for enemy in Zones.all(self, "enemy"):
 		enemy.aggroed = false
 	died.emit(cause)
 
@@ -478,7 +486,7 @@ func _show_beam(to: Vector3, color: Color):
 	beam.mesh = mesh
 	beam.material_override = _fx_material(color)
 	beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	get_tree().current_scene.add_child(beam)
+	Zones.root_of(self).add_child(beam)
 	beam.global_position = (from + to) / 2.0
 	beam.look_at(to, Vector3.UP)
 	_fade_and_free(beam, 0.15)
@@ -497,7 +505,7 @@ func _show_cone():
 	cone.mesh = _cone_mesh
 	cone.material_override = _fx_material(Color(0.3, 0.85, 1.0, 0.45))
 	cone.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	get_tree().current_scene.add_child(cone)
+	Zones.root_of(self).add_child(cone)
 	cone.global_position = Vector3(global_position.x, 0.3, global_position.z)
 	cone.rotation.y = rotation.y	# face the same way as the player
 	_fade_and_free(cone, 0.2)
@@ -547,7 +555,7 @@ var _label_tween: Tween = null
 func _nearest_gatherable():
 	var best = null
 	var best_d = INF
-	for n in get_tree().get_nodes_in_group("resource_node") + get_tree().get_nodes_in_group("npc"):
+	for n in Zones.all(self, "resource_node") + Zones.all(self, "npc"):
 		var d = n.horizontal_distance(global_position)
 		var score = d - n.reach	# nodes up on a hill or trunk count as a bit closer
 		if d <= GATHER_RANGE + n.reach and score < best_d:

@@ -18,6 +18,7 @@ Classes="*res://ClassManager.gd"
 Net="*res://net.gd"
 SteamLink="*res://steam_link.gd"
 Trials="*res://trials.gd"
+Zones="*res://zones.gd"
 
 [global_group]
 

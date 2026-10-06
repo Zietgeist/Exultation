@@ -20,7 +20,7 @@ var _timer = 0.0
 
 func _ready():
 	add_to_group("zone_fog")
-	var floor_node = get_tree().get_first_node_in_group("map_floor")
+	var floor_node = Zones.first(self, "map_floor")
 	if floor_node == null:
 		ErrorLog.fail("Fog of war: no map floor found")
 		return
@@ -75,7 +75,7 @@ func _process(delta):
 func _reveal_around_player():
 	if mm == null:
 		return
-	var player = get_tree().get_first_node_in_group("player")
+	var player = Zones.first(self, "player")	# fog is for the local player in this zone
 	if player == null:
 		return
 	var p = player.global_position

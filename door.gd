@@ -44,7 +44,7 @@ func _refresh():
 
 ## Out in a zone, open gates sweep a lighthouse beam every 20 seconds so you can find your way out.
 func _add_beacon():
-	if not BEACONS_ENABLED or GameState.current_zone == "Home":
+	if not BEACONS_ENABLED or Zones.path_of(self) == "res://Home.tscn":
 		return
 	var beacon = load("res://gate_beacon.gd").new()
 	beacon.door = self
@@ -74,11 +74,8 @@ func _on_body_entered(body: Node) -> void:
 		body.global_position += away.normalized() * 2.0
 		print("Locked: ", GameState.unlock_hint(target_scene))
 		return
-	GameState.remember_current_zone()	# before enemies are cleared, so they get handed back
-	for enemy in get_tree().get_nodes_in_group("enemy"):
-		enemy.queue_free()
-	GameState.previous_scene = get_tree().current_scene.scene_file_path
-	get_tree().call_deferred("change_scene_to_file", target_scene)
+	GameState.pending_spawn = null	# arrive by the matching door
+	Zones.travel.call_deferred(target_scene)	# the zone we leave is saved (and unloaded if nobody's there)
 
 
 # Connected in some scenes from the editor; not used.

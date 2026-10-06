@@ -39,10 +39,9 @@ func _process(delta):
 
 func _draw():
 	draw_rect(Rect2(Vector2.ZERO, size), BG)
-	var scene = get_tree().current_scene
-	if scene == null:
+	var path = Zones.local_path()
+	if path == "":
 		return
-	var path = scene.scene_file_path
 	var font = get_theme_default_font()
 	if path == "res://Home.tscn":
 		_draw_world(font)
@@ -94,27 +93,27 @@ func _draw_world(font):
 
 # ---------- Zone map (cleared zone) ----------
 func _draw_zone(path: String, font):
-	var floor_node = get_tree().get_first_node_in_group("map_floor")
+	var floor_node = Zones.local_first("map_floor")
 	if floor_node == null:
 		return
 	var half = floor_node.get_half_size()
 	var local_rect = Rect2(-half, half * 2.0)
 	var fit = _fit(local_rect, 0.8)
 	var screen = Rect2(fit.offset + local_rect.position * fit.scale, local_rect.size * fit.scale)
-	var fog = get_tree().get_first_node_in_group("zone_fog")
+	var fog = Zones.local_first("zone_fog")
 	_draw_fog_cells(screen, half, fog.revealed if fog else null)
 	draw_rect(screen, GOLD, false, 2.0)
 	draw_string(font, Vector2(0, 50), GameState.ZONE_NAMES.get(path, path) + "  - cleared", HORIZONTAL_ALIGNMENT_CENTER, size.x, 30, GOLD)
 
 	# Enemies still left (awake and sleeping)
-	var sp = get_tree().get_first_node_in_group("zone_spawner")
-	for e in get_tree().get_nodes_in_group("enemy"):
+	var sp = Zones.local_first("zone_spawner")
+	for e in Zones.local_all("enemy"):
 		draw_circle(_to_screen(fit, e.global_position), 2.0, TIER_COLORS[e.tier])
 	if sp:
 		for d in sp.dormant:
 			draw_circle(_to_screen(fit, d.p), 2.0, TIER_COLORS[d.t])
 	# Gates
-	for door in get_tree().get_nodes_in_group("door"):
+	for door in Zones.local_all("door"):
 		var c = _to_screen(fit, door.global_position)
 		draw_rect(Rect2(c - Vector2(5, 5), Vector2(10, 10)), Color(0, 1, 1) if GameState.is_unlocked(door.target_scene) else Color(0.9, 0.1, 0.1))
 	# Where you fell / where bosses fell

@@ -55,7 +55,7 @@ func setup(diff, t = Tier.TRASH, element := "physical"):
 		net_id = Net.register_enemy(self)
 
 func _ready():
-	player = get_tree().get_first_node_in_group("player")
+	player = Zones.first(self, "party")
 	SkinManager.skin_changed.connect(apply_skin)
 
 func apply_skin():
@@ -90,7 +90,7 @@ func _physics_process(delta):
 			var direction = (player.global_position - global_position)
 			direction.y = 0
 			direction = direction.normalized()
-			var speed_now = SPEED * GameState.slow_factor_at(global_position)
+			var speed_now = SPEED * GameState.slow_factor_at(global_position, self)
 			if rooted_time > 0.0:
 				rooted_time -= delta
 				speed_now = 0.0
@@ -108,7 +108,7 @@ func _physics_process(delta):
 func _closest_party_member():
 	var best = null
 	var best_d = INF
-	for m in GameState.party():
+	for m in GameState.party(self):
 		if not is_instance_valid(m) or not m.is_inside_tree():
 			continue
 		var d = global_position.distance_squared_to(m.global_position)
@@ -156,7 +156,7 @@ func drop_gold() -> void:
 ## Joined player: the host says this enemy died. My own orb and gold drop here.
 func mirror_died():
 	if tier == Tier.BOSS:
-		GameState.add_mark("boss", global_position)
+		GameState.add_mark("boss", global_position, self)
 	drop_orb()
 	drop_gold()
 	queue_free()
@@ -166,7 +166,7 @@ func die():
 	if Net.is_host():
 		Net.enemy_died(self)
 	if tier == Tier.BOSS:
-		GameState.add_mark("boss", global_position)
+		GameState.add_mark("boss", global_position, self)
 	emit_signal("enemy_died", tier)
 	drop_orb()
 	drop_gold()

@@ -13,7 +13,9 @@ var cleared := false
 
 func _ready():
 	info = Trials.arena if not Trials.arena.is_empty() else {ability = "precision", q = 1, back_scene = "res://Home.tscn", back_pos = Vector3(0, 1, 8)}
-	GameState.current_zone = SkinManager.name_of("trial_arena")
+	var z = Zones.zone_of(self)
+	if z:
+		z.zone_name = SkinManager.name_of("trial_arena")
 	_exit_gate.call_deferred()
 	if not Net.is_client():
 		_spawn_foes.call_deferred()

@@ -43,9 +43,7 @@ func _ready():
 	satchel_label = Label.new()
 	$VBoxContainer.add_child(satchel_label)
 
-	player = get_tree().get_first_node_in_group("player")
-	if player:
-		player.died.connect(_on_player_died)
+	# The player is made by the World after the HUD, so it's picked up in _process
 
 	# Big message in the middle of the screen when you fall
 	death_label = Label.new()
@@ -78,7 +76,6 @@ func _ready():
 	get_parent().add_child.call_deferred(load("res://map_overlay.gd").new())
 	# The character screen (press C)
 	get_parent().add_child.call_deferred(load("res://character_screen.gd").new())
-	spawner = get_tree().get_first_node_in_group("spawner")
 
 func _on_notice(text: String):
 	notice_label.text = text
@@ -96,6 +93,11 @@ func _on_player_died(cause := ""):
 
 
 func _process(delta):
+	if player == null or not is_instance_valid(player):
+		player = get_tree().get_first_node_in_group("player")
+		if player and not player.died.is_connected(_on_player_died):
+			player.died.connect(_on_player_died)
+	spawner = Zones.local_first("spawner")	# the zone you're in right now
 	if notice_timer > 0.0:
 		notice_timer -= delta
 		if notice_timer <= 0.0:
@@ -134,6 +136,8 @@ func _process(delta):
 		]
 		if spawner.targets_ready or Net.is_client():
 			kill_label.text += "   |   Cleared %d / %d" % [spawner.total_killed, spawner.min_clear]
+	else:
+		kill_label.text = ""	# no enemies here (Home)
 
 	zone_label.text = GameState.current_zone
 
