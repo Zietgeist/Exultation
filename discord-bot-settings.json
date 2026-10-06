@@ -1,0 +1,31 @@
+{
+	"permissions": {
+		"allow": [
+			"Read(./**)",
+			"Edit(./**)",
+			"Glob",
+			"Grep",
+			"Bash(git status:*)",
+			"Bash(git diff:*)",
+			"Bash(git log:*)",
+			"Bash(git add:*)",
+			"Bash(git commit:*)"
+		],
+		"deny": [
+			"Edit(./CLAUDE.md)",
+			"Edit(./.claude/**)",
+			"Edit(./.git/**)",
+			"Read(~/.claude/**)",
+			"Bash(git push:*)",
+			"Bash(git reset:*)",
+			"Bash(git checkout:*)",
+			"Bash(git clean:*)",
+			"Bash(rm:*)",
+			"Bash(del:*)",
+			"Bash(curl:*)",
+			"Bash(wget:*)",
+			"WebFetch",
+			"WebSearch"
+		]
+	}
+}
