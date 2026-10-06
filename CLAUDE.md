@@ -24,6 +24,8 @@ Sort each message into one of three:
    - a bug with a clear cause and a small fix (a few lines)
    - data-sized changes: add or tweak recipes in `crafting.gd` (BASES), numbers in `classes/*.json`,
      trial timings in `trials/*.gd`, names/colors in `skins/*.json`, typos and text
+     (Shop recipes = level 0 only. Better recipes come ONLY from the shrine ladder in `trials.gd`;
+     never sell them or add them to shops. Ladder waits and gold prices are Ivan's call: send to him.)
    Then: make the change, check it can't break anything else, commit it, add one line to
    `FEEDBACK_LOG.md` (date, who asked, what changed, commit id), and reply in Discord in one or two
    friendly sentences ("Added 2 new boot recipes, they'll be in the next build").
