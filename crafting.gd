@@ -85,19 +85,102 @@ const BASES = {
 	"elixir": {label = "Elixir", shop = "chemist", slot = "potion", need = {"essence": 1}, slots = 2,
 		stats = {heal = 50.0}, about = "Strong heal, two creative slots."},
 
-	# ---- Advanced recipes: need a Sigil (from shrine trials) and are learned from your first Sigil of that kind ----
-	"masterwork_blade": {label = "Masterwork Blade", shop = "smith", slot = "weapon", need = {"ingot": 2, "sigil_precision": 1}, slots = 4, advanced = true,
-		stats = {st = 120.0, aoe = 60.0, cone = 0.3, targets = 5, st_cd = 1.8, aoe_cd = 0.9, reach = 11.0},
-		about = "Finer and faster, FOUR creative slots."},
-	"tally_plate": {label = "Tally Plate", shop = "smith", slot = "chest", need = {"ingot": 3, "sigil_numbers": 1}, slots = 3, advanced = true,
-		stats = {hardness = 9.0, move = 0.0}, about = "Plate-tough with no slowdown, three slots."},
-	"prism_ring": {label = "Prism Ring", shop = "smith", slot = "ring", need = {"ingot": 1, "sigil_sorting": 1}, slots = 3, advanced = true,
-		stats = {hardness = 0.0, move = 0.0}, about = "Three slots: mix several elements in one ring."},
-	"windrunner_boots": {label = "Windrunner Boots", shop = "smith", slot = "feet", need = {"ingot": 1, "sigil_typing": 1}, slots = 2, advanced = true,
-		stats = {hardness = 2.0, move = 0.08}, about = "8% faster, two slots."},
-	"grand_elixir": {label = "Grand Elixir", shop = "chemist", slot = "potion", need = {"essence": 1, "sigil_logic": 1}, slots = 3, advanced = true,
-		stats = {heal = 90.0}, about = "Huge heal, three creative slots."},
 }
+
+# ---------- Advanced recipes: one family per trial ability, levels 1-8 ----------
+# Level 0 is the shop's basic recipe. Trial level N (Trials.level) teaches level N, which gets much
+# stronger every level: power x (1 + 0.5 N + 0.1 N^2) -> I x1.6, II x2.4, IV x4.6, VIII x11.4,
+# plus more creative slots and faster attacks. Recipe ids look like "adv:precision:3".
+const ADVANCED = {
+	"precision": {base = "blade", label = "Masterwork Blade"},
+	"numbers": {base = "plate", label = "Tally Plate", move = 0.0},
+	"sorting": {base = "ring", label = "Prism Ring"},
+	"typing": {base = "boots", label = "Windrunner Boots"},
+	"logic": {base = "elixir", label = "Grand Elixir"},
+}
+const OLD_ADVANCED = {"masterwork_blade": "precision", "tally_plate": "numbers", "prism_ring": "sorting", "windrunner_boots": "typing", "grand_elixir": "logic"}
+const ROMAN = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII"]
+
+# Gold (banked) for making things: basic = 5 + 3 per quality, advanced = 15 per level + 5 per quality
+const BASIC_GOLD = 5
+const GOLD_PER_QUALITY = 3
+const ADVANCED_GOLD_PER_LEVEL = 15
+
+
+func advanced_id(ability: String, level: int) -> String:
+	return "adv:%s:%d" % [ability, level]
+
+
+func power(level: int) -> float:
+	return 1.0 + 0.5 * level + 0.1 * level * level
+
+
+## A recipe by id: a basic one from BASES, or an advanced one built from its family and level.
+func recipe(id: String) -> Dictionary:
+	if BASES.has(id):
+		return BASES[id]
+	if OLD_ADVANCED.has(id):	# early test saves
+		id = advanced_id(OLD_ADVANCED[id], 1)
+	if _adv_cache.has(id):
+		return _adv_cache[id]
+	var bits = id.split(":")
+	if bits.size() != 3 or bits[0] != "adv" or not ADVANCED.has(bits[1]):
+		ErrorLog.fail("Unknown recipe id: " + id)
+		return BASES.blade
+	var ability = bits[1]
+	var level = clampi(int(bits[2]), 1, 8)
+	var fam = ADVANCED[ability]
+	var b = BASES[fam.base].duplicate(true)
+	var m = power(level)
+	var st = b.stats
+	for k in ["st", "aoe", "hardness", "heal"]:
+		if st.has(k):
+			st[k] = st[k] * m
+	for k in ["st_cd", "aoe_cd"]:
+		if st.has(k):
+			st[k] = st[k] * (1.0 - min(0.3, 0.04 * level))
+	if st.has("targets"):
+		st.targets = st.targets + int(level / 2.0)
+	if fam.base == "ring":
+		st.hardness = 1.0 * level
+	if fam.base == "boots":
+		st.move = 0.03 + 0.015 * level
+	if fam.has("move"):
+		st.move = fam.move
+	b.slots = mini(b.slots + 1 + int(level / 2.0), 6)
+	b.label = "%s %s" % [fam.label, ROMAN[level]]
+	b.about = "Level %d recipe (from %s trials): power x%.1f, %d creative slots." % [level, ability.capitalize(), m, b.slots]
+	b.advanced = true
+	b.ability = ability
+	b.level = level
+	_adv_cache[id] = b
+	return b
+
+var _adv_cache = {}
+
+
+## Recipe ids a shop shows: its basic ones, plus the best advanced level you've earned.
+func shop_recipes(shop: String) -> Array:
+	var out = []
+	for id in BASES:
+		if BASES[id].shop == shop:
+			out.append(id)
+	for ability in ADVANCED:
+		var l = Trials.level(ability)
+		if l > 0:
+			var id = advanced_id(ability, l)
+			if recipe(id).shop == shop:
+				out.append(id)
+	return out
+
+
+## Gold it costs to make (paid from banked gold).
+func gold_cost(id: String, q: int) -> int:
+	var b = recipe(id)
+	if b.get("advanced", false):
+		return ADVANCED_GOLD_PER_LEVEL * b.level + 5 * q
+	return BASIC_GOLD + GOLD_PER_QUALITY * q
+
 
 # ---------- What you own (saved) ----------
 var stash = {}		# "material:quality" -> count
@@ -180,7 +263,8 @@ func material_attributes(mat: String, q: int) -> Dictionary:
 
 ## Recipes a shop shows: every basic one, plus advanced ones you've learned.
 func knows(base_id: String) -> bool:
-	return not BASES[base_id].get("advanced", false) or patterns.has(base_id)
+	var b = recipe(base_id)
+	return not b.get("advanced", false) or Trials.level(b.ability) >= b.level
 
 
 func learn(base_id: String):
@@ -258,8 +342,8 @@ func refine(raw: String, q: int) -> bool:
 ## Can this base be made at this quality with what's in the stash?
 func can_make_base(base_id: String, q: int, extra_slots: Array = []) -> bool:
 	var needed = {}
-	for mat in BASES[base_id].need:
-		needed["%s:%d" % [mat, q]] = BASES[base_id].need[mat]
+	for mat in recipe(base_id).need:
+		needed["%s:%d" % [mat, q]] = recipe(base_id).need[mat]
 	for s in extra_slots:
 		var k = "%s:%d" % [s.mat, s.q]
 		needed[k] = needed.get(k, 0) + 1
@@ -273,8 +357,8 @@ func can_make_base(base_id: String, q: int, extra_slots: Array = []) -> bool:
 func base_qualities(base_id: String) -> Array:
 	var qs = []
 	for entry in stash_list():
-		for mat in BASES[base_id].need:
-			if entry.mat == mat and entry.count >= BASES[base_id].need[mat] and not qs.has(entry.q):
+		for mat in recipe(base_id).need:
+			if entry.mat == mat and entry.count >= recipe(base_id).need[mat] and not qs.has(entry.q):
 				qs.append(entry.q)
 	qs.sort()
 	return qs
@@ -282,7 +366,7 @@ func base_qualities(base_id: String) -> Array:
 
 ## Work out an item WITHOUT making it (used for the preview and for crafting).
 func design(base_id: String, q: int, slot_mats: Array) -> Dictionary:
-	var base = BASES[base_id]
+	var base = recipe(base_id)
 	var attrs = {}
 	var made_from = []
 	for mat in base.need:
@@ -311,8 +395,11 @@ func design(base_id: String, q: int, slot_mats: Array) -> Dictionary:
 func craft(base_id: String, q: int, slot_mats: Array):
 	if not can_make_base(base_id, q, slot_mats):
 		return null
-	for mat in BASES[base_id].need:
-		_take(mat, q, BASES[base_id].need[mat])
+	if not GameState.spend_gold(gold_cost(base_id, q)):
+		GameState.notify("Not enough banked gold (%d needed)" % gold_cost(base_id, q))
+		return null
+	for mat in recipe(base_id).need:
+		_take(mat, q, recipe(base_id).need[mat])
 	for s in slot_mats:
 		_take(s.mat, s.q, 1)
 	var item = design(base_id, q, slot_mats)
@@ -428,7 +515,7 @@ func armor_totals() -> Dictionary:
 	for it in equipped_items():
 		if it.slot == "weapon" or it.slot == "potion":
 			continue
-		var stats = BASES[it.base].stats
+		var stats = recipe(it.base).stats
 		hardness += stats.hardness
 		move += stats.move
 		for k in it.attrs:
@@ -464,7 +551,7 @@ func drink_potion():
 
 func effects(item: Dictionary) -> Dictionary:
 	var a = item.attrs
-	var base = BASES[item.base]
+	var base = recipe(item.base)
 	var s = base.stats
 	var e = {}
 	match item.slot:

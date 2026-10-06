@@ -88,6 +88,8 @@ func _ready():
 		gold_carried = cfg.get_value("gold", "carried", 0)
 		gold_banked = cfg.get_value("gold", "banked", 0)
 		satchel = cfg.get_value("resources", "satchel", {})
+		satchel_upgrades = cfg.get_value("resources", "satchel_upgrades", 0)
+		buffs = cfg.get_value("inn", "buffs", {})
 	bag_full.connect(_on_bag_full)
 
 
@@ -97,6 +99,8 @@ func save_progress():
 	cfg.set_value("gold", "carried", gold_carried)
 	cfg.set_value("gold", "banked", gold_banked)
 	cfg.set_value("resources", "satchel", satchel)
+	cfg.set_value("resources", "satchel_upgrades", satchel_upgrades)
+	cfg.set_value("inn", "buffs", buffs)
 	if cfg.save(PROGRESS_PATH) != OK:
 		ErrorLog.fail("Could not save progress to " + PROGRESS_PATH)
 
@@ -211,6 +215,9 @@ func deposit_gold() -> int:
 	var amount = gold_carried
 	if amount <= 0:
 		return 0
+	if not buffs.is_empty():	# Inn treats last one flow session
+		buffs.clear()
+		buffs_changed.emit()
 	gold_banked += amount
 	gold_carried = 0
 	_gold_budget = 0.0
@@ -382,10 +389,71 @@ func resource_name(type: String, quality: int) -> String:
 	return "%s (Quality %d)" % [RESOURCE_INFO[type].label, quality]
 
 
-func add_resource(type: String, quality: int, amount := 1):
+## Put gathered resources in the satchel. Returns false if it's full.
+func add_resource(type: String, quality: int, amount := 1) -> bool:
+	if satchel_count() + amount > satchel_capacity():
+		return false
 	var key = "%s:%d" % [type, quality]
 	satchel[key] = satchel.get(key, 0) + amount
 	save_progress()
+	return true
+
+
+# ---------------- Satchel size ----------------
+const SATCHEL_BASE = 40
+const SATCHEL_UPGRADE_SIZE = 20
+const SATCHEL_UPGRADE_GOLD = 60
+const SATCHEL_UPGRADES_MAX = 3
+var satchel_upgrades = 0
+
+func satchel_capacity() -> int:
+	return SATCHEL_BASE + SATCHEL_UPGRADE_SIZE * satchel_upgrades
+
+func satchel_count() -> int:
+	var n = 0
+	for k in satchel:
+		n += satchel[k]
+	return n
+
+func buy_satchel_upgrade() -> bool:
+	if satchel_upgrades >= SATCHEL_UPGRADES_MAX or not spend_gold(SATCHEL_UPGRADE_GOLD):
+		return false
+	satchel_upgrades += 1
+	save_progress()
+	return true
+
+
+# ---------------- Spending banked gold ----------------
+signal buffs_changed
+
+## Inn treats: bought with banked gold, last until your next rest (the next time you bank gold).
+const INN_OFFERS = {
+	"meal": {name = "Hearty meal", gold = 25, about = "+15% damage"},
+	"sleep": {name = "A good night's sleep", gold = 40, about = "+50% energy regen"},
+	"tonic": {name = "Tamsin's tonic", gold = 30, about = "+20% max health"},
+}
+var buffs = {}	# offer id -> true
+
+func spend_gold(n: int) -> bool:
+	if n <= 0:
+		return true
+	if gold_banked < n:
+		return false
+	gold_banked -= n
+	save_progress()
+	gold_changed.emit()
+	return true
+
+func has_buff(id: String) -> bool:
+	return buffs.has(id)
+
+func buy_buff(id: String) -> bool:
+	if has_buff(id) or not spend_gold(INN_OFFERS[id].gold):
+		return false
+	buffs[id] = true
+	save_progress()
+	buffs_changed.emit()
+	return true
 
 
 ## Short one-line summary for the HUD, e.g. "Copper ore 3 · Sunleaf 2"
@@ -398,4 +466,4 @@ func satchel_text() -> String:
 			continue
 		var bits = key.split(":")
 		parts.append("%s %d" % [resource_name(bits[0], int(bits[1])), satchel[key]])
-	return "Satchel: " + (" · ".join(parts) if parts.size() > 0 else "empty")
+	return "Satchel %d/%d: " % [satchel_count(), satchel_capacity()] + (" · ".join(parts) if parts.size() > 0 else "empty")

@@ -90,6 +90,7 @@ func _ready():
 	add_child(skills)
 	skills.setup(self, player_class)
 	Crafting.changed.connect(apply_gear)
+	GameState.buffs_changed.connect(apply_gear)
 	apply_gear()
 	health = MAX_HEALTH
 	if Net.is_online():	# my color, so friends can tell us apart (matches what they see)
@@ -224,7 +225,8 @@ func _physics_process(delta):
 	if moved > 2.0:
 		moved = 0.0	# teleported (respawn, portal), not running
 	_last_pos = global_position
-	energy = min(energy + e_rules.get("regen", 0.15) * delta + moved * e_rules.get("per_meter_moved", 0.0), MAX_ENERGY)
+	var regen_mult = 1.5 if GameState.has_buff("sleep") else 1.0
+	energy = min(energy + e_rules.get("regen", 0.15) * regen_mult * delta + moved * e_rules.get("per_meter_moved", 0.0), MAX_ENERGY)
 	
 
 func single_target_attack():
@@ -576,6 +578,9 @@ func start_gathering():
 	if best != null and best.is_in_group("npc"):
 		best.talk()
 		return
+	if best != null and GameState.satchel_count() >= GameState.satchel_capacity():
+		_float_text("Satchel full (%d)" % GameState.satchel_capacity(), Color(1, 0.6, 0.4))
+		return
 	if best == null:
 		_float_text("Nothing to gather here", Color(0.8, 0.8, 0.8))
 		return
@@ -596,7 +601,9 @@ func _tick_gathering(delta):
 	if gather_left <= 0.0:
 		var n = gather_node
 		gather_node = null
-		GameState.add_resource(n.type, n.quality)
+		if not GameState.add_resource(n.type, n.quality):
+			_float_text("Satchel full! Refine at Home (or buy a bigger one at the Inn)", Color(1, 0.6, 0.4))
+			return
 		_float_text("+1 " + GameState.resource_name(n.type, n.quality), GameState.RESOURCE_INFO[n.type].color.lightened(0.3))
 		n.queue_free()
 
@@ -678,7 +685,7 @@ func apply_gear():
 	armor_resist = t.resist
 	var old_max = MAX_HEALTH
 	var stats = class_def.get("stats", {})
-	MAX_HEALTH = BASE_MAX_HEALTH * stats.get("health", 1.0) + t.max_health
+	MAX_HEALTH = (BASE_MAX_HEALTH * stats.get("health", 1.0) + t.max_health) * (1.2 if GameState.has_buff("tonic") else 1.0)
 	health = clamp(health + (MAX_HEALTH - old_max), 1.0, MAX_HEALTH)
 	SPEED = BASE_SPEED * stats.get("speed", 1.0) * (1.0 + t.move)
 	_refresh_damage()
@@ -687,7 +694,7 @@ func apply_gear():
 ## Damage and attack times = weapon x attack-speed wheel x DPS boost.
 func _refresh_damage():
 	var modifier = speed_level * SPEED_DAMAGE_MODIFIER
-	var boost = pow(boost_base, dps_boost_stacks)
+	var boost = pow(boost_base, dps_boost_stacks) * (1.15 if GameState.has_buff("meal") else 1.0)
 	st_damage = weapon_st_base * (1.0 - modifier) * boost
 	aoe_damage = weapon_aoe_base * (1.0 - modifier) * boost
 	st_cooldown_time = gear_st_cd * (1.0 - modifier)

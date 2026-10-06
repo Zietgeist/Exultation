@@ -541,21 +541,21 @@ func open_trial_gate(s):
 	var q = max(1, GameState.zone_quality(owner.scene_file_path) if owner else 1)
 	var p = s.position
 	s.queue_free()
-	_make_gate({p = p, ability = s.ability, q = q})
+	_make_gate({p = p, ability = s.ability, q = q, level = Trials.next_level(s.ability)})
 	GameState.notify("A gate opens! Clear the Trial Ground beyond it. The last foe holds the Sigil.")
 
 
 func _make_gate(t: Dictionary):
 	var g = load("res://portal.gd").new()
 	g.target_scene = Trials.ARENA
-	g.label_text = "%s\n%s" % [SkinManager.name_of("trial_gate"), Trials.ability_name(t.ability)]
+	g.label_text = "%s\n%s %s" % [SkinManager.name_of("trial_gate"), Trials.ability_name(t.ability), Trials.ROMAN[clampi(t.get("level", 1), 1, Trials.MAX_LEVEL)]]
 	g.color = Trials.TYPES[t.ability].color
 	var key = t.get("key", "%s#%d" % [Trials.ARENA, randi()])	# its own copy of the Trial Ground
 	g.travel_key = key
 	g.arm_time = 1.5
-	g.travel_info = {ability = t.ability, q = t.q, back_scene = owner.scene_file_path, back_pos = Vector3(t.p.x, 0, t.p.z + 3.0)}
+	g.travel_info = {ability = t.ability, q = t.q, level = t.get("level", 1), back_scene = owner.scene_file_path, back_pos = Vector3(t.p.x, 0, t.p.z + 3.0)}
 	g.set_meta("kind", "gate")
-	g.set_meta("data", {ability = t.ability, q = t.q, key = key})
+	g.set_meta("data", {ability = t.ability, q = t.q, key = key, level = t.get("level", 1)})
 	g.before_travel = func():
 		g.queue_free()	# used up (not saved with the zone)
 	add_child(g)

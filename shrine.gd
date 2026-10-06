@@ -57,6 +57,10 @@ func _ready():
 
 
 func _process(delta):
+	_label_t -= delta
+	if _label_t <= 0.0:	# the wait counts down while you watch
+		_label_t = 5.0
+		_refresh_label()
 	_crystal.rotation.y += delta * 1.5
 	_crystal.position.y = 2.1 + sin(Time.get_ticks_msec() / 500.0) * 0.15
 
@@ -65,14 +69,35 @@ func horizontal_distance(p: Vector3) -> float:
 	return Vector2(p.x - global_position.x, p.z - global_position.z).length()
 
 
-func set_highlight(on: bool):
-	var title = "%s of %s" % [SkinManager.name_of("shrine"), Trials.ability_name(ability)]
-	_label.text = title + ("\nG: take the trial" if on else "")
+var _lit := false
 
+func set_highlight(on: bool):
+	_lit = on
+	_refresh_label()
+
+
+## "Shrine of Logic III" when your next level is open; "rests: 21h" when it isn't yet.
+func _refresh_label():
+	var title = "%s of %s" % [SkinManager.name_of("shrine"), Trials.ability_name(ability)]
+	var wait = Trials.wait_text(ability)
+	if wait == "":
+		title += " " + Trials.ROMAN[min(Trials.next_level(ability), Trials.MAX_LEVEL)]
+		_label.text = title + ("\nG: take the trial" if _lit else "")
+		_crystal.visible = true
+	else:
+		_label.text = title + "\n" + ("mastered" if wait == "mastered" else "rests for you: " + wait)
+		_crystal.visible = false	# dim: nothing for you here yet
+
+
+var _label_t := 0.0
 
 ## Player pressed G here.
 func talk():
 	if busy:
+		return
+	if not Trials.is_due(ability):
+		var w = Trials.wait_text(ability)
+		GameState.notify("This shrine rests for you. " + ("You've mastered %s." % Trials.ability_name(ability) if w == "mastered" else "Your next %s trial opens in %s." % [Trials.ability_name(ability), w]))
 		return
 	busy = true
 	Trials.run(ability, _on_result)

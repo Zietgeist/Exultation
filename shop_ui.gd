@@ -129,24 +129,21 @@ func _refine_section():
 
 func _make_section():
 	_title("Make", 20)
-	var bases = []
-	for id in Crafting.BASES:
-		if Crafting.BASES[id].shop == shop and Crafting.knows(id):
-			bases.append(id)
+	var bases = Crafting.shop_recipes(shop)
 	if sel_base == "" or not bases.has(sel_base):
 		sel_base = bases[0]
-	var base = Crafting.BASES[sel_base]
+	var base = Crafting.recipe(sel_base)
 
 	# Base recipe picker
 	var row = HBoxContainer.new()
 	row.add_child(_label("Recipe:"))
 	var base_pick = OptionButton.new()
 	for i in range(bases.size()):
-		var b = Crafting.BASES[bases[i]]
+		var b = Crafting.recipe(bases[i])
 		var needs = []
 		for m in b.need:
 			needs.append("%d %s" % [b.need[m], Crafting.MATERIAL_LABELS[m]])
-		base_pick.add_item("%s%s  (%s, %d open slot%s) - %s" % ["* " if b.get("advanced", false) else "", b.label, ", ".join(needs), b.slots, "" if b.slots == 1 else "s", b.about])
+		base_pick.add_item("%s%s  (%s, %d open slot%s, %d gold) - %s" % ["* " if b.get("advanced", false) else "", b.label, ", ".join(needs), b.slots, "" if b.slots == 1 else "s", Crafting.gold_cost(bases[i], 1), b.about])
 		if bases[i] == sel_base:
 			base_pick.select(i)
 	base_pick.item_selected.connect(func(i): sel_base = bases[i]; sel_q = -1; sel_slots = []; _rebuild.call_deferred())
@@ -203,11 +200,14 @@ func _make_section():
 	preview.made_from = preview.made_from	# (no date yet)
 	_text("Preview: " + preview.name, GOLD)
 	_text(Crafting.describe(preview), Color(0.9, 0.9, 0.9))
+	var cost = Crafting.gold_cost(sel_base, sel_q)
 	var make = Button.new()
-	make.text = "Make it"
-	make.disabled = not Crafting.can_make_base(sel_base, sel_q, chosen)
-	if make.disabled:
+	make.text = "Make it (%d gold)" % cost
+	make.disabled = not Crafting.can_make_base(sel_base, sel_q, chosen) or GameState.gold_banked < cost
+	if not Crafting.can_make_base(sel_base, sel_q, chosen):
 		_text("Not enough materials for this combination.", Color(1, 0.6, 0.5))
+	elif GameState.gold_banked < cost:
+		_text("Not enough banked gold: %d needed, you have %d. Bank gold at the shrine out front." % [cost, GameState.gold_banked], Color(1, 0.6, 0.5))
 	make.pressed.connect(func():
 		var item = Crafting.craft(sel_base, sel_q, chosen)
 		if item:
@@ -242,6 +242,31 @@ func _inn_section():
 		GameState.notify("Old Tamsin's stew. Fully healed.")
 		_rebuild.call_deferred())
 	content.add_child(heal)
+	_title("Old Tamsin's offers (paid from banked gold, last until your next rest)", 20)
+	for id in GameState.INN_OFFERS:
+		var o = GameState.INN_OFFERS[id]
+		var b = Button.new()
+		var owned = GameState.has_buff(id)
+		b.text = "%s - %d gold: %s%s" % [o.name, o.gold, o.about, "  (active)" if owned else ""]
+		b.disabled = owned or GameState.gold_banked < o.gold
+		b.pressed.connect(func():
+			if GameState.buy_buff(id):
+				GameState.notify("%s: %s" % [o.name, o.about])
+			_rebuild.call_deferred())
+		content.add_child(b)
+	var up = Button.new()
+	var lvl = GameState.satchel_upgrades
+	if lvl < GameState.SATCHEL_UPGRADES_MAX:
+		up.text = "Bigger satchel - %d gold: room for %d more (now %d)" % [GameState.SATCHEL_UPGRADE_GOLD, GameState.SATCHEL_UPGRADE_SIZE, GameState.satchel_capacity()]
+		up.disabled = GameState.gold_banked < GameState.SATCHEL_UPGRADE_GOLD
+		up.pressed.connect(func():
+			if GameState.buy_satchel_upgrade():
+				GameState.notify("Your satchel holds %d now" % GameState.satchel_capacity())
+			_rebuild.call_deferred())
+	else:
+		up.text = "Your satchel is as big as it gets (%d)" % GameState.satchel_capacity()
+		up.disabled = true
+	content.add_child(up)
 	_title("What you're carrying", 20)
 	_text(GameState.satchel_text(), Color(0.75, 0.85, 1.0))
 	var parts = []

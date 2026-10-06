@@ -20,14 +20,18 @@ func _ready():
 	if not Net.is_client():
 		_spawn_foes.call_deferred()
 	if Zones.local_zone() == z:
-		GameState.notify.call_deferred("%s of %s: clear it! The last foe holds the Sigil." % [SkinManager.name_of("trial_arena"), Trials.ability_name(info.ability)])
+		GameState.notify.call_deferred("%s of %s %s: clear it! The last foe holds the Sigil." % [SkinManager.name_of("trial_arena"), Trials.ability_name(info.ability), Trials.ROMAN[clampi(int(info.get("level", 1)), 1, Trials.MAX_LEVEL)]])
 
 
-## Foes get tougher with the zone the shrine was in: q 1 = Zone 2.
+## Foes get tougher with the zone the shrine was in (q 1 = Zone 2) and much tougher with the
+## trial level (I-VIII): more of them, more health, and a boss from level V on.
 func _spawn_foes():
 	var q = int(info.q)
-	var diff = 1.0 + 0.5 * (q - 1)
-	var groups = [[0, 8 + 2 * q], [1, 2 + q], [2, 1]]	# [tier, how many]
+	var lv = int(info.get("level", 1))
+	var diff = (1.0 + 0.5 * (q - 1)) * (1.0 + 0.6 * (lv - 1))
+	var groups = [[0, 8 + 2 * q + 2 * (lv - 1)], [1, 2 + q + (lv - 1)], [2, 1 + int((lv - 1) / 2.0)]]	# [tier, how many]
+	if lv >= 5:
+		groups.append([3, 1])
 	for g in groups:
 		for i in range(g[1]):
 			var e = ENEMY_SCENE.instantiate()
@@ -87,7 +91,7 @@ func _drop_sigil(at: Vector3):
 	s.global_position = Vector3(at.x, 0, at.z)
 	s.body_entered.connect(func(body):
 		if body.name == "Player" and is_instance_valid(s):
-			Trials.grant_sigil(info.ability, int(info.q))
+			Trials.complete(info.ability)
 			s.queue_free())
 
 

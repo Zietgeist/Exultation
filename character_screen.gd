@@ -157,6 +157,20 @@ func _journey():
 	for s in Crafting.stash_list():
 		parts.append("%s x%d" % [s.name, s.count])
 	_text(right, "Materials: " + (", ".join(parts) if parts.size() > 0 else "none"), Color(0.75, 0.85, 1.0))
+	_trials()
+
+
+## Shrine trial ladder: your level in each ability and when the next level opens.
+func _trials():
+	_title(right, "Trials (levels I-VIII)", 20)
+	var lines = []
+	for id in Trials.TYPES:
+		var l = Trials.level(id)
+		var w = Trials.wait_text(id)
+		var next = "mastered" if w == "mastered" else ("next level open now" if w == "" else "next level in " + w)
+		var rec = Crafting.recipe(Crafting.advanced_id(id, l)).label if l > 0 else "basic recipes only"
+		lines.append("%s %s - %s (%s)" % [Trials.ability_name(id), Trials.ROMAN[l] if l > 0 else "-", next, rec])
+	_text(right, "\n".join(lines), Color(0.85, 0.8, 1.0))
 
 
 # ---------------- helpers ----------------
