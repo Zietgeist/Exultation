@@ -76,6 +76,8 @@ func _ready():
 
 	# The map (press M)
 	get_parent().add_child.call_deferred(load("res://map_overlay.gd").new())
+	# The character screen (press C)
+	get_parent().add_child.call_deferred(load("res://character_screen.gd").new())
 	spawner = get_tree().get_first_node_in_group("spawner")
 
 func _on_notice(text: String):
