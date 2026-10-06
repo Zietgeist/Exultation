@@ -1,19 +1,207 @@
 {
-	"name": "Default",
+	"name": "Fantasy",
+	"about": "Swords and magic. Goblins, orcs, warlocks and dragons.",
+	"props": "fantasy",
 	"colors": {
-		"enemy_trash": "#26e521",
-		"enemy_thug": "#3366ff",
-		"enemy_master": "#9900e6",
-		"enemy_boss": "#ffcc00"
+		"enemy_trash": "#4caf3a",
+		"enemy_thug": "#3f6fd6",
+		"enemy_master": "#9a3ee0",
+		"enemy_boss": "#e8b820"
 	},
 	"names": {
-		"enemy_trash": "Trash",
-		"enemy_thug": "Thugs",
-		"enemy_master": "Masters",
-		"enemy_boss": "Bosses",
-		"enemy_trash_one": "Trash mob",
-		"enemy_thug_one": "Thug",
-		"enemy_master_one": "Master",
-		"enemy_boss_one": "Boss"
-	}
+		"enemy_trash": "Goblins",
+		"enemy_thug": "Orcs",
+		"enemy_master": "Warlocks",
+		"enemy_boss": "Dragons",
+		"enemy_trash_one": "Goblin",
+		"enemy_thug_one": "Orc",
+		"enemy_master_one": "Warlock",
+		"enemy_boss_one": "Dragon"
+	},
+	"classes": [
+		"Warrior",
+		"Guardian",
+		"Cleric"
+	],
+	"elements": {
+		"physical": "Physical",
+		"radiant": "Holy",
+		"shadow": "Shadow",
+		"nature": "Nature",
+		"storm": "Storm"
+	},
+	"resources": {
+		"ore": [
+			"Copper ore",
+			"Iron ore"
+		],
+		"herb": [
+			"Sunleaf",
+			"Moonleaf"
+		],
+		"treesilver": [
+			"Young Treesilver",
+			"Elder Treesilver"
+		],
+		"orchid": [
+			"Pale Cliff Orchid",
+			"Storm Cliff Orchid"
+		]
+	},
+	"materials": {
+		"ingot": [
+			"Copper ingot",
+			"Iron ingot"
+		],
+		"silverbar": [
+			"Young Treesilver bar",
+			"Elder Treesilver bar"
+		],
+		"tonic": [
+			"Sunleaf tonic",
+			"Moonleaf tonic"
+		],
+		"essence": [
+			"Pale Orchid essence",
+			"Storm Orchid essence"
+		]
+	},
+	"slot_labels": {
+		"weapon": "Weapon",
+		"head": "Head",
+		"shoulders": "Shoulders",
+		"chest": "Chest",
+		"hands": "Hands",
+		"feet": "Feet",
+		"ring": "Ring"
+	},
+	"races": [
+		{
+			"id": "human",
+			"name": "Human",
+			"about": "Balanced. Wears anything, two rings.",
+			"slots": [
+				{
+					"slot": "weapon",
+					"count": 1
+				},
+				{
+					"slot": "head",
+					"count": 1
+				},
+				{
+					"slot": "shoulders",
+					"count": 1
+				},
+				{
+					"slot": "chest",
+					"count": 1
+				},
+				{
+					"slot": "hands",
+					"count": 1
+				},
+				{
+					"slot": "feet",
+					"count": 1
+				},
+				{
+					"slot": "ring",
+					"count": 2
+				}
+			]
+		},
+		{
+			"id": "elf",
+			"name": "Elf",
+			"about": "Light and graceful. No shoulder pads, but four rings.",
+			"slots": [
+				{
+					"slot": "weapon",
+					"count": 1
+				},
+				{
+					"slot": "head",
+					"count": 1
+				},
+				{
+					"slot": "chest",
+					"count": 1
+				},
+				{
+					"slot": "hands",
+					"count": 1
+				},
+				{
+					"slot": "feet",
+					"count": 1
+				},
+				{
+					"slot": "ring",
+					"count": 4
+				}
+			]
+		},
+		{
+			"id": "dwarf",
+			"name": "Dwarf",
+			"about": "Built for armor. Every slot, but thick fingers: one ring.",
+			"slots": [
+				{
+					"slot": "weapon",
+					"count": 1
+				},
+				{
+					"slot": "head",
+					"count": 1
+				},
+				{
+					"slot": "shoulders",
+					"count": 1
+				},
+				{
+					"slot": "chest",
+					"count": 1
+				},
+				{
+					"slot": "hands",
+					"count": 1
+				},
+				{
+					"slot": "feet",
+					"count": 1
+				},
+				{
+					"slot": "ring",
+					"count": 1
+				}
+			]
+		},
+		{
+			"id": "ent",
+			"name": "Ent",
+			"about": "A walking tree. No gloves, boots or shoulder pads, but twenty rings on its branches.",
+			"slots": [
+				{
+					"slot": "weapon",
+					"count": 1,
+					"label": "Branch"
+				},
+				{
+					"slot": "head",
+					"count": 1,
+					"label": "Crown"
+				},
+				{
+					"slot": "chest",
+					"count": 1,
+					"label": "Bark"
+				},
+				{
+					"slot": "ring",
+					"count": 20
+				}
+			]
+		}
+	]
 }

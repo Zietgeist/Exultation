@@ -1,0 +1,141 @@
+{
+	"name": "Sci-Fi",
+	"about": "Humans and cyborgs against machines and aliens.",
+	"props": "scifi",
+	"colors": {
+		"enemy_trash": "#9aa4b0",
+		"enemy_thug": "#4fb3c9",
+		"enemy_master": "#c04fd1",
+		"enemy_boss": "#f06a2a"
+	},
+	"names": {
+		"enemy_trash": "Drones",
+		"enemy_thug": "Troopers",
+		"enemy_master": "War mechs",
+		"enemy_boss": "Hive queens",
+		"enemy_trash_one": "Drone",
+		"enemy_thug_one": "Trooper",
+		"enemy_master_one": "War mech",
+		"enemy_boss_one": "Hive queen"
+	},
+	"classes": [
+		"Striker",
+		"Sentinel",
+		"Medtech"
+	],
+	"elements": {
+		"physical": "Kinetic",
+		"radiant": "Laser",
+		"shadow": "Void",
+		"nature": "Bio",
+		"storm": "Plasma"
+	},
+	"resources": {
+		"ore": [
+			"Iron regolith",
+			"Titanium regolith"
+		],
+		"herb": [
+			"Bio-moss",
+			"Lumen moss"
+		],
+		"treesilver": [
+			"Nanofiber",
+			"Quantum fiber"
+		],
+		"orchid": [
+			"Plasma crystal",
+			"Void crystal"
+		]
+	},
+	"materials": {
+		"ingot": [
+			"Iron alloy",
+			"Titanium alloy"
+		],
+		"silverbar": [
+			"Nanofiber bundle",
+			"Quantum bundle"
+		],
+		"tonic": [
+			"Moss serum",
+			"Lumen serum"
+		],
+		"essence": [
+			"Plasma cell",
+			"Void cell"
+		]
+	},
+	"slot_labels": {
+		"weapon": "Weapon",
+		"head": "Helmet",
+		"shoulders": "Shoulder plates",
+		"chest": "Suit",
+		"hands": "Gauntlets",
+		"feet": "Boots",
+		"ring": "Module"
+	},
+	"races": [
+		{
+			"id": "human",
+			"name": "Human",
+			"about": "Standard issue. Every armor slot, two modules.",
+			"slots": [
+				{
+					"slot": "weapon",
+					"count": 1
+				},
+				{
+					"slot": "head",
+					"count": 1
+				},
+				{
+					"slot": "shoulders",
+					"count": 1
+				},
+				{
+					"slot": "chest",
+					"count": 1
+				},
+				{
+					"slot": "hands",
+					"count": 1
+				},
+				{
+					"slot": "feet",
+					"count": 1
+				},
+				{
+					"slot": "ring",
+					"count": 2
+				}
+			]
+		},
+		{
+			"id": "cyborg",
+			"name": "Cyborg",
+			"about": "More machine than human. No gloves, boots or shoulder plates; six implants instead.",
+			"slots": [
+				{
+					"slot": "weapon",
+					"count": 1
+				},
+				{
+					"slot": "head",
+					"count": 1
+				},
+				{
+					"slot": "chest",
+					"count": 1,
+					"label": "Chassis"
+				},
+				{
+					"slot": "implant",
+					"accepts": "ring",
+					"count": 6,
+					"label": "Implant"
+				}
+			]
+		}
+	]
+}

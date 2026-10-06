@@ -9,6 +9,7 @@ const GREETINGS = {
 }
 const SHOP_TITLES = {"smith": "The Smithy", "chemist": "The Chemist", "inn": "The Inn"}
 const GOLD = Color(1.0, 0.85, 0.3)
+const GEAR_VIEW = preload("res://gear_view.gd")
 
 var shop = ""
 var npc = null
@@ -217,30 +218,15 @@ func _make_section():
 
 
 func _owned_section():
-	var slots = ["weapon", "armor"] if shop == "smith" else ["potion"]
-	_title("Your gear" if shop == "smith" else "Your potions (press 1 to drink)", 20)
-	var any = false
-	for it in Crafting.items:
-		if not slots.has(it.slot):
-			continue
-		any = true
-		var row = HBoxContainer.new()
-		var lbl = Label.new()
-		var is_on = it.slot in Crafting.equipped and Crafting.equipped[it.slot] == it.id
-		lbl.text = ("[EQUIPPED]  " if is_on else "") + it.name + "\n" + Crafting.describe(it)
-		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		if is_on:
-			lbl.add_theme_color_override("font_color", GOLD)
-		row.add_child(lbl)
-		if it.slot != "potion" and not is_on:
-			var eq = Button.new()
-			eq.text = "Equip"
-			eq.pressed.connect(func(): Crafting.equip(it.id); _rebuild.call_deferred())
-			row.add_child(eq)
-		content.add_child(row)
-	if not any:
+	if shop == "smith":
+		GEAR_VIEW.build(content, true, func(): _rebuild.call_deferred())
+		return
+	_title("Your potions (press 1 to drink)", 20)
+	var pots = Crafting.potions()
+	if pots.is_empty():
 		_text("Nothing yet.", Color(0.7, 0.7, 0.7))
+	for it in pots:
+		_text(it.name + "\n" + Crafting.describe(it), Color(0.9, 0.9, 0.9))
 
 
 func _inn_section():
@@ -262,9 +248,9 @@ func _inn_section():
 	for s in Crafting.stash_list():
 		parts.append("%s x%d" % [s.name, s.count])
 	_text("Materials: " + (", ".join(parts) if parts.size() > 0 else "none"), Color(0.75, 0.85, 1.0))
-	var w = Crafting.item_by_id(Crafting.equipped.weapon)
-	var a = Crafting.item_by_id(Crafting.equipped.armor)
-	_text("Weapon: %s\nArmor: %s\nPotions: %d" % [w.name if w else "Fists", a.name if a else "none", Crafting.potions().size()], Color(0.9, 0.9, 0.9))
+	var w = Crafting.equipped_weapon()
+	var worn = Crafting.equipped_items().filter(func(it): return it.slot != "weapon")
+	_text("Weapon: %s\nArmor pieces worn: %d\nPotions: %d\n(Press C for the full character screen.)" % [w.name if w else "Fists", worn.size(), Crafting.potions().size()], Color(0.9, 0.9, 0.9))
 	_title("Tips", 20)
 	_text("• Step on the shrine outside to bank gold and start your 5-minute rest.\n• Press M for the map.\n• Ore grows around hills, herbs around trees. Look for Treesilver in ancient trees and orchids on hills.", Color(0.8, 0.8, 0.8))
 

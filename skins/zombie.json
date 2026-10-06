@@ -1,0 +1,182 @@
+{
+	"name": "Zombie",
+	"about": "The dead walk. Survivors against former humans.",
+	"props": "zombie",
+	"colors": {
+		"enemy_trash": "#7d8f6a",
+		"enemy_thug": "#8a6a55",
+		"enemy_master": "#5b4a6e",
+		"enemy_boss": "#a23a2a"
+	},
+	"names": {
+		"enemy_trash": "Shamblers",
+		"enemy_thug": "Runners",
+		"enemy_master": "Brutes",
+		"enemy_boss": "Abominations",
+		"enemy_trash_one": "Shambler",
+		"enemy_thug_one": "Runner",
+		"enemy_master_one": "Brute",
+		"enemy_boss_one": "Abomination"
+	},
+	"classes": [
+		"Brawler",
+		"Bulwark",
+		"Medic"
+	],
+	"elements": {
+		"physical": "Physical",
+		"radiant": "Fire",
+		"shadow": "Rot",
+		"nature": "Toxic",
+		"storm": "Shock"
+	},
+	"resources": {
+		"ore": [
+			"Scrap metal",
+			"Rebar"
+		],
+		"herb": [
+			"Yarrow",
+			"Wolfsbane"
+		],
+		"treesilver": [
+			"Supply cache",
+			"Military cache"
+		],
+		"orchid": [
+			"Ridge mold",
+			"Glowing mold"
+		]
+	},
+	"materials": {
+		"ingot": [
+			"Scrap plate",
+			"Steel plate"
+		],
+		"silverbar": [
+			"Salvaged parts",
+			"Military parts"
+		],
+		"tonic": [
+			"Yarrow salve",
+			"Wolfsbane tincture"
+		],
+		"essence": [
+			"Penicillin",
+			"Antiviral"
+		]
+	},
+	"slot_labels": {
+		"weapon": "Weapon",
+		"head": "Headgear",
+		"shoulders": "Pads",
+		"chest": "Jacket",
+		"hands": "Gloves",
+		"feet": "Boots",
+		"ring": "Charm"
+	},
+	"races": [
+		{
+			"id": "survivor",
+			"name": "Survivor",
+			"about": "An ordinary person who made it this far. Wears anything, two charms.",
+			"slots": [
+				{
+					"slot": "weapon",
+					"count": 1
+				},
+				{
+					"slot": "head",
+					"count": 1
+				},
+				{
+					"slot": "shoulders",
+					"count": 1
+				},
+				{
+					"slot": "chest",
+					"count": 1
+				},
+				{
+					"slot": "hands",
+					"count": 1
+				},
+				{
+					"slot": "feet",
+					"count": 1
+				},
+				{
+					"slot": "ring",
+					"count": 2
+				}
+			]
+		},
+		{
+			"id": "bitten",
+			"name": "Bitten",
+			"about": "Infected but holding on. Can't keep headgear on, but carries four charms.",
+			"slots": [
+				{
+					"slot": "weapon",
+					"count": 1
+				},
+				{
+					"slot": "shoulders",
+					"count": 1
+				},
+				{
+					"slot": "chest",
+					"count": 1
+				},
+				{
+					"slot": "hands",
+					"count": 1
+				},
+				{
+					"slot": "feet",
+					"count": 1
+				},
+				{
+					"slot": "ring",
+					"count": 4
+				}
+			]
+		},
+		{
+			"id": "veteran",
+			"name": "Veteran",
+			"about": "Old soldier. Every armor slot, one dog tag.",
+			"slots": [
+				{
+					"slot": "weapon",
+					"count": 1
+				},
+				{
+					"slot": "head",
+					"count": 1
+				},
+				{
+					"slot": "shoulders",
+					"count": 1
+				},
+				{
+					"slot": "chest",
+					"count": 1
+				},
+				{
+					"slot": "hands",
+					"count": 1
+				},
+				{
+					"slot": "feet",
+					"count": 1
+				},
+				{
+					"slot": "ring",
+					"count": 1,
+					"label": "Dog tag"
+				}
+			]
+		}
+	]
+}

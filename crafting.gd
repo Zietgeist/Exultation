@@ -64,10 +64,20 @@ const BASES = {
 	"spear": {label = "Spear", shop = "smith", slot = "weapon", need = {"ingot": 2}, slots = 2,
 		stats = {st = 140.0, aoe = 30.0, cone = 0.6, targets = 2, st_cd = 1.8, aoe_cd = 1.0, reach = 14.0},
 		about = "Long reach, narrow sweep."},
-	"vest": {label = "Vest", shop = "smith", slot = "armor", need = {"ingot": 2}, slots = 2,
-		stats = {hardness = 2.0, move = 0.0}, about = "Light armor, room to customize."},
-	"plate": {label = "Plate", shop = "smith", slot = "armor", need = {"ingot": 4}, slots = 1,
-		stats = {hardness = 10.0, move = -0.1}, about = "Heavy: tough but 10% slower."},
+	"vest": {label = "Vest", shop = "smith", slot = "chest", need = {"ingot": 2}, slots = 2,
+		stats = {hardness = 2.0, move = 0.0}, about = "Light chest armor, room to customize."},
+	"plate": {label = "Plate", shop = "smith", slot = "chest", need = {"ingot": 4}, slots = 1,
+		stats = {hardness = 10.0, move = -0.1}, about = "Heavy chest: tough but 10% slower."},
+	"helm": {label = "Helm", shop = "smith", slot = "head", need = {"ingot": 2}, slots = 1,
+		stats = {hardness = 3.0, move = 0.0}, about = "Head armor."},
+	"pauldrons": {label = "Pauldrons", shop = "smith", slot = "shoulders", need = {"ingot": 2}, slots = 1,
+		stats = {hardness = 3.0, move = 0.0}, about = "Shoulder armor."},
+	"gloves": {label = "Gloves", shop = "smith", slot = "hands", need = {"ingot": 1}, slots = 1,
+		stats = {hardness = 1.0, move = 0.0}, about = "Hand armor."},
+	"boots": {label = "Boots", shop = "smith", slot = "feet", need = {"ingot": 1}, slots = 1,
+		stats = {hardness = 1.0, move = 0.03}, about = "Foot armor, a little faster."},
+	"ring": {label = "Ring", shop = "smith", slot = "ring", need = {"ingot": 1}, slots = 1,
+		stats = {hardness = 0.0, move = 0.0}, about = "Small, but every slot counts."},
 	"draught": {label = "Draught", shop = "chemist", slot = "potion", need = {"tonic": 1}, slots = 1,
 		stats = {heal = 30.0}, about = "A quick heal."},
 	"elixir": {label = "Elixir", shop = "chemist", slot = "potion", need = {"essence": 1}, slots = 2,
@@ -77,7 +87,8 @@ const BASES = {
 # ---------- What you own (saved) ----------
 var stash = {}		# "material:quality" -> count
 var items = []		# crafted gear and potions (each a Dictionary)
-var equipped = {"weapon": -1, "armor": -1}	# item ids
+var equipped = {}	# race slot id -> [item ids] (-1 = empty). Which slots exist depends on your RACE (from the skin).
+const ARMOR_SLOTS = ["head", "shoulders", "chest", "hands", "feet", "ring"]
 var next_id = 1
 
 
@@ -86,8 +97,24 @@ func _ready():
 	if cfg.load(SAVE_PATH) == OK:
 		stash = cfg.get_value("crafting", "stash", {})
 		items = cfg.get_value("crafting", "items", [])
-		equipped = cfg.get_value("crafting", "equipped", equipped)
+		equipped = cfg.get_value("crafting", "equipped", {})
 		next_id = cfg.get_value("crafting", "next_id", 1)
+	_upgrade_old_save()
+	ensure_slots()
+	SkinManager.skin_changed.connect(ensure_slots)
+
+
+## Older saves had one "armor" slot holding a single id.
+func _upgrade_old_save():
+	for it in items:
+		if it.slot == "armor":
+			it.slot = "chest"
+	for k in equipped.keys():
+		if typeof(equipped[k]) == TYPE_INT:
+			var id = equipped[k]
+			equipped.erase(k)
+			if id != -1:
+				equipped["chest" if k == "armor" else k] = [id]
 
 
 func save():
@@ -104,6 +131,9 @@ func save():
 # ---------- Materials ----------
 
 func material_name(mat: String, q: int) -> String:
+	var skinned = SkinManager.list_name("materials", mat, q)
+	if skinned != null:
+		return skinned
 	var names = MATERIAL_NAMES.get(mat, [])
 	if q >= 1 and q <= names.size():
 		return names[q - 1]
@@ -253,9 +283,10 @@ func craft(base_id: String, q: int, slot_mats: Array):
 	item.made_on = Time.get_date_string_from_system()
 	item.made_in = GameState.ZONE_NAMES.get(GameState.ZONE_ORDER[min(q, GameState.ZONE_ORDER.size() - 1)], "Zone %d" % (q + 1))
 	items.append(item)
-	# First weapon/armor you make gets equipped automatically
-	if item.slot in equipped and equipped[item.slot] == -1:
-		equipped[item.slot] = item.id
+	# New gear goes straight onto an empty slot if your race has one
+	var rs = slot_for(item)
+	if rs and equipped.has(rs.slot) and equipped[rs.slot].has(-1):
+		equipped[rs.slot][equipped[rs.slot].find(-1)] = item.id
 	save()
 	return item
 
@@ -267,11 +298,112 @@ func item_by_id(id: int):
 	return null
 
 
-func equip(id: int):
+## Make sure every slot your race has exists, and drop anything your race can't wear.
+func ensure_slots():
+	# Everything currently worn, in order (so switching race or world keeps what still fits)
+	var worn = []
+	for k in equipped:
+		for id in equipped[k]:
+			if id != -1 and item_by_id(id) != null and not worn.has(id):
+				worn.append(id)
+	var fresh = {}
+	for rs in SkinManager.race_slots():
+		var arr = []
+		arr.resize(rs.count)
+		arr.fill(-1)
+		var spot = 0
+		for id in worn.duplicate():
+			if spot >= rs.count:
+				break
+			if item_by_id(id).slot == rs.accepts:
+				arr[spot] = id
+				spot += 1
+				worn.erase(id)
+		fresh[rs.slot] = arr
+	equipped = fresh
+
+
+## Where an item could go for this race: [race slot id, accepts]
+func slot_for(item: Dictionary):
+	for rs in SkinManager.race_slots():
+		if rs.accepts == item.slot:
+			return rs
+	return null
+
+
+func is_equipped(id: int) -> bool:
+	for k in equipped:
+		if equipped[k].has(id):
+			return true
+	return false
+
+
+## Put an item on. Fills an empty spot; if all are full, swaps out the first one.
+## Returns false if your race can't wear this kind of item.
+func equip(id: int) -> bool:
 	var it = item_by_id(id)
-	if it and it.slot in equipped:
-		equipped[it.slot] = id
-		save()
+	if it == null or is_equipped(id):
+		return false
+	var rs = slot_for(it)
+	if rs == null:
+		return false
+	var arr = equipped[rs.slot]
+	var spot = arr.find(-1)
+	arr[0 if spot == -1 else spot] = id
+	save()
+	return true
+
+
+func unequip(id: int):
+	for k in equipped:
+		var i = equipped[k].find(id)
+		if i != -1:
+			equipped[k][i] = -1
+	save()
+
+
+func equipped_weapon():
+	for k in equipped:
+		for id in equipped[k]:
+			var it = item_by_id(id)
+			if it and it.slot == "weapon":
+				return it
+	return null
+
+
+func equipped_items() -> Array:
+	var out = []
+	for k in equipped:
+		for id in equipped[k]:
+			var it = item_by_id(id)
+			if it:
+				out.append(it)
+	return out
+
+
+## Everything your worn armor pieces add up to (all slots, all rings).
+func armor_totals() -> Dictionary:
+	var a = {}
+	var hardness = 0.0
+	var move = 0.0
+	for it in equipped_items():
+		if it.slot == "weapon" or it.slot == "potion":
+			continue
+		var stats = BASES[it.base].stats
+		hardness += stats.hardness
+		move += stats.move
+		for k in it.attrs:
+			a[k] = a.get(k, 0.0) + it.attrs[k]
+	var e = {resist = {}}
+	var phys = hardness + a.get("hardness", 0.0) + a.get("physical", 0.0)
+	if phys > 0.0:
+		e.resist["physical"] = phys / (phys + 20.0)
+	for el in ELEMENTS:
+		if el != "physical" and a.get(el, 0.0) > 0.0:
+			e.resist[el] = a[el] / (a[el] + 20.0)
+	e.move = move + a.get("swiftness", 0.0) * 0.02
+	e.max_health = a.get("vitality", 0.0) * 4.0
+	return e
 
 
 func potions() -> Array:
@@ -312,7 +444,7 @@ func effects(item: Dictionary) -> Dictionary:
 				if el != "physical" and a.get(el, 0.0) > 0.0:
 					e.element_bonus[el] = a[el] * 5.0
 			e.lifesteal = a.get("vitality", 0.0) * 0.4
-		"armor":
+		"head", "shoulders", "chest", "hands", "feet", "ring":
 			e.resist = {}
 			var phys = s.hardness + a.get("hardness", 0.0) + a.get("physical", 0.0)
 			e.resist["physical"] = phys / (phys + 20.0)
@@ -340,12 +472,12 @@ func describe(item: Dictionary) -> String:
 			lines.append("Hit %d / Sweep %d   (reach %d, sweep up to %d)" % [e.st, e.aoe, e.reach, e.targets])
 			lines.append("Attack time %.1fs / %.1fs" % [e.st_cd, e.aoe_cd])
 			for el in e.element_bonus:
-				lines.append("+%d %s damage per hit" % [e.element_bonus[el], el])
+				lines.append("+%d %s damage per hit" % [e.element_bonus[el], SkinManager.element_label(el)])
 			if e.lifesteal > 0.0:
 				lines.append("Heals %.1f per hit" % e.lifesteal)
-		"armor":
+		"head", "shoulders", "chest", "hands", "feet", "ring":
 			for el in e.resist:
-				lines.append("Resists %d%% %s" % [roundi(e.resist[el] * 100), el])
+				lines.append("Resists %d%% %s" % [roundi(e.resist[el] * 100), SkinManager.element_label(el)])
 			if e.move != 0.0:
 				lines.append("Move speed %+d%%" % roundi(e.move * 100))
 			if e.max_health > 0.0:
@@ -353,7 +485,7 @@ func describe(item: Dictionary) -> String:
 		"potion":
 			lines.append("Heals %d" % e.heal)
 			for el in e.ward:
-				lines.append("Ward: resist %d%% %s for 30s" % [roundi(e.ward[el] * 100), el])
+				lines.append("Ward: resist %d%% %s for 30s" % [roundi(e.ward[el] * 100), SkinManager.element_label(el)])
 			if e.haste > 0.0:
 				lines.append("Haste +%d%% for 30s" % roundi(e.haste * 100))
 	if item.has("made_from"):
@@ -361,6 +493,9 @@ func describe(item: Dictionary) -> String:
 		if item.has("made_on"):
 			made += "  (%s, %s quality)" % [item.made_on, item.made_in]
 		lines.append(made)
+	var where = slot_for(item)
+	if item.slot != "potion" and where == null:
+		lines.append("(Your race can't wear this.)")
 	return "\n".join(lines)
 
 

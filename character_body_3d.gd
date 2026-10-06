@@ -276,7 +276,7 @@ func take_damage(amount, source = null):
 	# Damage types: armor and potion wards soak their element
 	var element = source.damage_type if source and "damage_type" in source else "physical"
 	if element != "physical" and source and "tier" in source:
-		last_attacker = SkinManager.name_of(source.TIER_IDS[source.tier] + "_one") + " (" + element + ")"
+		last_attacker = SkinManager.name_of(source.TIER_IDS[source.tier] + "_one") + " (" + SkinManager.element_label(element) + ")"
 	amount *= 1.0 - resistance(element)
 	health -= amount
 	
@@ -687,8 +687,9 @@ const MAX_RESIST = 0.8
 
 
 ## Read what's equipped (Crafting) and set up the character to match.
+## Armor can come from many slots (and many rings), so it's added up across everything worn.
 func apply_gear():
-	var w = Crafting.item_by_id(Crafting.equipped.weapon)
+	var w = Crafting.equipped_weapon()
 	if w:
 		var e = Crafting.effects(w)
 		weapon_name = w.name
@@ -701,14 +702,23 @@ func apply_gear():
 		gear_aoe_cd = e.aoe_cd
 		element_bonus = e.element_bonus
 		lifesteal = e.lifesteal
-	var a = Crafting.item_by_id(Crafting.equipped.armor)
-	if a:
-		var e = Crafting.effects(a)
-		armor_resist = e.resist
-		var old_max = MAX_HEALTH
-		MAX_HEALTH = BASE_MAX_HEALTH + e.max_health
-		health = min(health + (MAX_HEALTH - old_max), MAX_HEALTH)
-		SPEED = BASE_SPEED * (1.0 + e.move)
+	else:	# bare hands
+		weapon_name = "Fists"
+		weapon_st_base = 100.0
+		weapon_aoe_base = 50.0
+		aoe_cone = 0.3
+		aoe_max_targets = 4
+		ST_RANGE = 10.0
+		gear_st_cd = BASE_ST_COOLDOWN
+		gear_aoe_cd = BASE_AOE_COOLDOWN
+		element_bonus = {}
+		lifesteal = 0.0
+	var t = Crafting.armor_totals()
+	armor_resist = t.resist
+	var old_max = MAX_HEALTH
+	MAX_HEALTH = BASE_MAX_HEALTH + t.max_health
+	health = clamp(health + (MAX_HEALTH - old_max), 1.0, MAX_HEALTH)
+	SPEED = BASE_SPEED * (1.0 + t.move)
 	_refresh_damage()
 
 

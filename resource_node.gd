@@ -11,39 +11,7 @@ var _label: Label3D
 
 func _ready():
 	add_to_group("resource_node")
-	var mi = MeshInstance3D.new()
-	var mat = StandardMaterial3D.new()
-	mat.albedo_color = GameState.RESOURCE_INFO[type].color
-	match type:
-		"ore":
-			var m = BoxMesh.new()
-			m.size = Vector3(1.2, 0.9, 1.2)
-			mi.mesh = m
-			mi.position.y = 0.45
-			mi.rotation.y = randf() * TAU
-		"herb":
-			var m = SphereMesh.new()
-			m.radius = 0.45
-			m.height = 0.6
-			mi.mesh = m
-			mi.position.y = 0.3
-		"treesilver":
-			var m = BoxMesh.new()
-			m.size = Vector3(0.35, 0.8, 0.35)
-			mi.mesh = m
-			mi.position.y = 1.0
-			mat.emission_enabled = true
-			mat.emission = Color(0.6, 0.7, 0.8)
-		"orchid":
-			var m = SphereMesh.new()
-			m.radius = 0.3
-			m.height = 0.5
-			mi.mesh = m
-			mi.position.y = 0.25
-			mat.emission_enabled = true
-			mat.emission = Color(0.6, 0.2, 0.5)
-	mi.material_override = mat
-	add_child(mi)
+	add_child(preload("res://props.gd").node(SkinManager.props_style(), type))	# looks come from the world skin
 
 	_label = Label3D.new()
 	_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED

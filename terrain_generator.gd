@@ -20,6 +20,7 @@ const ORCHID_CHANCE = 0.3		# per hill: a rare Cliff Orchid on its slope
 const HERB_CHANCE = 0.3			# per tree: herbs at its feet
 const TREESILVER_CHANCE = 0.5	# per ancient tree
 const NODE_SCRIPT = preload("res://resource_node.gd")
+const PROPS = preload("res://props.gd")
 var _quality = 0
 
 var _mats = {}
@@ -107,7 +108,7 @@ func spawn_hills(count: int):
 			var p = center + offset
 			if _near_gate(p):
 				continue
-			_make_hill(p, {r = randf_range(4.0, 7.0), h = randf_range(1.5, 3.0)})
+			_make_hill(p, {r = randf_range(4.0, 7.0), h = randf_range(1.5, 3.0), v = randi() % 100})
 
 
 func _make_hill(pos: Vector3, data: Dictionary):
@@ -115,16 +116,7 @@ func _make_hill(pos: Vector3, data: Dictionary):
 	body.set_meta("kind", "hill")
 	body.set_meta("data", data)
 	body.add_to_group("hill")
-	var mesh = CylinderMesh.new()
-	mesh.bottom_radius = data.r
-	mesh.top_radius = data.r * 0.45
-	mesh.height = data.h
-	mesh.radial_segments = 12
-	var mi = MeshInstance3D.new()
-	mi.mesh = mesh
-	mi.material_override = _mat("hill", Color(0.42, 0.38, 0.3))
-	mi.position.y = data.h / 2.0
-	body.add_child(mi)
+	body.add_child(PROPS.hill(SkinManager.props_style(), data))	# looks come from the world skin
 	var shape = CylinderShape3D.new()
 	shape.radius = data.r * 0.8
 	shape.height = data.h
@@ -146,7 +138,7 @@ func spawn_groves(count: int):
 			if _near_gate(p):
 				continue
 			var ancient = randf() < ANCIENT_TREE_CHANCE
-			_make_tree(p, {s = randf_range(1.6, 2.0) if ancient else randf_range(0.8, 1.2), ancient = ancient})
+			_make_tree(p, {s = randf_range(1.6, 2.0) if ancient else randf_range(0.8, 1.2), ancient = ancient, v = randi() % 100})
 
 
 func _make_tree(pos: Vector3, data: Dictionary):
@@ -157,24 +149,9 @@ func _make_tree(pos: Vector3, data: Dictionary):
 	body.add_to_group("tree")
 	if data.ancient:
 		body.add_to_group("ancient_tree")
-	var trunk = CylinderMesh.new()
-	trunk.top_radius = 0.25 * s
-	trunk.bottom_radius = 0.35 * s
-	trunk.height = 2.5 * s
-	var trunk_mi = MeshInstance3D.new()
-	trunk_mi.mesh = trunk
-	trunk_mi.material_override = _mat("trunk_old" if data.ancient else "trunk", Color(0.3, 0.22, 0.2) if data.ancient else Color(0.4, 0.27, 0.15))
-	trunk_mi.position.y = 1.25 * s
-	body.add_child(trunk_mi)
-	var canopy = SphereMesh.new()
-	canopy.radius = 1.4 * s
-	canopy.height = 2.4 * s
-	var canopy_mi = MeshInstance3D.new()
-	canopy_mi.mesh = canopy
-	canopy_mi.material_override = _mat("leaves_old" if data.ancient else "leaves", Color(0.16, 0.36, 0.2) if data.ancient else Color(0.22, 0.5, 0.22))
-	canopy_mi.position.y = 2.5 * s + 0.6 * s
-	body.add_child(canopy_mi)
-	body.set_meta("canopy", canopy_mi)
+	var look = PROPS.tree(SkinManager.props_style(), data)	# looks come from the world skin
+	body.add_child(look.root)
+	body.set_meta("fade", look.fade)
 	var shape = CylinderShape3D.new()	# only the trunk blocks you
 	shape.radius = 0.4 * s
 	shape.height = 3.0 * s
@@ -202,19 +179,22 @@ func _process(delta):
 		var tp = tree.global_position
 		var s = tree.get_meta("data").s
 		var in_the_way = tp.z > pp.z - 2.0 and tp.z < pp.z + 14.0 and abs(tp.x - pp.x) < 2.5 * s + 1.0
-		var canopy = tree.get_meta("canopy")
-		var normal = _mat("leaves_old" if tree.get_meta("data").ancient else "leaves", Color.WHITE)
-		canopy.material_override = _faded_leaves() if in_the_way else normal
+		for m in tree.get_meta("fade"):
+			if not m.has_meta("solid"):
+				m.set_meta("solid", m.material_override)
+			m.material_override = _faded(m.get_meta("solid")) if in_the_way else m.get_meta("solid")
 
 
-var _faded: StandardMaterial3D = null
+var _faded_mats = {}
 
-func _faded_leaves() -> StandardMaterial3D:
-	if _faded == null:
-		_faded = StandardMaterial3D.new()
-		_faded.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		_faded.albedo_color = Color(0.22, 0.5, 0.22, 0.25)
-	return _faded
+## A see-through copy of a material (made once per material).
+func _faded(solid: StandardMaterial3D) -> StandardMaterial3D:
+	if not _faded_mats.has(solid):
+		var f = solid.duplicate()
+		f.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		f.albedo_color.a = 0.25
+		_faded_mats[solid] = f
+	return _faded_mats[solid]
 
 
 func _rebuild(t: Dictionary):

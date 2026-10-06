@@ -354,6 +354,9 @@ func zone_quality(scene_path: String) -> int:
 
 
 func resource_name(type: String, quality: int) -> String:
+	var skinned = SkinManager.list_name("resources", type, quality)
+	if skinned != null:
+		return skinned
 	var names = RESOURCE_INFO[type].names
 	if quality >= 1 and quality <= names.size():
 		return names[quality - 1]

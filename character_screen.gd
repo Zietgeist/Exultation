@@ -1,11 +1,11 @@
 extends CanvasLayer
 ## Character screen (press C). Shows who you are, what you're carrying and how far you've come.
-## The game pauses while it's open. Gear can be swapped here, but only in town (gear changes on breaks).
+## The game keeps running while it's open (ready for multiplayer). Gear can be swapped here, but only in town.
 
 const GOLD = Color(1.0, 0.85, 0.3)
 const SOFT = Color(0.85, 0.85, 0.85)
 const DIM = Color(0.65, 0.65, 0.65)
-const CLASS_NAMES = ["DPS", "Tank", "Healer"]
+const GEAR_VIEW = preload("res://gear_view.gd")
 
 var panel: PanelContainer
 var left: VBoxContainer
@@ -14,7 +14,6 @@ var right: VBoxContainer
 
 func _ready():
 	layer = 45
-	process_mode = Node.PROCESS_MODE_ALWAYS	# keeps working while the game is paused
 	panel = PanelContainer.new()
 	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	panel.custom_minimum_size = Vector2(1000, 620)
@@ -57,10 +56,25 @@ func _unhandled_input(event):
 
 func toggle():
 	visible = not visible
-	GameState.ui_open = visible
-	get_tree().paused = visible
+	GameState.ui_open = visible	# the game keeps running (multiplayer-friendly); only your attack keys are paused
 	if visible:
 		_rebuild()
+
+
+var _refresh = 0.0
+
+## The game keeps running, so keep the "You" side (health, energy, wards) up to date.
+func _process(delta):
+	if not visible:
+		return
+	_refresh -= delta
+	if _refresh <= 0.0:
+		_refresh = 0.5
+		var p = get_tree().get_first_node_in_group("player")
+		if p:
+			for c in left.get_children():
+				c.queue_free()
+			_you(p)
 
 
 # ---------------- Contents ----------------
@@ -81,7 +95,8 @@ func _rebuild():
 
 
 func _you(p):
-	_title(left, "%s  -  %s" % [CLASS_NAMES[p.player_class], GameState.ZONE_NAMES.get(get_tree().current_scene.scene_file_path, "")])
+	_title(left, "%s %s  -  %s" % [SkinManager.race().name, SkinManager.class_label(p.player_class), GameState.ZONE_NAMES.get(get_tree().current_scene.scene_file_path, "")])
+	_text(left, "World: %s" % SkinManager.skin_name(), DIM)
 	_text(left, "Health %d / %d     Energy %.1f / %d" % [p.health, p.MAX_HEALTH, p.energy, p.MAX_ENERGY], SOFT)
 	_text(left, "Move speed %.1f%s" % [p.SPEED * (1.0 + p.haste), "  (hasted)" if p.haste > 0.0 else ""], SOFT)
 
@@ -91,7 +106,7 @@ func _you(p):
 	_text(left, "Sweep (right click): %d%s   up to %d enemies, %d° wide" % [p.aoe_damage, "  +%d elemental" % (bonus * 0.5) if bonus > 0 else "", p.aoe_max_targets, roundi(rad_to_deg(acos(clamp(p.aoe_cone, -1.0, 1.0))) * 2)], SOFT)
 	_text(left, "Attack time: hit %.1fs, sweep %.1fs   (mouse wheel level %+d)" % [p.st_cooldown_time, p.aoe_cooldown_time, p.speed_level], SOFT)
 	for el in p.element_bonus:
-		_text(left, "  +%d %s damage per hit" % [p.element_bonus[el], el], Crafting.ELEMENT_COLORS[el])
+		_text(left, "  +%d %s damage per hit" % [p.element_bonus[el], SkinManager.element_label(el)], Crafting.ELEMENT_COLORS[el])
 	if p.lifesteal > 0.0:
 		_text(left, "  Heals %.1f per hit" % p.lifesteal, Color(0.5, 1.0, 0.5))
 	if p.dps_boost_stacks > 0:
@@ -100,7 +115,7 @@ func _you(p):
 	_title(left, "Resistances", 20)
 	for el in Crafting.ELEMENTS:
 		var r = p.resistance(el)
-		var line = "%s: %d%%" % [el.capitalize(), roundi(r * 100)]
+		var line = "%s: %d%%" % [SkinManager.element_label(el), roundi(r * 100)]
 		if p.ward_time > 0.0 and p.ward.get(el, 0.0) > 0.0:
 			line += "  (potion ward, %ds left)" % p.ward_time
 		_text(left, line, Crafting.ELEMENT_COLORS[el] if r > 0.0 else DIM)
@@ -115,39 +130,9 @@ func _you(p):
 
 func _gear(p):
 	var in_town = get_tree().current_scene.scene_file_path == "res://Home.tscn"
-	_title(right, "Equipped")
-	for slot in ["weapon", "armor"]:
-		var it = Crafting.item_by_id(Crafting.equipped[slot])
-		if it:
-			_text(right, "%s: %s" % [slot.capitalize(), it.name], GOLD)
-			_text(right, Crafting.describe(it), SOFT)
-		else:
-			_text(right, "%s: %s" % [slot.capitalize(), "Fists" if slot == "weapon" else "none"], DIM)
 	var pots = Crafting.potions()
 	_text(right, "Potions (press 1): %d" % pots.size(), GOLD if pots.size() > 0 else DIM)
-	for pot in pots:
-		_text(right, "  " + pot.name, SOFT)
-
-	var spare = Crafting.items.filter(func(it): return it.slot != "potion" and Crafting.equipped.get(it.slot, -1) != it.id)
-	_title(right, "Other gear", 20)
-	if spare.is_empty():
-		_text(right, "Nothing else yet. Brann the Smith can make more.", DIM)
-	elif not in_town:
-		_text(right, "You can swap gear in town.", DIM)
-	for it in spare:
-		var row = HBoxContainer.new()
-		var lbl = Label.new()
-		lbl.text = "%s (%s)\n%s" % [it.name, it.slot, Crafting.describe(it)]
-		lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		lbl.add_theme_color_override("font_color", SOFT)
-		row.add_child(lbl)
-		if in_town:
-			var eq = Button.new()
-			eq.text = "Equip"
-			eq.pressed.connect(func(): Crafting.equip(it.id))
-			row.add_child(eq)
-		right.add_child(row)
+	GEAR_VIEW.build(right, in_town, func(): _rebuild.call_deferred())
 
 
 func _journey():
