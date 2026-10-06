@@ -9,7 +9,8 @@ var world_pick: OptionButton
 var world_about: Label
 var race_pick: OptionButton
 var race_about: Label
-var class_buttons = []
+var class_buttons = {}	# class id -> Button
+var class_about: Label
 var _world_ids = []
 
 
@@ -52,16 +53,25 @@ func _ready():
 	race_about = _text(box)
 
 	_title(box, "Class", 22)
-	var row = HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
-	box.add_child(row)
-	for i in range(3):
+	# One button per class file (classes/*.json and mods). Hover to read about it, click to play.
+	var grid = GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 12)
+	var grid_center = CenterContainer.new()
+	grid_center.add_child(grid)
+	box.add_child(grid_center)
+	for id in Classes.ids():
 		var b = Button.new()
 		b.custom_minimum_size = Vector2(200, 56)
-		b.pressed.connect(_start.bind(i))
-		row.add_child(b)
-		class_buttons.append(b)
-	_text(box).text = "DPS hits hard  ·  Tank takes hits  ·  Healer keeps going"
+		b.pressed.connect(_start.bind(id))
+		b.mouse_entered.connect(_show_class.bind(id))
+		b.focus_entered.connect(_show_class.bind(id))
+		grid.add_child(b)
+		class_buttons[id] = b
+	class_about = _text(box)
+	class_about.custom_minimum_size = Vector2(0, 110)
+	_show_class(Classes.ids()[0])
 
 	_refresh()
 
@@ -90,12 +100,26 @@ func _refresh():
 	for rs in SkinManager.race_slots():
 		slots.append(rs.label if rs.count == 1 else "%d %ss" % [rs.count, rs.label])
 	race_about.text = "%s\nGear slots: %s" % [r.get("about", ""), ", ".join(slots)]
-	for i in range(3):
-		class_buttons[i].text = "%s\n(%s)" % [SkinManager.class_label(i), ["DPS", "Tank", "Healer"][i]]
+	for id in class_buttons:
+		class_buttons[id].text = "%s\n(%s)" % [Classes.label(id), Classes.get_def(id).get("role", "")]
+	_show_class(_shown_class)
 
 
-func _start(class_index: int):
-	GameState.player_class = class_index
+var _shown_class := ""
+
+## About text + the class's three skills (with this world's names).
+func _show_class(id: String):
+	_shown_class = id
+	var c = Classes.get_def(id)
+	var lines = ["%s - %s" % [Classes.label(id), c.get("about", "")]]
+	for key in Classes.KEYS:
+		var sk = Classes.skill(id, key)
+		lines.append("%s  %s: %s" % [key, Classes.skill_label(id, key), sk.get("about", "")])
+	class_about.text = "\n".join(lines)
+
+
+func _start(class_id: String):
+	GameState.player_class = class_id
 	Crafting.ensure_slots()
 	get_tree().change_scene_to_file("res://Home.tscn")
 

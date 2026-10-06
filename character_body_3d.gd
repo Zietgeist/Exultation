@@ -6,50 +6,26 @@ const GRAVITY = -9.8
 var MAX_HEALTH = 100.0	# armor vitality can raise this
 const BASE_MAX_HEALTH = 100.0
 
-# Class types
-enum Class {DPS, TANK, HEALER}
-var player_class = Class.DPS
+# Class: comes from a file in classes/ (see ClassManager.gd). Skills run in skill_runner.gd.
+var player_class := "dps"
+var class_def := {}
+var skills = null		# this player's SkillRunner
 
 # Energy
 const MAX_ENERGY = 10.0
 var energy = 5.0
-var dps_boost_stacks = 0
+var dps_boost_stacks = 0	# damage boost stacks (any class with a damage_boost skill)
+var boost_base = 2.0		# each stack multiplies damage by this
+var skill_haste = 0.0		# extra move speed from skills (whirlwind)
+var _last_pos = Vector3.ZERO
 
-# Energy generation rates
-# Action energy comes from blue orbs (see orb.gd). Tank also gains a little from being hit.
-const TANK_ENERGY_PER_DAMAGE_TAKEN = 0.015
-const HEALER_ENERGY_REGEN = 0.5
-const BASE_ENERGY_REGEN = 0.15  # slow trickle for DPS and Tank, so skills work in long boss fights
+# Action energy comes from blue orbs (see orb.gd). Each class file sets its own regen,
+# energy from being hit (tank) and energy from moving (skirmisher).
 
-# Skills (names and energy costs). The skill HUD reads these too.
-const SKILL_E = {
-	Class.DPS: {name = "Boost", cost = 2.0},
-	Class.TANK: {name = "Shield", cost = 4.0},
-	Class.HEALER: {name = "Big Heal", cost = 5.0},
-}
-const SKILL_Q = {
-	Class.DPS: {name = "Self Heal", cost = 4.0},
-	Class.TANK: {name = "Self Heal", cost = 4.0},
-	Class.HEALER: {name = "Self Heal", cost = 3.0},
-}
-const SKILL_F = {
-	Class.DPS: {name = "Blast", cost = 8.0},		# 80% of max energy
-	Class.TANK: {name = "Thorns Aura", cost = 5.0},
-	Class.HEALER: {name = "Energy Transfer", cost = 0.0, soon = true},
-}
-
-# Class specials (F). Both cover about 25% of the screen.
+# Class specials cover a share of the screen (most use 25%).
 const SPECIAL_SCREEN_SHARE = 0.25
-const BLAST_DAMAGE = 250.0		# DPS: hits everything in the circle around the mouse
-const AURA_DURATION = 8.0		# Tank: seconds the aura lasts
-const AURA_DAMAGE_PER_SECOND = 40.0	# Tank: to every enemy inside the aura
-const AURA_TICK = 0.5
-const THORNS_REFLECT = 0.5		# Tank: while the aura is up, attackers take back 50% of the hit
 
 var mouse_world_point = Vector3.ZERO
-var aura_time_left = 0.0
-var _aura_tick_timer = 0.0
-var _aura_disc: MeshInstance3D = null
 
 # Attack cooldowns
 var st_cooldown = 0.0
@@ -93,10 +69,17 @@ var invulnerable_time = 0.0
 
 
 func _ready():
+	add_to_group("party")
+	player_class = Classes.normalize(GameState.player_class)
+	class_def = Classes.get_def(player_class)
+	skills = load("res://skill_runner.gd").new()
+	skills.name = "SkillRunner"
+	add_child(skills)
+	skills.setup(self, player_class)
 	Crafting.changed.connect(apply_gear)
 	apply_gear()
-	player_class = GameState.player_class
-	print("Playing as class: ", player_class)
+	health = MAX_HEALTH
+	print("Playing as class: ", Classes.label(player_class))
 	_place_at_entry.call_deferred()
 
 
@@ -128,9 +111,9 @@ func _input(event):
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
 			KEY_1: drink_potion()
-			KEY_E: use_energy_ability()
-			KEY_Q: use_secondary_ability()
-			KEY_F: use_class_ability()
+			KEY_E: skills.use("E")
+			KEY_Q: skills.use("Q")
+			KEY_F: skills.use("F")
 			KEY_G: start_gathering()
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
@@ -177,13 +160,17 @@ func _physics_process(delta):
 	if direction.length() > 0:
 		direction = direction.normalized()
 
-	var speed_now = SPEED * (1.0 + haste)
+	var speed_now = SPEED * (1.0 + haste + skill_haste)
 	var ditch = GameState.ditch_at(global_position)	# slow patches
 	if ditch:
 		speed_now *= ditch.get_slow_factor()
 		ditch.reveal()	# hidden ones show up once you step in
 	velocity.x = direction.x * speed_now
 	velocity.z = direction.z * speed_now
+	var dash = skills.dash_velocity()
+	if dash != null:
+		velocity.x = dash.x
+		velocity.z = dash.z
 	velocity.y += GRAVITY * delta
 
 	var mouse_pos = get_viewport().get_mouse_position()
@@ -198,7 +185,6 @@ func _physics_process(delta):
 	if camera:
 		camera.global_position = global_position + CAMERA_OFFSET
 
-	_tick_aura(delta)
 	_tick_gathering(delta)
 	_tick_potion(delta)
 	_update_gather_hint(delta)
@@ -212,11 +198,15 @@ func _physics_process(delta):
 		if aoe_cooldown <= 0:
 			aoe_attack()
 			aoe_cooldown = aoe_cooldown_time
-	# Energy regen: Healer fast, everyone else a slow trickle
-	var regen = HEALER_ENERGY_REGEN if player_class == Class.HEALER else BASE_ENERGY_REGEN
-	energy = min(energy + regen * delta, MAX_ENERGY)
-		
 	move_and_slide()
+
+	# Energy: trickle (per class) + energy for distance moved (skirmisher)
+	var e_rules = class_def.get("energy", {})
+	var moved = Vector2(global_position.x - _last_pos.x, global_position.z - _last_pos.z).length()
+	if moved > 2.0:
+		moved = 0.0	# teleported (respawn, portal), not running
+	_last_pos = global_position
+	energy = min(energy + e_rules.get("regen", 0.15) * delta + moved * e_rules.get("per_meter_moved", 0.0), MAX_ENERGY)
 	
 
 func single_target_attack():
@@ -271,21 +261,27 @@ func take_damage(amount, source = null):
 		_stop_gathering("Interrupted!")
 	if source and "tier" in source:
 		last_attacker = SkinManager.name_of(source.TIER_IDS[source.tier] + "_one")
-		if aura_time_left > 0.0 and is_instance_valid(source):
-			source.take_damage(amount * THORNS_REFLECT)	# thorns
 	# Damage types: armor and potion wards soak their element
 	var element = source.damage_type if source and "damage_type" in source else "physical"
 	if element != "physical" and source and "tier" in source:
 		last_attacker = SkinManager.name_of(source.TIER_IDS[source.tier] + "_one") + " (" + SkinManager.element_label(element) + ")"
+	var raw = amount
 	amount *= 1.0 - resistance(element)
+	amount = skills.absorb(amount)	# shield
 	health -= amount
-	
-	# Tank gains energy from taking damage
-	if player_class == Class.TANK:
-		energy = min(energy + amount * TANK_ENERGY_PER_DAMAGE_TAKEN, MAX_ENERGY)
-	
+
+	# Some classes (tank) gain energy from taking damage
+	energy = min(energy + amount * class_def.get("energy", {}).get("per_damage_taken", 0.0), MAX_ENERGY)
+
 	if health <= 0:
 		die(last_attacker)
+		return
+	skills.on_hurt(raw, source)	# thorns, mending vow
+
+
+## Any healing (skills, party heals, potions). Never above max.
+func heal(amount: float):
+	health = min(health + amount, MAX_HEALTH)
 
 ## Token death: back to the entry door with full health. Nothing is lost (for now).
 func die(cause := ""):
@@ -322,71 +318,9 @@ func equip_weapon(weapon: Dictionary):
 
 
 
-func spend_energy(amount):
-	if energy >= amount:
-		energy -= amount
-		return true
-	return false
-
-
-
-func use_energy_ability():
-	match player_class:
-		Class.DPS:
-			if dps_boost_stacks >= 5:
-				print("Boost at max stacks!")
-				return
-			if spend_energy(SKILL_E[Class.DPS].cost):
-				dps_boost_stacks += 1
-				var multiplier = pow(2.0, dps_boost_stacks)
-				_refresh_damage()
-				print("DPS boost x", dps_boost_stacks, " — damage multiplier: ", multiplier)
-				await get_tree().create_timer(10.0).timeout
-				dps_boost_stacks -= 1
-				_refresh_damage()
-				print("Boost stack expired — stacks remaining: ", dps_boost_stacks)
-		Class.TANK:
-			if spend_energy(SKILL_E[Class.TANK].cost):
-				print("Tank shield activated!")
-		Class.HEALER:
-			if spend_energy(SKILL_E[Class.HEALER].cost):
-				health = min(health + 50.0, MAX_HEALTH)
-				print("Healer self heal!")
-				
-
-				
-func use_secondary_ability():
-	match player_class:
-		Class.DPS:
-			if spend_energy(SKILL_Q[Class.DPS].cost):
-				health = min(health + 40.0, MAX_HEALTH)
-				print("DPS self heal!")
-		Class.TANK:
-			if spend_energy(SKILL_Q[Class.TANK].cost):
-				health = min(health + 40.0, MAX_HEALTH)
-				print("Tank self heal!")
-		Class.HEALER:
-			if spend_energy(SKILL_Q[Class.HEALER].cost):
-				health = min(health + 60.0, MAX_HEALTH)
-				print("Healer self heal!")
-				
-func use_class_ability():
-	match player_class:
-		Class.DPS:
-			if spend_energy(SKILL_F[Class.DPS].cost):
-				_blast(mouse_world_point)
-		Class.TANK:
-			if spend_energy(SKILL_F[Class.TANK].cost):
-				aura_time_left = AURA_DURATION
-				_aura_tick_timer = 0.0
-				print("Thorns Aura up for ", AURA_DURATION, "s")
-		Class.HEALER:
-			print("Energy transfer - TBD")
-
-
-## Radius of a circle that covers about 25% of what's on screen.
+## Radius of a circle that covers a share of what's on screen (default 25%).
 ## Measured from the camera each time, so it stays right if the window or camera changes.
-func special_radius() -> float:
+func special_radius(share := SPECIAL_SCREEN_SHARE) -> float:
 	var cam = get_viewport().get_camera_3d()
 	var size = get_viewport().get_visible_rect().size
 	var corners = [Vector2(0, 0), Vector2(size.x, 0), Vector2(size.x, size.y), Vector2(0, size.y)]
@@ -406,55 +340,7 @@ func special_radius() -> float:
 		var p2 = pts[(i + 1) % 4]
 		area += p1.x * p2.y - p2.x * p1.y
 	area = abs(area) / 2.0
-	return sqrt(area * SPECIAL_SCREEN_SHARE / PI)
-
-
-## DPS Blast: big damage to every enemy in a circle around the mouse.
-func _blast(center: Vector3):
-	var radius = special_radius()
-	var hit = 0
-	for enemy in get_tree().get_nodes_in_group("enemy"):
-		if not is_instance_valid(enemy) or enemy.is_queued_for_deletion():
-			continue
-		var d = Vector2(enemy.global_position.x - center.x, enemy.global_position.z - center.z).length()
-		if d <= radius:
-			enemy.take_damage(BLAST_DAMAGE * get_damage_multiplier())
-			hit += 1
-	print("Blast! radius %.1f, hit %d" % [radius, hit])
-	var disc = _make_disc(radius, Color(1.0, 0.45, 0.1, 0.45))
-	get_tree().current_scene.add_child(disc)
-	disc.global_position = Vector3(center.x, 0.25, center.z)
-	var tween = disc.create_tween()
-	tween.tween_property(disc, "scale", Vector3(1.05, 1, 1.05), 0.35)
-	tween.parallel().tween_property(disc.material_override, "albedo_color:a", 0.0, 0.35)
-	tween.tween_callback(disc.queue_free)
-
-
-## Tank Thorns Aura: damages and pulls every enemy near the tank while it lasts.
-func _tick_aura(delta):
-	if aura_time_left <= 0.0:
-		if _aura_disc:
-			_aura_disc.queue_free()
-			_aura_disc = null
-		return
-	aura_time_left -= delta
-	var radius = special_radius()
-	if _aura_disc == null:
-		_aura_disc = _make_disc(1.0, Color(0.3, 0.9, 0.3, 0.25))
-		add_child(_aura_disc)
-		_aura_disc.position = Vector3(0, -0.9, 0)
-	_aura_disc.scale = Vector3(radius, 1, radius)
-	_aura_tick_timer -= delta
-	if _aura_tick_timer > 0.0:
-		return
-	_aura_tick_timer = AURA_TICK
-	for enemy in get_tree().get_nodes_in_group("enemy"):
-		if not is_instance_valid(enemy) or enemy.is_queued_for_deletion():
-			continue
-		var d = Vector2(enemy.global_position.x - global_position.x, enemy.global_position.z - global_position.z).length()
-		if d <= radius:
-			enemy.aggroed = true
-			enemy.take_damage(AURA_DAMAGE_PER_SECOND * AURA_TICK)
+	return sqrt(area * share / PI)
 
 
 func _make_disc(radius: float, color: Color) -> MeshInstance3D:
@@ -475,14 +361,19 @@ func _make_disc(radius: float, color: Color) -> MeshInstance3D:
 
 ## List of skills for the skill HUD: key to press, name, energy cost, cooldown left.
 func get_skills() -> Array:
-	return [
+	var list = [
 		{key = "LMB", name = "Strike", cost = 0.0, cooldown = max(st_cooldown, 0.0), soon = false},
 		{key = "RMB", name = "Sweep", cost = 0.0, cooldown = max(aoe_cooldown, 0.0), soon = false},
-		{key = "E", name = SKILL_E[player_class].name, cost = SKILL_E[player_class].cost, cooldown = 0.0, soon = false},
-		{key = "Q", name = SKILL_Q[player_class].name, cost = SKILL_Q[player_class].cost, cooldown = 0.0, soon = false},
-		{key = "1", name = "Potion x%d" % Crafting.potions().size(), cost = 0.0, cooldown = 0.0, soon = false, note = "Make at Chemist" if Crafting.potions().is_empty() else "Drink"},
-		{key = "F", name = SKILL_F[player_class].name, cost = SKILL_F[player_class].cost, cooldown = 0.0, soon = SKILL_F[player_class].get("soon", false)},
 	]
+	var class_skills = skills.skill_list() if skills else []
+	for s in class_skills:
+		if s.key != "F":
+			list.append(s)
+	list.append({key = "1", name = "Potion x%d" % Crafting.potions().size(), cost = 0.0, cooldown = 0.0, soon = false, note = "Make at Chemist" if Crafting.potions().is_empty() else "Drink"})
+	for s in class_skills:
+		if s.key == "F":
+			list.append(s)
+	return list
 
 
 ## Blue orbs call this. Returns false if energy is already full (orb stays on the ground).
@@ -716,16 +607,17 @@ func apply_gear():
 	var t = Crafting.armor_totals()
 	armor_resist = t.resist
 	var old_max = MAX_HEALTH
-	MAX_HEALTH = BASE_MAX_HEALTH + t.max_health
+	var stats = class_def.get("stats", {})
+	MAX_HEALTH = BASE_MAX_HEALTH * stats.get("health", 1.0) + t.max_health
 	health = clamp(health + (MAX_HEALTH - old_max), 1.0, MAX_HEALTH)
-	SPEED = BASE_SPEED * (1.0 + t.move)
+	SPEED = BASE_SPEED * stats.get("speed", 1.0) * (1.0 + t.move)
 	_refresh_damage()
 
 
 ## Damage and attack times = weapon x attack-speed wheel x DPS boost.
 func _refresh_damage():
 	var modifier = speed_level * SPEED_DAMAGE_MODIFIER
-	var boost = pow(2.0, dps_boost_stacks)
+	var boost = pow(boost_base, dps_boost_stacks)
 	st_damage = weapon_st_base * (1.0 - modifier) * boost
 	aoe_damage = weapon_aoe_base * (1.0 - modifier) * boost
 	st_cooldown_time = gear_st_cd * (1.0 - modifier)
@@ -768,7 +660,7 @@ func drink_potion():
 	if e == null:
 		_float_text("No potions", Color(0.8, 0.8, 0.8))
 		return
-	health = min(health + e.heal, MAX_HEALTH)
+	heal(e.heal)
 	ward = e.ward
 	haste = e.haste
 	ward_time = 30.0

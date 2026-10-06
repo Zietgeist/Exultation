@@ -18,11 +18,26 @@
 		"enemy_master_one": "Brute",
 		"enemy_boss_one": "Abomination"
 	},
-	"classes": [
-		"Brawler",
-		"Bulwark",
-		"Medic"
-	],
+	"classes": {
+		"dps": "Brawler",
+		"tank": "Bulwark",
+		"healer": "Medic",
+		"skirmisher": "Runner",
+		"warden": "Trapper"
+	},
+	"skills": {
+		"boost": "Adrenaline",
+		"blast": "Molotov",
+		"shield": "Riot Shield",
+		"thorns": "Barbed Wire",
+		"self_heal": "Bandage",
+		"mending": "Patch-Up Tag",
+		"life_drain": "Bloodletting",
+		"dash": "Sprint",
+		"whirlwind": "Chainsaw Spin",
+		"totem": "Sentry Gun",
+		"root_field": "Bear Traps"
+	},
 	"elements": {
 		"physical": "Physical",
 		"radiant": "Fire",

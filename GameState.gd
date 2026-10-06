@@ -1,6 +1,6 @@
 extends Node
 
-var player_class = 0
+var player_class = "dps"	# a class id from classes/*.json
 
 # Orb Container
 var orb_container: int = 0
@@ -293,6 +293,11 @@ func ditch_at(world_pos: Vector3):
 
 # ---------------- Notices (big gold message on screen) ----------------
 signal notice(text)
+
+## Everyone in the party (just you for now; other players join this group in multiplayer).
+func party() -> Array:
+	return get_tree().get_nodes_in_group("party")
+
 
 func notify(text: String):
 	print(text)

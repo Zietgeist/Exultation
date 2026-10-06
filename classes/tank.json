@@ -1,0 +1,21 @@
+{
+	"id": "tank",
+	"order": 2,
+	"name": "Tank",
+	"role": "Tank",
+	"about": "Takes hits and hits back. Gains energy from being hit.",
+	"stats": {"health": 1.3, "speed": 0.95},
+	"energy": {"regen": 0.15, "per_damage_taken": 0.015, "per_meter_moved": 0.0},
+	"skills": {
+		"E": {"id": "shield", "name": "Shield", "cost": 4, "effect": "shield",
+			"params": {"absorb": 60, "duration": 8}, "per_rank": {"absorb": 15},
+			"about": "Soaks up the next 60 damage (8s)."},
+		"Q": {"id": "self_heal", "name": "Self Heal", "cost": 4, "effect": "heal_self",
+			"params": {"amount": 40}, "per_rank": {"amount": 8},
+			"about": "Heal yourself."},
+		"F": {"id": "thorns", "name": "Thorns Aura", "cost": 5, "effect": "thorns_aura",
+			"params": {"duration": 8, "damage_per_second": 40, "reflect": 0.5, "screen_share": 0.25},
+			"per_rank": {"damage_per_second": 6, "duration": 1},
+			"about": "Hurts and taunts enemies near you. Attackers take back half their hit."}
+	}
+}

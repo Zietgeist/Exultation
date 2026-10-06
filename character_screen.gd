@@ -110,7 +110,7 @@ func _you(p):
 	if p.lifesteal > 0.0:
 		_text(left, "  Heals %.1f per hit" % p.lifesteal, Color(0.5, 1.0, 0.5))
 	if p.dps_boost_stacks > 0:
-		_text(left, "  Boost x%d active" % pow(2, p.dps_boost_stacks), Color(1.0, 0.5, 0.3))
+		_text(left, "  Boost x%d active" % pow(p.boost_base, p.dps_boost_stacks), Color(1.0, 0.5, 0.3))
 
 	_title(left, "Resistances", 20)
 	for el in Crafting.ELEMENTS:
@@ -120,12 +120,13 @@ func _you(p):
 			line += "  (potion ward, %ds left)" % p.ward_time
 		_text(left, line, Crafting.ELEMENT_COLORS[el] if r > 0.0 else DIM)
 
-	_title(left, "Skills", 20)
-	var lines = []
-	for s in p.get_skills():
+	_title(left, "Skills  (they rank up as you use them)", 20)
+	for s in p.skills.skill_list():
 		var cost = ("%d energy" % s.cost) if s.cost > 0 else "free"
-		lines.append("%s  %s  (%s)%s" % [s.key, s.name, cost, "  - coming soon" if s.soon else ""])
-	_text(left, "\n".join(lines), SOFT)
+		_text(left, "%s  %s  rank %d  (%s)  -  %s" % [s.key, s.name, s.rank, cost, Classes.rank_progress(p.player_class, s.key)], SOFT)
+		_text(left, "      " + s.about, DIM)
+	for line in p.skills.status_lines():
+		_text(left, "  " + line, Color(1.0, 0.75, 0.35))
 
 
 func _gear(p):

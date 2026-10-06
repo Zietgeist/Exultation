@@ -126,12 +126,9 @@ func props_style() -> String:
 	return p if p != null else "fantasy"
 
 
-## Class display name: 0 = DPS, 1 = Tank, 2 = Healer.
-func class_label(i: int) -> String:
-	var names = section("classes")
-	if names != null and i < names.size():
-		return names[i]
-	return ["DPS", "Tank", "Healer"][i]
+## Class display name in this world (classes live in ClassManager; old number ids still work).
+func class_label(id) -> String:
+	return Classes.label(Classes.normalize(id))
 
 
 func element_label(element: String) -> String:

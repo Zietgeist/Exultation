@@ -18,11 +18,26 @@
 		"enemy_master_one": "War mech",
 		"enemy_boss_one": "Hive queen"
 	},
-	"classes": [
-		"Striker",
-		"Sentinel",
-		"Medtech"
-	],
+	"classes": {
+		"dps": "Striker",
+		"tank": "Sentinel",
+		"healer": "Medtech",
+		"skirmisher": "Phase Runner",
+		"warden": "Engineer"
+	},
+	"skills": {
+		"boost": "Overclock",
+		"blast": "Orbital Strike",
+		"shield": "Energy Shield",
+		"thorns": "Shock Field",
+		"self_heal": "Stim",
+		"mending": "Nanite Relay",
+		"life_drain": "Siphon Field",
+		"dash": "Blink",
+		"whirlwind": "Arc Spin",
+		"totem": "Turret",
+		"root_field": "Stasis Field"
+	},
 	"elements": {
 		"physical": "Kinetic",
 		"radiant": "Laser",

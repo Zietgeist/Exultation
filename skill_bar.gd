@@ -4,6 +4,7 @@ extends HBoxContainer
 ## Skills are dimmed when you don't have enough energy or they're cooling down.
 
 var player = null
+const ROMAN = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"]
 var slots = []
 
 
@@ -31,6 +32,7 @@ func _build(skills: Array):
 	for s in skills:
 		var panel = PanelContainer.new()
 		panel.custom_minimum_size = Vector2(110, 70)
+		panel.tooltip_text = s.get("about", "")
 		var box = VBoxContainer.new()
 		box.alignment = BoxContainer.ALIGNMENT_CENTER
 		panel.add_child(box)
@@ -57,7 +59,7 @@ func _build(skills: Array):
 
 
 func _update_slot(slot: Dictionary, s: Dictionary):
-	slot.name.text = s.name
+	slot.name.text = s.name + (" " + ROMAN[min(s.rank, 10)] if s.get("rank", 1) > 1 else "")
 	var can_use = player.energy >= s.cost and s.cooldown <= 0.0 and not s.soon and s.get("note", "") != "Make at Chemist"
 
 	if s.soon:

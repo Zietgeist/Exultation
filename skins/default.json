@@ -18,11 +18,26 @@
 		"enemy_master_one": "Warlock",
 		"enemy_boss_one": "Dragon"
 	},
-	"classes": [
-		"Warrior",
-		"Guardian",
-		"Cleric"
-	],
+	"classes": {
+		"dps": "Warrior",
+		"tank": "Guardian",
+		"healer": "Cleric",
+		"skirmisher": "Ranger",
+		"warden": "Druid"
+	},
+	"skills": {
+		"boost": "Battle Cry",
+		"blast": "Meteor",
+		"shield": "Shield Wall",
+		"thorns": "Thorns Aura",
+		"self_heal": "Second Wind",
+		"mending": "Mending Vow",
+		"life_drain": "Life Drain",
+		"dash": "Leap",
+		"whirlwind": "Whirlwind",
+		"totem": "Spirit Totem",
+		"root_field": "Grasping Vines"
+	},
 	"elements": {
 		"physical": "Physical",
 		"radiant": "Holy",

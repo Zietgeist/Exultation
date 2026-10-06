@@ -113,13 +113,17 @@ func _process(delta):
 		health_bar.value = (player.health / player.MAX_HEALTH) * 100
 		energy_bar.value = (player.energy / player.MAX_ENERGY) * 100
 		speed_label.text = "Attack Speed: %d" % player.speed_level
+	# Active skill effects (boost, shield, auras, vow...)
+	var active = []
 	if player and player.dps_boost_stacks > 0:
-		var multiplier = pow(2.0, player.dps_boost_stacks)
-		boost_label.text = "DMG BOOST: x%.0f (%d stacks)" % [multiplier, player.dps_boost_stacks]
-		boost_label.modulate = Color(1.0, 0.3, 0.1)  # Orange-red when active
+		active.append("DMG BOOST x%.0f (%d stacks)" % [pow(player.boost_base, player.dps_boost_stacks), player.dps_boost_stacks])
+	if player and player.skills:
+		active.append_array(player.skills.status_lines())
+	if active.size() > 0:
+		boost_label.text = "   ".join(active)
+		boost_label.modulate = Color(1.0, 0.75, 0.35)
 	else:
-		boost_label.text = "DMG BOOST: off"
-		boost_label.modulate = Color(0.6, 0.6, 0.6)  # Gray when inactive
+		boost_label.text = ""
 
 	if spawner:
 		kill_label.text = "%s: %d | %s: %d | %s: %d | %s: %d" % [

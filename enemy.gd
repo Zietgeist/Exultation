@@ -31,6 +31,7 @@ var aggroed = false
 var hunter = false	# hunters (the 2nd Boss) never stop chasing you
 var difficulty = 1.0
 
+var rooted_time = 0.0	# held in place (Warden's Root Field): can still swing if you're close
 var damage_type = "physical"	# radiant, shadow, nature, storm... (armor can resist these)
 
 func setup(diff, t = Tier.TRASH, element := "physical"):
@@ -78,6 +79,9 @@ func _physics_process(delta):
 			direction.y = 0
 			direction = direction.normalized()
 			var speed_now = SPEED * GameState.slow_factor_at(global_position)
+			if rooted_time > 0.0:
+				rooted_time -= delta
+				speed_now = 0.0
 			velocity.x = direction.x * speed_now
 			velocity.z = direction.z * speed_now
 			
@@ -88,6 +92,11 @@ func _physics_process(delta):
 					attack_cooldown = 1.0
 	
 	move_and_slide()
+
+func root(seconds: float):
+	rooted_time = max(rooted_time, seconds)
+	aggroed = true
+
 
 func take_damage(amount):
 	health -= amount

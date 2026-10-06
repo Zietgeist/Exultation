@@ -14,6 +14,7 @@ GameState="*res://GameState.gd"
 SessionManager="*res://SessionManager.gd"
 SkinManager="*res://SkinManager.gd"
 Crafting="*res://crafting.gd"
+Classes="*res://ClassManager.gd"
 
 [global_group]
 
