@@ -1,45 +1,52 @@
 extends Node
-## Autoload "Net": online co-op for 2-4 players.
+## Autoload "Net": online co-op for up to 7 players, each free to be in a different zone.
 ##
-## One player HOSTS. The host's game runs the world: enemies, kills, boss unlocks, the zone layout.
-## Others JOIN. They see copies ("mirrors") of the host's enemies; their hits, roots and heals are
-## sent to whoever owns the target. Each player moves their own character and keeps their own
-## loot, gold, gear and skill ranks. The party travels together: the host leads through gates.
-## Solo play never touches the network.
+## One player HOSTS. The host's game runs every zone that has a player in it (Zones keeps them
+## loaded side by side, each in its own little world): enemies, kills, boss fights, layouts.
+## Others JOIN. A joined player's game shows only the zone they're in, with copies ("mirrors")
+## of the host's enemies there. Hits, roots and heals go to whoever owns the target.
+## Everyone keeps their own loot, gold, gear, unlocks and skill ranks.
 ##
-## Today the connection is direct (ENet): same PC (127.0.0.1), home network, or over the internet
-## if the host forwards PORT on their router. Later the peer can be swapped for Steam (GodotSteam);
-## everything else in this file stays the same.
+## Moving around: ALL travel goes through Net.go(). Solo, it just travels. Online, it tells the
+## host (who loads the zone and sends its layout) and tells the others in your zone, who get a
+## "Follow / Stay" choice. Press P to rejoin the party.
 ##
-## Testing on one PC: Godot > Debug > Customize Run Instances: 2 instances,
-## arguments "--host" for one and "--join" for the other (add "--class=healer" to skip the class pick).
+## Connection: direct (ENet, PORT) or Steam (steam_link.gd). Both end in start_with_peer().
+## Testing on one PC: Godot > Debug > Customize Run Instances: 2+ instances,
+## arguments "--host" for one and "--join" for the others (add "--class=healer" to skip the class pick).
 
 const PORT = 24565
-const MAX_PLAYERS = 4
-const STATE_RATE = 0.05		# my position to the others, 20 times a second
-const SNAPSHOT_RATE = 0.1	# host: enemies to the others, 10 times a second
-const MIRROR_MISSES = 4		# client: an enemy missing from this many snapshots fell asleep (or left)
+const MAX_PLAYERS = 7			# host + 6 friends: one home PC can run that many zones at once
+const STATE_RATE = 0.05			# my position to the others, 20 times a second
+const SNAPSHOT_RATE = 0.1		# host: enemies to each player, 10 times a second
+const ROSTER_RATE = 1.0			# host: who's where, once a second
+const MIRROR_MISSES = 4			# client: an enemy missing from this many snapshots fell asleep (or left)
+const SNAPSHOT_RADIUS = 45.0	# each player only gets the enemies near them
+const FIELDS = 9
+const PER_PACKET = 30			# enemies per message (30 x 36 bytes fits in one network packet)
 const COLORS = [Color(1, 0.49, 1), Color(0.3, 0.8, 1), Color(1, 0.6, 0.2), Color(0.5, 1, 0.4)]
-const NOT_ZONES = ["res://ClassSelect.tscn", ""]
+const NOWHERE = Vector3.INF		# "no spot given" in network messages
 
 signal status(text)		# connection messages for the start screen
+signal follow_offer(text, go)	# someone in my zone left: show Follow / Stay (go = Callable)
 
 var mode := "solo"		# solo, host, client
-var players := {}		# host: peer id -> {class_id}  (everyone, me included)
-var puppets := {}		# peer id -> that player's stand-in in my current zone
-var enemies := {}		# host: net id -> enemy
-var mirrors := {}		# client: net id -> mirror enemy
-var _misses := {}		# client: net id -> snapshots in a row without it
+var players := {}		# host: peer id -> {class_id}
+var roster := {}		# everyone: peer id -> {c = class id, k = zone key, p = zone path, pos}
+var puppets := {}		# peer id -> that player's stand-in (host: in whatever zone they're in)
+var enemies := {}		# host: net id -> enemy (every zone)
+var mirrors := {}		# client: net id -> mirror enemy (my zone)
+var _misses := {}
+var _seen := {}
 var _next_enemy_id := 1
-var _zone := ""			# host: zone the party is in (already sent)
-var _zone_wait := 0.0
 var _state_t := 0.0
 var _snap_t := 0.0
-var allow_travel := false	# client: true while the host is moving the party
+var _roster_t := 0.0
+var travelling := false	# client: asked the host for a zone, waiting for its layout
 
 
 func _ready():
-	multiplayer.peer_connected.connect(_on_peer_connected)
+	multiplayer.peer_connected.connect(func(id): print("Peer connected: ", id))
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
 	multiplayer.connected_to_server.connect(_on_connected)
 	multiplayer.connection_failed.connect(func(): _fail("Couldn't connect to the host."))
@@ -67,10 +74,7 @@ func host() -> bool:
 	if err != OK:
 		ErrorLog.fail("Couldn't host on port %d (error %d). Is another copy already hosting?" % [PORT, err])
 		return false
-	multiplayer.multiplayer_peer = peer
-	mode = "host"
-	players = {1: _my_info()}
-	get_window().title = "Exultation - Host"
+	start_with_peer(peer, true)
 	print("Hosting on port ", PORT)
 	return true
 
@@ -81,14 +85,12 @@ func join(ip: String) -> bool:
 	if err != OK:
 		ErrorLog.fail("Couldn't start joining %s (error %d)" % [ip, err])
 		return false
-	multiplayer.multiplayer_peer = peer
-	mode = "client"
-	get_window().title = "Exultation - Joined"
+	start_with_peer(peer, false)
 	status.emit("Connecting to %s ..." % ip)
 	return true
 
 
-## Start online play with a ready-made connection (Steam uses this; see steam_link.gd).
+## Start online play with a ready-made connection (ENet above, or Steam).
 func start_with_peer(peer: MultiplayerPeer, as_host: bool):
 	multiplayer.multiplayer_peer = peer
 	mode = "host" if as_host else "client"
@@ -103,6 +105,7 @@ func leave():
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 	mode = "solo"
 	players.clear()
+	roster.clear()
 	puppets.clear()
 	mirrors.clear()
 	enemies.clear()
@@ -132,25 +135,34 @@ func _on_connected():
 	_register.rpc_id(1, _my_info())
 
 
-func _on_peer_connected(id: int):
-	print("Peer connected: ", id)
-
-
 func _on_peer_disconnected(id: int):
 	players.erase(id)
-	if puppets.has(id) and is_instance_valid(puppets[id]):
-		puppets[id].queue_free()
+	roster.erase(id)
+	var p = puppets.get(id)
 	puppets.erase(id)
+	if p and is_instance_valid(p):
+		var z = Zones.zone_of(p)
+		p.queue_free()
+		if is_host() and z and z != Zones.local_zone():
+			_unload_if_empty.call_deferred(z)
 	GameState.notify("A player left the party")
 
 
+func _unload_if_empty(z):
+	if is_instance_valid(z) and not Zones.is_busy(z) and z != Zones.local_zone():
+		Zones.unload(z)
+
+
+## Host: a new player. Bring them to wherever the host is.
 @rpc("any_peer", "call_remote", "reliable")
 func _register(info: Dictionary):
 	var id = multiplayer.get_remote_sender_id()
 	players[id] = info
 	GameState.notify("%s joined the party!" % Classes.label(info.class_id))
-	if _zone != "":
-		_send_zone(id)
+	var here = Zones.local_zone()
+	if here:
+		var spot = Zones.player.global_position + Vector3(randf_range(-2, 2), 0, randf_range(2, 3))
+		_send_into(id, here.path, here.key, "", spot)
 
 
 # ---------------- Every frame ----------------
@@ -158,91 +170,193 @@ func _register(info: Dictionary):
 func _process(delta):
 	if not is_online():
 		return
-	var path = Zones.local_path()
-
-	# Host: when I change zone, bring the party along (once the zone has built itself)
-	if is_host() and path != _zone and not path in NOT_ZONES:
-		_zone_wait += delta
-		if _zone_wait > 0.4:
-			_zone_wait = 0.0
-			_zone = path
-			_send_zone(0)
-
+	var key = Zones.local_key()
 	_state_t -= delta
-	if _state_t <= 0.0 and not path in NOT_ZONES:
+	if _state_t <= 0.0 and key != "" and not travelling:
 		_state_t = STATE_RATE
 		var me = Zones.player
-		if me and me.is_inside_tree():
-			_player_state.rpc(path, me.global_position, me.rotation.y, me.health, me.MAX_HEALTH, me.player_class)
+		_player_state.rpc(key, Zones.local_path(), me.global_position, me.rotation.y, me.health, me.MAX_HEALTH, me.player_class)
+	if not is_host():
+		return
+	_snap_t -= delta
+	if _snap_t <= 0.0 and puppets.size() > 0:
+		_snap_t = SNAPSHOT_RATE
+		_send_snapshots()
+	_roster_t -= delta
+	if _roster_t <= 0.0:
+		_roster_t = ROSTER_RATE
+		_update_roster()
 
-	if is_host():
-		_snap_t -= delta
-		if _snap_t <= 0.0 and puppets.size() > 0:
-			_snap_t = SNAPSHOT_RATE
-			_send_snapshot(path)
+
+# ---------------- Travel ----------------
+
+## Go to a zone. spot = where to appear (null: by the door you came from).
+## key = which copy (only one-off zones like a Trial Ground have their own key). info = extra zone info.
+func go(path: String, key := "", spot = null, info := {}):
+	if key == "":
+		key = path
+	if is_online() and Zones.local_key() != "":
+		_left_zone.rpc(Zones.local_key(), path, key, spot if spot != null else NOWHERE, info, GameState.player_class)
+	if is_client():
+		travelling = true
+		_request_zone.rpc_id(1, path, key, Zones.local_path(), spot if spot != null else NOWHERE, info)
+		return
+	if not info.is_empty():
+		Zones.pending_info[key] = info
+	GameState.pending_spawn = spot
+	Zones.travel(path, key)
 
 
-# ---------------- Zones: the party travels together ----------------
+## P: go to where the party is (the host's zone; for the host, the busiest zone with friends in it).
+func rejoin():
+	if not is_online():
+		return
+	var target = null
+	if is_client():
+		target = roster.get(1)
+	else:
+		var counts = {}
+		for id in roster:
+			if id != 1:
+				counts[roster[id].k] = counts.get(roster[id].k, 0) + 1
+		var best = 0
+		for id in roster:
+			if id != 1 and counts[roster[id].k] > best:
+				best = counts[roster[id].k]
+				target = roster[id]
+	if target == null or target.k == Zones.local_key():
+		GameState.notify("You're already with the party")
+		return
+	go(target.p, target.k, target.pos + Vector3(randf_range(-2, 2), 0, randf_range(2, 3)))
 
-func _send_zone(to: int):
+
+## Someone in my zone left: offer to follow.
+@rpc("any_peer", "call_remote", "reliable")
+func _left_zone(from_key: String, path: String, key: String, spot: Vector3, info: Dictionary, class_id: String):
+	if Zones.local_key() != from_key or Zones.player == null:
+		return
+	var where = GameState.ZONE_NAMES.get(path, "")
+	if where == "":
+		where = SkinManager.name_of("trial_arena") if path == Trials.ARENA else path.get_file().get_basename()
+	var go_call = func(): go(path, key, null if spot == NOWHERE else spot, info)
+	follow_offer.emit("%s went to %s" % [Classes.label(class_id), where], go_call)
+
+
+## Host: a joined player wants a zone.
+@rpc("any_peer", "call_remote", "reliable")
+func _request_zone(path: String, key: String, from_path: String, spot: Vector3, info: Dictionary):
+	_send_into(multiplayer.get_remote_sender_id(), path, key, from_path, null if spot == NOWHERE else spot, info)
+
+
+## Host: load (or keep) the zone, put the player's stand-in there, then send the layout.
+func _send_into(id: int, path: String, key: String, from_path: String, spot, info := {}):
+	if not ResourceLoader.exists(path):
+		ErrorLog.fail("A player asked for a zone that doesn't exist: " + path)
+		return
+	if not info.is_empty() and Zones.get_zone(key) == null:
+		Zones.pending_info[key] = info
+	var z = Zones.ensure(path, key)
+	var entry = Zones.entry_point(z, from_path, spot)
+	var p = _puppet_for(id, players.get(id, {}).get("class_id", "dps"))
+	Zones.place_puppet(p, path, key, entry)
+	await get_tree().create_timer(0.5).timeout	# a just-loaded zone finishes building (obstacles come a moment later)
+	if not is_instance_valid(z):
+		return
+	_enter_zone.rpc_id(id, path, key, _layout_of(z), entry, z.info, GameState.unlocked_zones)
+
+
+func _layout_of(z) -> Dictionary:
 	var layout = {}
 	var parts = {"terrain": "zone_terrain", "obstacles": "zone_obstacles"}
 	for part in parts:
-		var node = Zones.local_first(parts[part])
+		var node = Zones.first(z.root, parts[part])
 		if node:
 			layout[part] = node.save_state()
-	var me = Zones.player
-	var spot = me.global_position if me else Vector3.ZERO
-	if to == 0:
-		_go_to_zone.rpc(_zone, layout, GameState.unlocked_zones, spot)
-	else:
-		_go_to_zone.rpc_id(to, _zone, layout, GameState.unlocked_zones, spot)
+	return layout
 
 
+## Joined player: the host has the zone ready. Build the same layout here and go.
 @rpc("authority", "call_remote", "reliable")
-func _go_to_zone(path: String, layout: Dictionary, unlocked: Array, host_spot: Vector3):
-	print("Host is taking the party to ", path)
-	GameState.unlocked_zones = unlocked.duplicate()
-	var memory = GameState.zone_memory.get(path, {})
-	memory.erase("spawner")
-	for part in layout:
-		memory[part] = layout[part]
-	GameState.zone_memory[path] = memory
-	GameState.pending_spawn = host_spot + Vector3(randf_range(-2, 2), 0, randf_range(2, 3))
-	for id in puppets:
+func _enter_zone(path: String, key: String, layout: Dictionary, entry: Vector3, info: Dictionary, host_unlocks: Array):
+	travelling = false
+	for z in host_unlocks:	# you can enter anything the host has opened; your own unlocks are kept
+		if not GameState.is_unlocked(z):
+			GameState.unlocked_zones.append(z)
+	if not layout.is_empty():
+		var memory = GameState.zone_memory.get(path, {})
+		memory.erase("spawner")
+		for part in layout:
+			memory[part] = layout[part]
+		GameState.zone_memory[path] = memory
+	if not info.is_empty():
+		Zones.pending_info[key] = info
+	for id in puppets:	# stand-ins and enemy copies belong to the zone I'm leaving
 		if is_instance_valid(puppets[id]):
 			puppets[id].queue_free()
 	puppets.clear()
+	for id in mirrors:
+		if is_instance_valid(mirrors[id]):
+			mirrors[id].queue_free()
 	mirrors.clear()
 	_misses.clear()
-	for e in Zones.local_all("enemy"):
-		e.queue_free()
-	Zones.travel.call_deferred(path)	# (starts the World first if we're still on the start screen)
+	GameState.pending_spawn = entry
+	Zones.travel.call_deferred(path, key)	# (starts the World first if we're still on the start screen)
 
 
 # ---------------- Players ----------------
 
-@rpc("any_peer", "call_remote", "unreliable_ordered")
-func _player_state(zone: String, pos: Vector3, rot: float, hp: float, max_hp: float, class_id: String):
-	var id = multiplayer.get_remote_sender_id()
-	var scene = Zones.local_root()
-	if scene == null or Zones.local_path() != zone:
-		if puppets.has(id) and is_instance_valid(puppets[id]):	# they left my zone
-			puppets[id].queue_free()
-			puppets.erase(id)
-		return
+func _puppet_for(id: int, class_id: String):
 	var p = puppets.get(id)
+	if p and is_instance_valid(p):
+		return p
+	p = load("res://Player.tscn").instantiate()
+	p.is_puppet = true
+	p.peer_id = id
+	p.player_class = class_id
+	p.puppet_color = color_of(id)
+	p.name = "Remote_%d" % id
+	puppets[id] = p
+	return p
+
+
+@rpc("any_peer", "call_remote", "unreliable_ordered")
+func _player_state(key: String, path: String, pos: Vector3, rot: float, hp: float, max_hp: float, class_id: String):
+	var id = multiplayer.get_remote_sender_id()
+	if is_host():
+		var p = _puppet_for(id, class_id)
+		var z = Zones.zone_of(p)
+		if z == null or z.key != key:	# (normally placed already when they asked for the zone)
+			Zones.place_puppet(p, path, key, pos)
+		p.net_state(pos, rot, hp, max_hp)
+		return
+	# Joined player: only show people who are in my zone
+	var p = puppets.get(id)
+	if Zones.local_key() != key or Zones.local_root() == null:
+		if p and is_instance_valid(p):
+			p.queue_free()
+		puppets.erase(id)
+		return
 	if p == null or not is_instance_valid(p):
-		p = load("res://Player.tscn").instantiate()
-		p.is_puppet = true
-		p.peer_id = id
-		p.player_class = class_id
-		p.puppet_color = color_of(id)
-		p.name = "Remote_%d" % id
-		scene.add_child(p)
+		p = _puppet_for(id, class_id)
+		Zones.local_root().add_child(p)
 		p.global_position = pos
-		puppets[id] = p
 	p.net_state(pos, rot, hp, max_hp)
+
+
+## Host: who's where (for the party list and P to rejoin).
+func _update_roster():
+	roster = {1: {c = GameState.player_class, k = Zones.local_key(), p = Zones.local_path(), pos = Zones.player.global_position if Zones.player else Vector3.ZERO}}
+	for id in puppets:
+		var p = puppets[id]
+		if is_instance_valid(p) and Zones.zone_of(p):
+			var z = Zones.zone_of(p)
+			roster[id] = {c = p.player_class, k = z.key, p = z.path, pos = p.global_position}
+	_roster.rpc(roster)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _roster(r: Dictionary):
+	roster = r
 
 
 ## Something hurt / healed / blessed another player's stand-in: tell that player.
@@ -258,24 +372,21 @@ func vow_player(id: int, vow: Dictionary):
 
 @rpc("any_peer", "call_remote", "reliable")
 func _hurt(amount: float, enemy_id: int):
-	var me = Zones.player
-	if me:
-		me.take_damage(amount, mirrors.get(enemy_id))
+	if Zones.player and not travelling:
+		Zones.player.take_damage(amount, mirrors.get(enemy_id))
 
 @rpc("any_peer", "call_remote", "reliable")
 func _heal(amount: float):
-	var me = Zones.player
-	if me:
-		me.heal(amount)
+	if Zones.player:
+		Zones.player.heal(amount)
 
 @rpc("any_peer", "call_remote", "reliable")
 func _vow(vow: Dictionary):
-	var me = Zones.player
-	if me:
-		me.receive_vow(vow)
+	if Zones.player:
+		Zones.player.receive_vow(vow)
 
 
-# ---------------- Enemies (host runs them, clients mirror them) ----------------
+# ---------------- Enemies (host runs them, joined players mirror them) ----------------
 
 func register_enemy(e) -> int:
 	var id = _next_enemy_id
@@ -284,43 +395,50 @@ func register_enemy(e) -> int:
 	return id
 
 
-const SNAPSHOT_RADIUS = 45.0	# each player only gets the enemies near them
+## Host: the players in a zone (by key), not counting me.
+func _peers_in(key: String) -> Array:
+	var out = []
+	for id in puppets:
+		var p = puppets[id]
+		if is_instance_valid(p) and Zones.key_of(p) == key:
+			out.append(id)
+	return out
 
-func _send_snapshot(zone: String):
+
+func _send_snapshots():
 	for id in enemies.keys():
 		var e = enemies[id]
 		if not is_instance_valid(e) or e.is_queued_for_deletion():
 			enemies.erase(id)
-	var sp = Zones.local_first("zone_spawner")
-	var counts = PackedInt32Array()
-	if sp:
-		counts = PackedInt32Array([sp.total_killed, sp.trash_killed, sp.thugs_killed, sp.masters_killed, sp.bosses_killed, sp.min_clear, sp.target_total])
-	for peer in puppets:	# only players who are in this zone with me
+	for peer in puppets:
 		var who = puppets[peer]
-		if not is_instance_valid(who):
+		if not is_instance_valid(who) or Zones.zone_of(who) == null:
 			continue
+		var z = Zones.zone_of(who)
+		var sp = Zones.first(z.root, "zone_spawner")
+		var counts = PackedInt32Array()
+		if sp:
+			counts = PackedInt32Array([sp.total_killed, sp.trash_killed, sp.thugs_killed, sp.masters_killed, sp.bosses_killed, sp.min_clear, sp.target_total])
 		var c = who.global_position
 		var data = PackedFloat32Array()
 		for id in enemies:
 			var e = enemies[id]
+			if e.get_viewport() != z:
+				continue
 			var p = e.global_position
 			if Vector2(p.x - c.x, p.z - c.z).length() > SNAPSHOT_RADIUS:
 				continue
 			data.append_array([id, e.tier, Crafting.ELEMENTS.find(e.damage_type), p.x, p.y, p.z, e.health, e.MAX_HEALTH, 1.0 if e.aggroed else 0.0])
-			if data.size() >= FIELDS * PER_PACKET:	# keep each message small enough for one network packet
-				_snapshot.rpc_id(peer, zone, counts, data, false)
+			if data.size() >= FIELDS * PER_PACKET:
+				_snapshot.rpc_id(peer, z.key, counts, data, false)
 				data = PackedFloat32Array()
-		_snapshot.rpc_id(peer, zone, counts, data, true)
+		_snapshot.rpc_id(peer, z.key, counts, data, true)
 
-
-const FIELDS = 9
-const PER_PACKET = 30	# enemies per message (30 x 36 bytes fits in one packet)
-var _seen := {}		# client: enemies seen in this round of messages
 
 @rpc("authority", "call_remote", "unreliable_ordered")
-func _snapshot(zone: String, counts: PackedInt32Array, data: PackedFloat32Array, last: bool):
+func _snapshot(key: String, counts: PackedInt32Array, data: PackedFloat32Array, last: bool):
 	var scene = Zones.local_root()
-	if scene == null or Zones.local_path() != zone:
+	if scene == null or Zones.local_key() != key or travelling:
 		return
 	var sp = Zones.local_first("zone_spawner")
 	if sp and counts.size() == 7:
@@ -365,17 +483,17 @@ func _snapshot(zone: String, counts: PackedInt32Array, data: PackedFloat32Array,
 			_misses.erase(id)
 
 
-## Host: an enemy died. Everyone gets their own loot drop and the kill counts.
+## Host: an enemy died. Players in that zone get their own loot drop and the kill count.
 func enemy_died(e):
 	enemies.erase(e.net_id)
-	if players.size() > 1:
-		_enemy_died.rpc(Zones.path_of(e), e.net_id, e.tier)
+	var key = Zones.key_of(e)
+	for peer in _peers_in(key):
+		_enemy_died.rpc_id(peer, key, e.net_id, e.tier)
 
 
 @rpc("authority", "call_remote", "reliable")
-func _enemy_died(zone: String, id: int, tier: int):
-	var scene = Zones.local_root()
-	if scene == null or Zones.local_path() != zone:
+func _enemy_died(key: String, id: int, tier: int):
+	if Zones.local_key() != key:
 		return
 	var m = mirrors.get(id)
 	mirrors.erase(id)
@@ -386,57 +504,41 @@ func _enemy_died(zone: String, id: int, tier: int):
 		sp._on_enemy_died(tier)	# boss unlocks, "zone cleared"
 
 
-## Client: I hit / rooted a mirror. The host applies it to the real enemy.
+## Joined player: I hit / rooted a mirror. The host applies it to the real enemy.
 func hit_enemy(id: int, amount: float):
-	_hit.rpc_id(1, Zones.local_path(), id, amount)
+	_hit.rpc_id(1, Zones.local_key(), id, amount)
 
 func root_enemy(id: int, seconds: float):
-	_root.rpc_id(1, Zones.local_path(), id, seconds)
+	_root.rpc_id(1, Zones.local_key(), id, seconds)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _hit(zone: String, id: int, amount: float):
+func _hit(key: String, id: int, amount: float):
 	var e = enemies.get(id)
-	if e and is_instance_valid(e) and Zones.path_of(e) == zone:
+	if e and is_instance_valid(e) and Zones.key_of(e) == key:
 		e.aggroed = true
 		e.take_damage(amount)
 
 @rpc("any_peer", "call_remote", "reliable")
-func _root(zone: String, id: int, seconds: float):
+func _root(key: String, id: int, seconds: float):
 	var e = enemies.get(id)
-	if e and is_instance_valid(e) and Zones.path_of(e) == zone:
+	if e and is_instance_valid(e) and Zones.key_of(e) == key:
 		e.root(seconds)
 
 
 # ---------------- Shared moments ----------------
 
-## Host: tell everyone in my zone about something that happened (the scene handles it in net_event).
-func scene_event(event: String, data: Dictionary):
-	if is_host() and puppets.size() > 0:
-		_scene_event.rpc(Zones.local_path(), event, data)
+## Host: tell the players in `node`'s zone about something (their zone scene handles it in net_event).
+func scene_event(node, event: String, data: Dictionary):
+	if not is_host():
+		return
+	var key = Zones.key_of(node)
+	for peer in _peers_in(key):
+		_scene_event.rpc_id(peer, key, event, data)
 
 
 @rpc("authority", "call_remote", "reliable")
-func _scene_event(zone: String, event: String, data: Dictionary):
+func _scene_event(key: String, event: String, data: Dictionary):
 	var scene = Zones.local_root()
-	if scene and Zones.local_path() == zone and scene.has_method("net_event"):
+	if scene and Zones.local_key() == key and scene.has_method("net_event"):
 		scene.net_event(event, data)
-
-
-## Client stepped into a party gate (trial gate / Trial Ground exit): the host takes everyone through.
-func request_portal(scene_path: String, spot, info: Dictionary):
-	_request_portal.rpc_id(1, scene_path, spot if spot != null else Vector3.INF, info)
-
-
-@rpc("any_peer", "call_remote", "reliable")
-func _request_portal(scene_path: String, spot: Vector3, info: Dictionary):
-	if not info.is_empty():
-		Trials.arena = info
-	if scene_path == "" and Trials.arena.has("back_scene"):	# "back where we came from"
-		scene_path = Trials.arena.back_scene
-		spot = Trials.arena.back_pos
-	if not ResourceLoader.exists(scene_path):
-		ErrorLog.fail("A player asked to travel to a missing scene: " + scene_path)
-		return
-	GameState.pending_spawn = null if spot == Vector3.INF else spot
-	Zones.travel.call_deferred(scene_path)

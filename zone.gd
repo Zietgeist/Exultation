@@ -4,6 +4,8 @@ extends SubViewport
 ## other loaded zones keep running in the background without being drawn.
 
 var path := ""					# the zone's scene file, e.g. res://Zone2.tscn
+var key := ""					# usually the same as path; one-off copies add "#id" (Trial Grounds)
+var info := {}					# extra info handed in when it loaded (Trial Ground: ability, quality, way back)
 var root: Node = null			# the zone's scene (floor, spawner, terrain, doors...)
 var default_spawn := Vector3(0, 1, 0)	# where the zone's old Player node stood
 var zone_name := ""				# shown on the HUD (floors set this)

@@ -23,9 +23,12 @@ const ZONE_SCRIPT = preload("res://zone.gd")
 signal entered(zone)		# the local player arrived in a zone
 
 var world = null		# the World node (World.tscn)
-var zones := {}			# scene path -> zone (zone.gd, a SubViewport)
+var zones := {}			# zone key -> zone (zone.gd, a SubViewport). Key = scene path, or path#id for
+						# one-off copies (each Trial Ground is its own copy)
+var pending_info := {}	# zone key -> extra info for a zone about to load (Trial Ground: ability, quality, way back)
 var player = null		# the local player (persistent)
 var _start_path := "res://Home.tscn"
+var _start_key := ""
 var _keep := {}			# scene path -> true: keep loaded even with no local player (online host)
 
 
@@ -64,29 +67,33 @@ func world_ready(w):
 	cam.rotation_degrees = Vector3(-60, 0, 0)
 	player.add_child(cam)
 	player.camera = cam
-	travel(_start_path)
+	travel(_start_path, _start_key)
+	_start_key = ""
 
 
 # ---------------- Moving the local player ----------------
 
 ## Take the local player to a zone. Set GameState.pending_spawn first to arrive at a spot,
-## otherwise you arrive by the door you came from.
-func travel(path: String):
+## otherwise you arrive by the door you came from. (Online, use Net.go(): it tells the host.)
+func travel(path: String, key := ""):
+	if key == "":
+		key = path
 	if world == null:
+		_start_key = key
 		start(path)
 		return
 	if not ResourceLoader.exists(path):
 		ErrorLog.fail("Zones.travel: no such zone scene: " + path)
 		return
 	var old = zone_of(player) if player.is_inside_tree() else null
-	if old and old.path == path:
+	if old and old.key == key:
 		player.arrive()
 		return
 	if old:
 		GameState.previous_scene = old.path
-	var z = zones.get(path)
+	var z = zones.get(key)
 	if z == null:
-		z = load_zone(path, true)
+		z = load_zone(path, true, key)
 	else:
 		world.show_zone(z)
 	if player.get_parent():
@@ -101,10 +108,15 @@ func travel(path: String):
 
 
 ## Load a zone's scene into its own little world.
-func load_zone(path: String, on_screen := false):
+func load_zone(path: String, on_screen := false, key := ""):
+	if key == "":
+		key = path
 	var z = ZONE_SCRIPT.new()
 	z.path = path
-	z.name = path.get_file().get_basename()
+	z.key = key
+	z.info = pending_info.get(key, {})
+	pending_info.erase(key)
+	z.name = key.get_file().replace(".tscn", "").replace("#", "_")
 	var scene = load(path).instantiate()
 	for n in STRIP:	# the World supplies the player, camera and HUD
 		var old = scene.get_node_or_null(n)
@@ -115,7 +127,7 @@ func load_zone(path: String, on_screen := false):
 			old.free()
 	z.root = scene
 	z.add_child(scene)
-	zones[path] = z
+	zones[key] = z
 	if on_screen:
 		world.show_zone(z)
 	else:
@@ -125,15 +137,64 @@ func load_zone(path: String, on_screen := false):
 
 ## Save a zone's state (kills, layout, fog) and remove it.
 func unload(z):
-	GameState.remember_zone(z)
-	zones.erase(z.path)
+	if not "#" in z.key:	# one-off copies (Trial Grounds) aren't remembered
+		GameState.remember_zone(z)
+	zones.erase(z.key)
 	z.queue_free()
+	print("Zones: unloaded ", z.key, " (still running: ", zones.keys(), ")")
 
 
-## Something still needs this zone running (a player in it, or online the host keeps it).
+## Load a zone in the background if it isn't running yet (online host: for other players).
+func ensure(path: String, key := ""):
+	if key == "":
+		key = path
+	var z = zones.get(key)
+	if z == null:
+		z = load_zone(path, false, key)
+	return z
+
+
+## Online host: move another player's stand-in into the zone they went to.
+## Their old zone stays running only if someone is still there.
+func place_puppet(p, path: String, key: String, spot: Vector3):
+	var z = ensure(path, key)
+	var old = zone_of(p)
+	if old != z:
+		if p.get_parent():
+			p.get_parent().remove_child(p)
+		z.add_child(p)
+	p.global_position = spot
+	p.net_state(spot, p.rotation.y, p.health, p.MAX_HEALTH)
+	if old and old != z and not is_busy(old) and old != local_zone():
+		unload(old)
+
+
+## Where someone arriving in zone z appears: the given spot, else next to the door that leads
+## back where they came from, else the zone's starting spot. Never in deep water.
+func entry_point(z, from_path: String, spot = null) -> Vector3:
+	var p = z.default_spawn
+	if spot != null:
+		p = spot
+	else:
+		for door in first_all(z.root, "door"):
+			if door.target_scene == from_path:
+				var inward = -door.global_position
+				inward.y = 0
+				p = door.global_position + inward.normalized() * 4.0
+				break
+	var terrain = first(z.root, "zone_terrain")
+	if terrain and terrain.is_water(p):	# island maps
+		ErrorLog.warn("Entry point %s was in deep water; moved to land" % p.round())
+		p = terrain.nearest_land(p)
+	return p
+
+
+## Something still needs this zone running: a player in it (you or a friend's stand-in).
 func is_busy(z) -> bool:
-	if _keep.has(z.path):
+	if _keep.has(z.key):
 		return true
+	if not Net.is_host():	# only the host runs zones for other people
+		return false
 	for p in get_tree().get_nodes_in_group("party"):
 		if p.get_viewport() == z and p != player:
 			return true
@@ -160,6 +221,16 @@ func zone_of(node):
 func path_of(node) -> String:
 	var z = zone_of(node)
 	return z.path if z else ""
+
+
+func key_of(node) -> String:
+	var z = zone_of(node)
+	return z.key if z else ""
+
+
+## all() for a zone's scene root (its doors, its spawner...)
+func first_all(root, group: String) -> Array:
+	return all(root, group)
 
 
 ## The zone's scene root (where world objects like enemies, effects and drops go).
@@ -191,6 +262,10 @@ func local_path() -> String:
 	var z = local_zone()
 	return z.path if z else ""
 
+func local_key() -> String:
+	var z = local_zone()
+	return z.key if z else ""
+
 func local_root():
 	var z = local_zone()
 	return z.root if z else null
@@ -208,7 +283,8 @@ func reset():
 	player = null
 	zones.clear()
 	_keep.clear()
+	pending_info.clear()
 
 
-func get_zone(path: String):
-	return zones.get(path)
+func get_zone(key: String):
+	return zones.get(key)

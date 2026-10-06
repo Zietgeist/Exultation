@@ -76,6 +76,8 @@ func _ready():
 	get_parent().add_child.call_deferred(load("res://map_overlay.gd").new())
 	# The character screen (press C)
 	get_parent().add_child.call_deferred(load("res://character_screen.gd").new())
+	# Online party: who's where, Follow / Stay, P to rejoin
+	get_parent().add_child.call_deferred(load("res://party_ui.gd").new())
 
 func _on_notice(text: String):
 	notice_label.text = text

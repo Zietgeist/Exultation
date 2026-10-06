@@ -199,7 +199,8 @@ func _spawn_boss_near_player():
 		var boss = _make_enemy(3, player.global_position + Vector3(cos(angle), 0, sin(angle)) * 25.0)
 		boss.hunter = true
 		boss.aggroed = true
-	GameState.notify("A BOSS IS COMING FOR YOU!")
+	if Zones.first(self, "player"):
+		GameState.notify("A BOSS IS COMING FOR YOU!")
 
 
 ## Create one real enemy of a tier at a spot (kept inside the walls) and count it.
@@ -357,8 +358,9 @@ func _on_enemy_died(tier):
 		2: masters_killed += 1
 		3:
 			bosses_killed += 1
-			GameState.on_boss_killed(bosses_killed, Zones.path_of(self))
-			if bosses_killed == MAX_BOSSES:
+			if Zones.first(self, "player"):	# credit for players who are here (online, each counts their own)
+				GameState.on_boss_killed(bosses_killed, Zones.path_of(self))
+			if bosses_killed == MAX_BOSSES and Zones.first(self, "player"):
 				GameState.notify("ZONE CLEARED!  Map unlocked (press M)")
 	var guardian = Zones.first(self, "guardian")
 	if guardian:

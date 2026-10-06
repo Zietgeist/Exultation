@@ -8,7 +8,9 @@ var label_text = "Portal"
 var color = Color(1.0, 0.8, 0.2)
 var active = true
 var before_travel: Callable	# optional: runs just before traveling
-var party_pull := false		# online: anyone stepping in takes the whole party (trial gates)
+var arm_time := 0.0			# seconds before it works (so a gate opening next to you doesn't grab you)
+var travel_key := ""		# a one-off copy of the zone (each Trial Ground has its own), else ""
+var travel_info := {}		# extra info for the zone (Trial Ground: ability, quality, way back)
 
 var _ring: MeshInstance3D
 var _label: Label3D
@@ -41,6 +43,13 @@ func _ready():
 	add_child(_label)
 
 	body_entered.connect(_on_body_entered)
+	if arm_time > 0.0:
+		active = false
+		get_tree().create_timer(arm_time).timeout.connect(func():
+			active = true
+			refresh()
+			for b in get_overlapping_bodies():	# already standing in it
+				_on_body_entered(b))
 	refresh()
 
 
@@ -61,22 +70,10 @@ func _process(delta):
 func _on_body_entered(body: Node):
 	if not active or body.name != "Player":
 		return
-	if Net.is_client() and party_pull:	# ask the host to take the party through
-		if before_travel.is_valid():
-			before_travel.call()
-		Net.request_portal(target_scene, target_position, Trials.arena)
-		active = false
-		return
-	if Net.is_client():	# online: the host leads the party through gates
-		var back = body.global_position - global_position
-		back.y = 0
-		body.global_position += back.normalized() * 2.0
-		GameState.notify("The host leads the party through gates")
-		return
 	if not ResourceLoader.exists(target_scene):
 		ErrorLog.fail("Portal leads to a scene that doesn't exist: " + str(target_scene))
 		return
 	if before_travel.is_valid():
 		before_travel.call()
-	GameState.pending_spawn = target_position
-	Zones.travel.call_deferred(target_scene)
+	active = false	# one trip per touch
+	Net.go.call_deferred(target_scene, travel_key, target_position, travel_info)	# online: friends here can follow

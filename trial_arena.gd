@@ -12,14 +12,15 @@ var cleared := false
 
 
 func _ready():
-	info = Trials.arena if not Trials.arena.is_empty() else {ability = "precision", q = 1, back_scene = "res://Home.tscn", back_pos = Vector3(0, 1, 8)}
 	var z = Zones.zone_of(self)
+	info = z.info if z and not z.info.is_empty() else {ability = "precision", q = 1, back_scene = "res://Home.tscn", back_pos = Vector3(0, 1, 8)}
 	if z:
 		z.zone_name = SkinManager.name_of("trial_arena")
 	_exit_gate.call_deferred()
 	if not Net.is_client():
 		_spawn_foes.call_deferred()
-	GameState.notify.call_deferred("%s of %s: clear it! The last foe holds the Sigil." % [SkinManager.name_of("trial_arena"), Trials.ability_name(info.ability)])
+	if Zones.local_zone() == z:
+		GameState.notify.call_deferred("%s of %s: clear it! The last foe holds the Sigil." % [SkinManager.name_of("trial_arena"), Trials.ability_name(info.ability)])
 
 
 ## Foes get tougher with the zone the shrine was in: q 1 = Zone 2.
@@ -45,8 +46,9 @@ func _on_enemy_died(_tier, e):
 
 func _cleared(at: Vector3):
 	cleared = true
-	_drop_sigil(at)
-	Net.scene_event("cleared", {at = at, ability = info.ability, q = info.q})
+	if Zones.first(self, "player"):	# I'm here: my own Sigil
+		_drop_sigil(at)
+	Net.scene_event(self, "cleared", {at = at, ability = info.ability, q = info.q})	# everyone else here gets theirs
 
 
 ## Online, joined player: the host says the ground is clear.
@@ -91,10 +93,9 @@ func _drop_sigil(at: Vector3):
 
 func _exit_gate():
 	var g = load("res://portal.gd").new()
-	g.target_scene = "" if Net.is_client() else info.back_scene
+	g.target_scene = info.back_scene
 	g.target_position = info.back_pos
 	g.label_text = "Return"
-	g.party_pull = true
 	add_child(g)
 	g.position = Vector3(0, 0, 19)
 	g.rotation.y = 0.0

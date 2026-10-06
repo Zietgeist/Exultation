@@ -107,28 +107,12 @@ func arrive():
 	_hint_node = null
 	velocity = Vector3.ZERO
 	var z = Zones.zone_of(self)
-	spawn_point = z.default_spawn if z else global_position
-	if GameState.pending_spawn != null:	# arrived by portal
-		spawn_point = GameState.pending_spawn
-		GameState.pending_spawn = null
-	else:
-		_place_at_door()
-	var terrain = Zones.first(self, "zone_terrain")
-	if terrain and terrain.is_water(spawn_point):	# island maps: never start in deep water
-		ErrorLog.warn("Entry point %s was in deep water; moved to land" % spawn_point.round())
-		spawn_point = terrain.nearest_land(spawn_point)
+	spawn_point = Zones.entry_point(z, GameState.previous_scene, GameState.pending_spawn) if z else global_position
+	GameState.pending_spawn = null
 	spawn_point.y = SPAWN_HEIGHT	# always above the floor
 	global_position = spawn_point
 	GameState.spawn_home_portal()	# bag still full? the portal home is waiting
 
-
-func _place_at_door():
-	for door in Zones.all(self, "door"):
-		if door.target_scene == GameState.previous_scene:
-			var inward = -door.global_position
-			inward.y = 0
-			spawn_point = door.global_position + inward.normalized() * 4.0
-			break
 
 func _input(event):
 	# Ability keys fire once per press (holding the key no longer drains energy)

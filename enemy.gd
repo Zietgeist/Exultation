@@ -168,8 +168,9 @@ func die():
 	if tier == Tier.BOSS:
 		GameState.add_mark("boss", global_position, self)
 	emit_signal("enemy_died", tier)
-	drop_orb()
-	drop_gold()
+	if Zones.first(self, "player"):	# loot is personal: the host only drops its own if it's here
+		drop_orb()
+		drop_gold()
 	queue_free()
 
 func get_damage_multiplier():
