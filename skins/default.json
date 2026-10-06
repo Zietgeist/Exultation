@@ -6,7 +6,16 @@
 		"enemy_trash": "#4caf3a",
 		"enemy_thug": "#3f6fd6",
 		"enemy_master": "#9a3ee0",
-		"enemy_boss": "#e8b820"
+		"enemy_boss": "#e8b820",
+		"wall_low": "#8a8172",
+		"wall_solid": "#4f4a55",
+		"water": "#2f6fb0",
+		"deep_water": "#1d4677",
+		"ditch": "#3b3326",
+		"bridge": "#7a5533",
+		"rail_bed": "#6b5b4b",
+		"rail": "#5a4a3a",
+		"obstacle": "#6d6a64"
 	},
 	"names": {
 		"enemy_trash": "Goblins",
@@ -218,5 +227,25 @@
 				}
 			]
 		}
-	]
+	],
+	"terrain": {
+		"templates": [
+			"open_field",
+			"rolling_hills",
+			"forest",
+			"river",
+			"ruins",
+			"rails",
+			"island"
+		],
+		"names": {
+			"open_field": "Meadow",
+			"rolling_hills": "Downs",
+			"forest": "Old Forest",
+			"river": "Riverlands",
+			"ruins": "Fallen Keep",
+			"rails": "Hedgerow Roads",
+			"island": "Lake Isle"
+		}
+	}
 }

@@ -13,14 +13,26 @@ func _ready():
 			_make_obstacle(o.p, o.s, o.c)
 		return
 
-	var count = roundi(OBSTACLE_COUNT * GameState.obstacle_multiplier())
+	_build.call_deferred()	# after the terrain, so blocks stay out of rivers, lanes and gates
+
+
+func _build():
+	var terrain = get_tree().get_first_node_in_group("zone_terrain")
+	var share = 1.0
+	if terrain:
+		share = preload("res://map_templates.gd").get_def(terrain.template).boxes
+	var count = roundi(OBSTACLE_COUNT * share * GameState.obstacle_multiplier())
 	print("Obstacles: creating ", count)
 	var half = map_half_size()
+	var base = SkinManager.color("obstacle", Color(0.38, 0.36, 0.34))
 	for i in range(count):
 		var size = Vector3(randf_range(1.0, 4.0), randf_range(1.0, 3.0), randf_range(1.0, 4.0))
-		var color = Color(randf_range(0.2, 0.5), randf_range(0.2, 0.5), randf_range(0.2, 0.5))
-		var pos = Vector3(randf_range(-half.x, half.x), 0.75, randf_range(-half.y, half.y))
-		_make_obstacle(pos, size, color)
+		var color = base.lightened(randf_range(-0.15, 0.15)) if randf() < 0.5 else base.darkened(randf_range(0.0, 0.25))
+		for attempt in range(15):
+			var pos = Vector3(randf_range(-half.x, half.x), 0.75, randf_range(-half.y, half.y))
+			if terrain == null or terrain.is_free(pos, 1.0):
+				_make_obstacle(pos, size, color)
+				break
 
 
 func _make_obstacle(pos: Vector3, size: Vector3, color: Color):

@@ -294,6 +294,15 @@ func ditch_at(world_pos: Vector3):
 # ---------------- Notices (big gold message on screen) ----------------
 signal notice(text)
 
+# ---------------- Map templates ----------------
+var zone_templates = {}	# scene path -> template id, picked once per play session
+
+func zone_template(scene_path: String) -> String:
+	if not zone_templates.has(scene_path):
+		zone_templates[scene_path] = preload("res://map_templates.gd").pick(scene_path)
+	return zone_templates[scene_path]
+
+
 ## Everyone in the party (just you for now; other players join this group in multiplayer).
 func party() -> Array:
 	return get_tree().get_nodes_in_group("party")

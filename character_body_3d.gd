@@ -91,6 +91,10 @@ func _place_at_entry():
 		GameState.pending_spawn = null
 	else:
 		_place_at_door()
+	var terrain = get_tree().get_first_node_in_group("zone_terrain")
+	if terrain and terrain.is_water(spawn_point):	# island maps: never start in deep water
+		ErrorLog.warn("Entry point %s was in deep water; moved to land" % spawn_point.round())
+		spawn_point = terrain.nearest_land(spawn_point)
 	spawn_point.y = SPAWN_HEIGHT	# always above the floor
 	global_position = spawn_point
 	GameState.spawn_home_portal()	# bag still full? the portal home is waiting

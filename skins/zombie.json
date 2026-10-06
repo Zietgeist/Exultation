@@ -6,7 +6,16 @@
 		"enemy_trash": "#7d8f6a",
 		"enemy_thug": "#8a6a55",
 		"enemy_master": "#5b4a6e",
-		"enemy_boss": "#a23a2a"
+		"enemy_boss": "#a23a2a",
+		"wall_low": "#6b5a45",
+		"wall_solid": "#55575a",
+		"water": "#46603f",
+		"deep_water": "#2b3d28",
+		"ditch": "#2e2a22",
+		"bridge": "#5c4a36",
+		"rail_bed": "#5a5048",
+		"rail": "#3a3a3c",
+		"obstacle": "#5b5550"
 	},
 	"names": {
 		"enemy_trash": "Shamblers",
@@ -193,5 +202,23 @@
 				}
 			]
 		}
-	]
+	],
+	"terrain": {
+		"templates": [
+			"open_field",
+			"forest",
+			"river",
+			"ruins",
+			"rails",
+			"island"
+		],
+		"names": {
+			"open_field": "Overgrown Fields",
+			"forest": "Dead Woods",
+			"river": "Flooded Creek",
+			"ruins": "Ruined Town",
+			"rails": "Rail Yard",
+			"island": "Quarantine Island"
+		}
+	}
 }

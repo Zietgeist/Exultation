@@ -210,10 +210,24 @@ func _roll_element(t: int) -> String:
 
 func _place_dormant(t: int, pos: Vector3, h := -1.0, element := ""):
 	_count_spawn(t)
+	pos = _on_land(pos)
 	pos.y = ENEMY_REST_HEIGHT
 	if element == "":
 		element = _roll_element(t)
 	dormant.append({t = t, p = clamp_to_map(pos), h = h, e = element})
+
+
+## Island maps: slide a spot toward the middle until it's on land.
+func _on_land(pos: Vector3) -> Vector3:
+	var terrain = get_tree().get_first_node_in_group("zone_terrain")
+	if terrain == null:
+		return pos
+	for i in range(25):
+		if not terrain.is_water(pos):
+			return pos
+		pos *= 0.9
+	ErrorLog.warn("Spawner: couldn't find land near %s" % pos)
+	return pos
 
 
 func _count_spawn(t: int):

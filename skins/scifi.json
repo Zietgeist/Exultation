@@ -6,7 +6,16 @@
 		"enemy_trash": "#9aa4b0",
 		"enemy_thug": "#4fb3c9",
 		"enemy_master": "#c04fd1",
-		"enemy_boss": "#f06a2a"
+		"enemy_boss": "#f06a2a",
+		"wall_low": "#5d7080",
+		"wall_solid": "#2a3340",
+		"water": "#2aa7b8",
+		"deep_water": "#0b1a2e",
+		"ditch": "#1d2a33",
+		"bridge": "#7c8a99",
+		"rail_bed": "#30363e",
+		"rail": "#8fd3ff",
+		"obstacle": "#4a5562"
 	},
 	"names": {
 		"enemy_trash": "Drones",
@@ -152,5 +161,23 @@
 				}
 			]
 		}
-	]
+	],
+	"terrain": {
+		"templates": [
+			"open_field",
+			"rolling_hills",
+			"river",
+			"ruins",
+			"rails",
+			"island"
+		],
+		"names": {
+			"open_field": "Landing Plain",
+			"rolling_hills": "Dune Sea",
+			"river": "Coolant Canal",
+			"ruins": "Crash Site",
+			"rails": "Maglev Lines",
+			"island": "Orbital Platform"
+		}
+	}
 }
