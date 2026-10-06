@@ -15,6 +15,7 @@ var notice_label = null
 var notice_timer = 0.0
 var gold_bar = null
 var gold_label = null
+var satchel_label = null
 
 func _ready():
 	zone_label = get_node("VBoxContainer/ZoneLabel")
@@ -39,6 +40,8 @@ func _ready():
 	fill.bg_color = Color(1.0, 0.8, 0.15)
 	gold_bar.add_theme_stylebox_override("fill", fill)
 	$VBoxContainer.add_child(gold_bar)
+	satchel_label = Label.new()
+	$VBoxContainer.add_child(satchel_label)
 
 	player = get_tree().get_first_node_in_group("player")
 	if player:
@@ -97,6 +100,7 @@ func _process(delta):
 			notice_label.visible = false
 	gold_bar.value = GameState.gold_carried
 	gold_label.text = "Gold: %d / %d" % [GameState.gold_carried, GameState.GOLD_CAPACITY]
+	satchel_label.text = GameState.satchel_text()
 	if GameState.is_bag_full():
 		gold_label.text += "  - FULL! Take the gold portal home"
 	if death_timer > 0.0:

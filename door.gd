@@ -17,6 +17,7 @@ func _ready():
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	label.position = Vector3(0, 2.5, 0)
 	label.font_size = 48
+	label.pixel_size = 0.012	# readable from the zoomed-out camera
 	label.outline_size = 12
 	label.no_depth_test = true
 	add_child(label)

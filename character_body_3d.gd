@@ -124,6 +124,7 @@ func _input(event):
 			KEY_E: use_energy_ability()
 			KEY_Q: use_secondary_ability()
 			KEY_F: use_class_ability()
+			KEY_G: start_gathering()
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
 			speed_level = min(speed_level + 1, MAX_SPEED_LEVELS)
@@ -195,6 +196,8 @@ func _physics_process(delta):
 		camera.global_position = global_position + CAMERA_OFFSET
 
 	_tick_aura(delta)
+	_tick_gathering(delta)
+	_update_gather_hint(delta)
 
 	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 		if st_cooldown <= 0:
@@ -258,6 +261,8 @@ var last_attacker = ""	# who hit us last (for the death message)
 func take_damage(amount, source = null):
 	if invulnerable_time > 0.0:
 		return
+	if gather_node != null:
+		_stop_gathering("Interrupted!")
 	if source and "tier" in source:
 		last_attacker = SkinManager.name_of(source.TIER_IDS[source.tier] + "_one")
 		if aura_time_left > 0.0 and is_instance_valid(source):
@@ -553,3 +558,107 @@ func _fade_and_free(node: MeshInstance3D, seconds: float):
 	var t = node.create_tween()
 	t.tween_property(node.material_override, "albedo_color:a", 0.0, seconds)
 	t.tween_callback(node.queue_free)
+
+
+# ---------------- Gathering (G) ----------------
+const GATHER_RANGE = 2.5
+const GATHER_TIME = 1.5		# seconds; getting hit or walking away interrupts it
+
+var gather_node = null
+var gather_left = 0.0
+var _gather_start = Vector3.ZERO
+var _gather_label: Label3D = null
+var _label_tween: Tween = null
+
+
+## The node G would gather from here (closest one in reach), or null.
+func _nearest_gatherable():
+	var best = null
+	var best_d = INF
+	for n in get_tree().get_nodes_in_group("resource_node"):
+		var d = n.horizontal_distance(global_position)
+		var score = d - n.reach	# nodes up on a hill or trunk count as a bit closer
+		if d <= GATHER_RANGE + n.reach and score < best_d:
+			best = n
+			best_d = score
+	return best
+
+
+var _hint_node = null
+var _hint_timer = 0.0
+
+## Show "G: <name>" over just the one node G would pick.
+func _update_gather_hint(delta):
+	_hint_timer -= delta
+	if _hint_timer > 0.0:
+		return
+	_hint_timer = 0.1
+	var n = _nearest_gatherable()
+	if n == _hint_node:
+		return
+	if is_instance_valid(_hint_node):
+		_hint_node.set_highlight(false)
+	_hint_node = n
+	if n:
+		n.set_highlight(true)
+
+
+func start_gathering():
+	if gather_node != null:
+		return
+	var best = _nearest_gatherable()
+	if best == null:
+		_float_text("Nothing to gather here", Color(0.8, 0.8, 0.8))
+		return
+	gather_node = best
+	gather_left = GATHER_TIME
+	_gather_start = global_position
+
+
+func _tick_gathering(delta):
+	if gather_node == null:
+		return
+	if not is_instance_valid(gather_node) or global_position.distance_to(_gather_start) > 1.0:
+		_stop_gathering("Stopped")
+		return
+	gather_left -= delta
+	var dots = ".".repeat(int((GATHER_TIME - gather_left) * 2) % 4)
+	_show_gather_label("Gathering" + dots, Color(1, 1, 1))
+	if gather_left <= 0.0:
+		var n = gather_node
+		gather_node = null
+		GameState.add_resource(n.type, n.quality)
+		_float_text("+1 " + GameState.resource_name(n.type, n.quality), GameState.RESOURCE_INFO[n.type].color.lightened(0.3))
+		n.queue_free()
+
+
+func _stop_gathering(reason: String):
+	gather_node = null
+	_float_text(reason, Color(1, 0.5, 0.4))
+
+
+func _show_gather_label(text: String, color: Color):
+	if _gather_label == null:
+		_gather_label = Label3D.new()
+		_gather_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		_gather_label.position.y = 2.2
+		_gather_label.font_size = 40
+		_gather_label.pixel_size = 0.012
+		_gather_label.outline_size = 10
+		_gather_label.no_depth_test = true
+		add_child(_gather_label)
+	if _label_tween:
+		_label_tween.kill()
+		_label_tween = null
+	_gather_label.text = text
+	_gather_label.modulate = color
+	_gather_label.modulate.a = 1.0
+	_gather_label.visible = true
+
+
+## Short message above your head that fades away.
+func _float_text(text: String, color: Color):
+	_show_gather_label(text, color)
+	_label_tween = _gather_label.create_tween()
+	_label_tween.tween_interval(0.8)
+	_label_tween.tween_property(_gather_label, "modulate:a", 0.0, 0.5)

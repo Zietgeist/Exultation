@@ -85,6 +85,7 @@ func _ready():
 			unlocked_zones = cfg.get_value("progress", "unlocked_zones", unlocked_zones)
 		gold_carried = cfg.get_value("gold", "carried", 0)
 		gold_banked = cfg.get_value("gold", "banked", 0)
+		satchel = cfg.get_value("resources", "satchel", {})
 	bag_full.connect(_on_bag_full)
 
 
@@ -93,6 +94,7 @@ func save_progress():
 	cfg.set_value("progress", "unlocked_zones", unlocked_zones)
 	cfg.set_value("gold", "carried", gold_carried)
 	cfg.set_value("gold", "banked", gold_banked)
+	cfg.set_value("resources", "satchel", satchel)
 	if cfg.save(PROGRESS_PATH) != OK:
 		ErrorLog.fail("Could not save progress to " + PROGRESS_PATH)
 
@@ -329,3 +331,48 @@ func is_zone_cleared(path: String) -> bool:
 		return sp != null and sp.bosses_killed >= BOSSES_TO_UNLOCK
 	var mem = zone_memory.get(path, {}).get("spawner", null)
 	return mem != null and mem.bosses_killed >= BOSSES_TO_UNLOCK
+
+
+# ---------------- Resources (gathered in the wild) ----------------
+# Each resource is just a TYPE and a QUALITY number. Quality = zone number - 1
+# (Zone 2 = 1, Zone 3 = 2, ... no upper limit). To add more qualities, add names below;
+# anything past the list still works and shows as "<type> (Quality N)".
+const RESOURCE_INFO = {
+	"ore": {label = "Ore", color = Color(0.75, 0.5, 0.3), names = ["Copper ore", "Iron ore"]},
+	"herb": {label = "Herb", color = Color(0.5, 0.85, 0.3), names = ["Sunleaf", "Moonleaf"]},
+	"treesilver": {label = "Treesilver", color = Color(0.82, 0.86, 0.92), names = ["Young Treesilver", "Elder Treesilver"]},
+	"orchid": {label = "Cliff Orchid", color = Color(0.9, 0.45, 0.8), names = ["Pale Cliff Orchid", "Storm Cliff Orchid"]},
+}
+
+var satchel = {}	# "type:quality" -> count (saved between plays)
+
+
+## Resource quality for a zone: 0 means no resources there (Zone 1).
+func zone_quality(scene_path: String) -> int:
+	return max(0, ZONE_ORDER.find(scene_path))
+
+
+func resource_name(type: String, quality: int) -> String:
+	var names = RESOURCE_INFO[type].names
+	if quality >= 1 and quality <= names.size():
+		return names[quality - 1]
+	return "%s (Quality %d)" % [RESOURCE_INFO[type].label, quality]
+
+
+func add_resource(type: String, quality: int, amount := 1):
+	var key = "%s:%d" % [type, quality]
+	satchel[key] = satchel.get(key, 0) + amount
+	save_progress()
+
+
+## Short one-line summary for the HUD, e.g. "Copper ore 3 · Sunleaf 2"
+func satchel_text() -> String:
+	var parts = []
+	var keys = satchel.keys()
+	keys.sort()
+	for key in keys:
+		if satchel[key] <= 0:
+			continue
+		var bits = key.split(":")
+		parts.append("%s %d" % [resource_name(bits[0], int(bits[1])), satchel[key]])
+	return "Satchel: " + (" · ".join(parts) if parts.size() > 0 else "empty")

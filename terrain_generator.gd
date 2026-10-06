@@ -14,6 +14,14 @@ const HILLS = 5
 const GROVES = 6
 const ANCIENT_TREE_CHANCE = 0.15
 
+# Resources (only in zones with quality 1+, i.e. Zone 2 onward)
+const ORE_PER_HILL = Vector2i(2, 4)
+const ORCHID_CHANCE = 0.3		# per hill: a rare Cliff Orchid on its slope
+const HERB_CHANCE = 0.3			# per tree: herbs at its feet
+const TREESILVER_CHANCE = 0.5	# per ancient tree
+const NODE_SCRIPT = preload("res://resource_node.gd")
+var _quality = 0
+
 var _mats = {}
 var _gates = []	# gate positions, read before anything is placed
 
@@ -36,8 +44,11 @@ func _ready():
 
 	var m = GameState.obstacle_multiplier()
 	_find_gates()
+	_quality = GameState.zone_quality(owner.scene_file_path) if owner else 0
 	spawn_hills(roundi(HILLS * m))
 	spawn_groves(roundi(GROVES * m))
+	if _quality > 0:
+		spawn_resources()
 	spawn_terrain(DITCH_SCENE, roundi(15 * m))	# half as many slow patches as before
 	spawn_clusters(LOW_WALL_SCENE, roundi(15 * m))
 	spawn_clusters(SOLID_WALL_SCENE, roundi(10 * m))
@@ -210,6 +221,48 @@ func _rebuild(t: Dictionary):
 	match t.kind:
 		"hill": _make_hill(t.p, t)
 		"tree": _make_tree(t.p, t)
+		"node": _make_node(t.p, t)
+
+
+# ---------------- Resources ----------------
+
+func spawn_resources():
+	for hill in get_tree().get_nodes_in_group("hill"):
+		if not hill.get_parent() == self:
+			continue
+		var d = hill.get_meta("data")
+		for i in range(randi_range(ORE_PER_HILL.x, ORE_PER_HILL.y)):
+			var a = randf() * TAU
+			var p = hill.position + Vector3(cos(a), 0, sin(a)) * (d.r * 0.8 + 0.9)
+			if not _near_gate(p):
+				_make_node(p, {type = "ore", q = _quality, reach = 0.0})
+		if randf() < ORCHID_CHANCE:
+			var a = randf() * TAU
+			var p = hill.position + Vector3(cos(a) * d.r * 0.82, d.h * 0.35, sin(a) * d.r * 0.82)
+			_make_node(p, {type = "orchid", q = _quality, reach = 1.0})
+	for tree in get_tree().get_nodes_in_group("tree"):
+		if not tree.get_parent() == self:
+			continue
+		var d = tree.get_meta("data")
+		if d.ancient and randf() < TREESILVER_CHANCE:
+			var a = randf() * TAU
+			_make_node(tree.position + Vector3(cos(a), 0, sin(a)) * (0.35 * d.s + 0.25), {type = "treesilver", q = _quality, reach = 0.5})
+		elif randf() < HERB_CHANCE:
+			var a = randf() * TAU
+			var p = tree.position + Vector3(cos(a), 0, sin(a)) * randf_range(1.2, 2.5)
+			if not _near_gate(p):
+				_make_node(p, {type = "herb", q = _quality, reach = 0.0})
+
+
+func _make_node(pos: Vector3, data: Dictionary):
+	var n = NODE_SCRIPT.new()
+	n.type = data.type
+	n.quality = data.q
+	n.reach = data.get("reach", 0.0)
+	n.set_meta("kind", "node")
+	n.set_meta("data", {type = data.type, q = data.q, reach = n.reach})
+	add_child(n)
+	n.position = pos
 
 
 func _mat(id: String, color: Color) -> StandardMaterial3D:
