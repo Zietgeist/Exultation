@@ -15,6 +15,7 @@ SessionManager="*res://SessionManager.gd"
 SkinManager="*res://SkinManager.gd"
 Crafting="*res://crafting.gd"
 Classes="*res://ClassManager.gd"
+Net="*res://net.gd"
 
 [global_group]
 

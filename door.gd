@@ -58,6 +58,12 @@ func _on_zone_unlocked(_scene_path):
 func _on_body_entered(body: Node) -> void:
 	if body.name != "Player":
 		return
+	if Net.is_client():	# online: the host leads the party through gates
+		var back = body.global_position - global_position
+		back.y = 0
+		body.global_position += back.normalized() * 2.0
+		GameState.notify("The host leads the party through gates")
+		return
 	if not ResourceLoader.exists(target_scene):
 		ErrorLog.fail("Door '%s' leads to a zone that doesn't exist: %s" % [name, target_scene])
 		return

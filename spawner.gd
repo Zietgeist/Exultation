@@ -82,6 +82,10 @@ func _setup_zone_targets():
 	fog.saved = GameState.saved_zone_part(self, "fog")
 	get_parent().add_child(fog)
 
+	if Net.is_client():	# online, joined: the host runs the enemies, I just show them
+		targets_ready = false
+		return
+
 	if saved != null:
 		for key in SAVED_KEYS:
 			set(key, saved[key])
@@ -256,12 +260,15 @@ func _instantiate(t: int, pos: Vector3, h: float, element := "physical"):
 func _stream():
 	if not is_instance_valid(player):
 		return
-	var pp = player.global_position
+	var spots = []	# everyone in the party keeps enemies awake around them
+	for m in GameState.party():
+		if is_instance_valid(m) and m.is_inside_tree():
+			spots.append(m.global_position)
 	var woke = 0
 	var i = dormant.size() - 1
 	while i >= 0 and woke < MAX_WAKES_PER_CHECK:
 		var d = dormant[i]
-		if Vector2(d.p.x - pp.x, d.p.z - pp.z).length() < WAKE_RADIUS:
+		if _nearest(spots, d.p) < WAKE_RADIUS:
 			_instantiate(d.t, d.p, d.h, d.get("e", "physical"))
 			dormant.remove_at(i)
 			woke += 1
@@ -270,9 +277,17 @@ func _stream():
 		if enemy.aggroed or enemy.is_queued_for_deletion() or not enemy.has_meta("from_spawner"):
 			continue
 		var ep = enemy.global_position
-		if Vector2(ep.x - pp.x, ep.z - pp.z).length() > SLEEP_RADIUS:
+		if _nearest(spots, ep) > SLEEP_RADIUS:
 			dormant.append({t = enemy.tier, p = ep, h = enemy.health, e = enemy.damage_type})
 			enemy.queue_free()
+
+
+## Flat distance from a spot to the closest of several spots.
+func _nearest(spots: Array, p: Vector3) -> float:
+	var best = INF
+	for s in spots:
+		best = min(best, Vector2(p.x - s.x, p.z - s.z).length())
+	return best
 
 
 func _random_spot(entry: Vector3, min_dist: float) -> Vector3:

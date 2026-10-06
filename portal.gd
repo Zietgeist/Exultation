@@ -59,6 +59,12 @@ func _process(delta):
 func _on_body_entered(body: Node):
 	if not active or body.name != "Player":
 		return
+	if Net.is_client():	# online: the host leads the party through gates
+		var back = body.global_position - global_position
+		back.y = 0
+		body.global_position += back.normalized() * 2.0
+		GameState.notify("The host leads the party through gates")
+		return
 	if not ResourceLoader.exists(target_scene):
 		ErrorLog.fail("Portal leads to a scene that doesn't exist: " + str(target_scene))
 		return

@@ -31,6 +31,10 @@ var aggroed = false
 var hunter = false	# hunters (the 2nd Boss) never stop chasing you
 var difficulty = 1.0
 
+var net_id = 0			# online: same number on every player's screen
+var mirror = false		# online, joined player: a copy of the host's enemy (the host runs it)
+var net_target = Vector3.ZERO
+var _retarget = 0.0
 var rooted_time = 0.0	# held in place (Warden's Root Field): can still swing if you're close
 var damage_type = "physical"	# radiant, shadow, nature, storm... (armor can resist these)
 
@@ -47,6 +51,8 @@ func setup(diff, t = Tier.TRASH, element := "physical"):
 	
 	# Set color (from the current skin)
 	apply_skin()
+	if Net.is_host() and not mirror:
+		net_id = Net.register_enemy(self)
 
 func _ready():
 	player = get_tree().get_first_node_in_group("player")
@@ -59,8 +65,14 @@ func apply_skin():
 		$MeshInstance3D.material_override = SkinManager.element_material(TIER_IDS[tier], TIER_STATS[tier].color, damage_type, Crafting.ELEMENT_COLORS[damage_type])
 
 func _physics_process(delta):
-	if player == null or not is_instance_valid(player) or not player.is_inside_tree():
-		player = get_tree().get_first_node_in_group("player")
+	if mirror:	# the host moves it; just glide to where the host says it is
+		global_position = global_position.lerp(net_target, min(1.0, delta * 12.0))
+		return
+	# Chase the closest party member (with friends online, that's not always you)
+	_retarget -= delta
+	if _retarget <= 0.0 or player == null or not is_instance_valid(player) or not player.is_inside_tree():
+		_retarget = 0.3
+		player = _closest_party_member()
 	if player:
 		var distance = global_position.distance_to(player.global_position)
 		
@@ -93,12 +105,32 @@ func _physics_process(delta):
 	
 	move_and_slide()
 
+func _closest_party_member():
+	var best = null
+	var best_d = INF
+	for m in GameState.party():
+		if not is_instance_valid(m) or not m.is_inside_tree():
+			continue
+		var d = global_position.distance_squared_to(m.global_position)
+		if d < best_d:
+			best = m
+			best_d = d
+	return best
+
+
 func root(seconds: float):
+	if mirror:
+		Net.root_enemy(net_id, seconds)
+		return
 	rooted_time = max(rooted_time, seconds)
 	aggroed = true
 
 
 func take_damage(amount):
+	if mirror:	# the host decides; show the hit right away
+		flash()
+		Net.hit_enemy(net_id, amount)
+		return
 	health -= amount
 	flash()
 	if health <= 0:
@@ -121,7 +153,18 @@ func drop_gold() -> void:
 	orb.position = global_position + Vector3(randf_range(-1, 1), 0, randf_range(-1, 1))
 	get_parent().add_child(orb)
 
+## Joined player: the host says this enemy died. My own orb and gold drop here.
+func mirror_died():
+	if tier == Tier.BOSS:
+		GameState.add_mark("boss", global_position)
+	drop_orb()
+	drop_gold()
+	queue_free()
+
+
 func die():
+	if Net.is_host():
+		Net.enemy_died(self)
 	if tier == Tier.BOSS:
 		GameState.add_mark("boss", global_position)
 	emit_signal("enemy_died", tier)

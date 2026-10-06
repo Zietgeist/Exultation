@@ -11,6 +11,10 @@ var race_pick: OptionButton
 var race_about: Label
 var class_buttons = {}	# class id -> Button
 var class_about: Label
+var play_mode: OptionButton	# Solo / Host / Join
+var ip_box: LineEdit
+var net_status: Label
+var _waiting = false
 var _world_ids = []
 
 
@@ -52,6 +56,25 @@ func _ready():
 	box.add_child(race_pick)
 	race_about = _text(box)
 
+	# Online co-op: host a game, or join a friend's
+	_title(box, "Play", 22)
+	var net_row = HBoxContainer.new()
+	net_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	net_row.add_theme_constant_override("separation", 12)
+	box.add_child(net_row)
+	play_mode = OptionButton.new()
+	for t in ["Solo", "Host a game", "Join a game"]:
+		play_mode.add_item(t)
+	play_mode.item_selected.connect(func(_i): ip_box.visible = play_mode.selected == 2)
+	net_row.add_child(play_mode)
+	ip_box = LineEdit.new()
+	ip_box.placeholder_text = "Host's address (blank = this PC)"
+	ip_box.custom_minimum_size = Vector2(300, 0)
+	ip_box.visible = false
+	net_row.add_child(ip_box)
+	net_status = _text(box)
+	Net.status.connect(func(t): net_status.text = t)
+
 	_title(box, "Class", 22)
 	# One button per class file (classes/*.json and mods). Hover to read about it, click to play.
 	var grid = GridContainer.new()
@@ -74,6 +97,23 @@ func _ready():
 	_show_class(Classes.ids()[0])
 
 	_refresh()
+	_read_command_line.call_deferred()
+
+
+## Test shortcuts: --host, --join or --join=ADDRESS, --class=healer (starts right away)
+func _read_command_line():
+	var class_id = ""
+	for arg in OS.get_cmdline_user_args() + OS.get_cmdline_args():
+		if arg == "--host":
+			play_mode.select(1)
+		elif arg.begins_with("--join"):
+			play_mode.select(2)
+			ip_box.visible = true
+			ip_box.text = arg.get_slice("=", 1) if "=" in arg else ""
+		elif arg.begins_with("--class="):
+			class_id = arg.get_slice("=", 1)
+	if class_id != "" and not _waiting:
+		_start(Classes.normalize(class_id))
 
 
 func _on_world(i: int):
@@ -119,8 +159,19 @@ func _show_class(id: String):
 
 
 func _start(class_id: String):
+	if _waiting:
+		return
 	GameState.player_class = class_id
 	Crafting.ensure_slots()
+	match play_mode.selected:
+		1:	# host: start the server, then play as normal (friends join you)
+			if not Net.host():
+				net_status.text = "Couldn't host. See the error log."
+				return
+		2:	# join: connect, then the host brings you to where they are
+			if Net.join(ip_box.text.strip_edges()):
+				_waiting = true
+			return
 	get_tree().change_scene_to_file("res://Home.tscn")
 
 

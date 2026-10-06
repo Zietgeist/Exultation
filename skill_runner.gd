@@ -403,8 +403,9 @@ func _party_member_near(spot: Vector3):
 	return best
 
 
+## Vows go through the player (online, that sends it to the right person).
 func _runner_of(member):
-	return member.skills
+	return member
 
 
 ## Ring under the player for auras (thorns = green, drain = purple, whirlwind = white).

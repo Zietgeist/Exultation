@@ -132,7 +132,7 @@ func _process(delta):
 			SkinManager.name_of("enemy_master"), spawner.masters_killed,
 			SkinManager.name_of("enemy_boss"), spawner.bosses_killed
 		]
-		if spawner.targets_ready:
+		if spawner.targets_ready or Net.is_client():
 			kill_label.text += "   |   Cleared %d / %d" % [spawner.total_killed, spawner.min_clear]
 
 	zone_label.text = GameState.current_zone

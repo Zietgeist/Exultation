@@ -68,8 +68,19 @@ var spawn_point = Vector3.ZERO
 var invulnerable_time = 0.0
 
 
+# Online: a stand-in for another player (their game moves it; mine just shows it)
+var is_puppet := false
+var peer_id := 0
+var puppet_color := Color(0.3, 0.8, 1)
+var _net_pos = null
+var _net_rot := 0.0
+
+
 func _ready():
 	add_to_group("party")
+	if is_puppet:
+		_puppet_ready()
+		return
 	player_class = Classes.normalize(GameState.player_class)
 	class_def = Classes.get_def(player_class)
 	skills = load("res://skill_runner.gd").new()
@@ -79,6 +90,10 @@ func _ready():
 	Crafting.changed.connect(apply_gear)
 	apply_gear()
 	health = MAX_HEALTH
+	if Net.is_online():	# my color, so friends can tell us apart (matches what they see)
+		var mat = StandardMaterial3D.new()
+		mat.albedo_color = Net.color_of(Net.my_id())
+		$MeshInstance3D.material_override = mat
 	print("Playing as class: ", Classes.label(player_class))
 	_place_at_entry.call_deferred()
 
@@ -110,7 +125,7 @@ func _place_at_door():
 
 func _input(event):
 	# Ability keys fire once per press (holding the key no longer drains energy)
-	if GameState.ui_open:
+	if is_puppet or GameState.ui_open:
 		return	# a shop window is open: keys and clicks go to the window
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
@@ -132,6 +147,9 @@ func update_attack_speed():
 	print("Speed level: ", speed_level, " ST damage: ", roundi(st_damage), " Cooldown: ", snapped(st_cooldown_time, 0.01))
 
 func _physics_process(delta):
+	if is_puppet:
+		_puppet_move(delta)
+		return
 	var direction = Vector3.ZERO
 
 	# Safety net: fell out of the world -> loud warning, back to the gate
@@ -259,6 +277,9 @@ func aoe_attack():
 var last_attacker = ""	# who hit us last (for the death message)
 
 func take_damage(amount, source = null):
+	if is_puppet:	# another player: their game takes the hit
+		Net.hurt_player(peer_id, amount, source)
+		return
 	if invulnerable_time > 0.0:
 		return
 	if gather_node != null:
@@ -285,7 +306,56 @@ func take_damage(amount, source = null):
 
 ## Any healing (skills, party heals, potions). Never above max.
 func heal(amount: float):
+	if is_puppet:
+		Net.heal_player(peer_id, amount)
+		return
 	health = min(health + amount, MAX_HEALTH)
+
+
+## A Mending Vow lands on me (or, for a stand-in, on that player).
+func receive_vow(v: Dictionary):
+	if is_puppet:
+		Net.vow_player(peer_id, v)
+		return
+	skills.receive_vow(v)
+
+
+# ---------------- Online stand-in ----------------
+
+func _puppet_ready():
+	remove_from_group("player")	# enemies, orbs, doors and the HUD only care about the real me
+	add_to_group("remote_player")
+	collision_layer = 0
+	collision_mask = 0
+	var mat = StandardMaterial3D.new()
+	mat.albedo_color = puppet_color
+	$MeshInstance3D.material_override = mat
+	var tag = Label3D.new()
+	tag.text = Classes.label(player_class)
+	tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	tag.position = Vector3(0, 1.6, 0)
+	tag.font_size = 40
+	tag.pixel_size = 0.012
+	tag.outline_size = 10
+	tag.modulate = puppet_color
+	tag.no_depth_test = true
+	add_child(tag)
+
+
+func net_state(pos: Vector3, rot: float, hp: float, max_hp: float):
+	_net_pos = pos
+	_net_rot = rot
+	health = hp
+	MAX_HEALTH = max_hp
+
+
+func _puppet_move(delta):
+	if _net_pos == null:
+		return
+	if global_position.distance_to(_net_pos) > 8.0:
+		global_position = _net_pos	# respawned or teleported
+	global_position = global_position.lerp(_net_pos, min(1.0, delta * 15.0))
+	rotation.y = lerp_angle(rotation.y, _net_rot, min(1.0, delta * 15.0))
 
 ## Token death: back to the entry door with full health. Nothing is lost (for now).
 func die(cause := ""):
