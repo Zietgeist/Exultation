@@ -88,6 +88,15 @@ func join(ip: String) -> bool:
 	return true
 
 
+## Start online play with a ready-made connection (Steam uses this; see steam_link.gd).
+func start_with_peer(peer: MultiplayerPeer, as_host: bool):
+	multiplayer.multiplayer_peer = peer
+	mode = "host" if as_host else "client"
+	if as_host:
+		players = {1: _my_info()}
+	get_window().title = "Exultation - " + ("Host" if as_host else "Joined")
+
+
 func leave():
 	if multiplayer.multiplayer_peer:
 		multiplayer.multiplayer_peer.close()
@@ -97,6 +106,7 @@ func leave():
 	puppets.clear()
 	mirrors.clear()
 	enemies.clear()
+	SteamLink.leave_lobby()
 
 
 func _fail(text: String):

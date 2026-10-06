@@ -15,6 +15,12 @@ var play_mode: OptionButton	# Solo / Host / Join
 var ip_box: LineEdit
 var net_status: Label
 var _waiting = false
+const MODES = ["Solo", "Host on Steam (friends)", "Join a Steam friend", "Host by address", "Join by address"]
+const SOLO = 0
+const STEAM_HOST = 1
+const STEAM_JOIN = 2
+const ADDR_HOST = 3
+const ADDR_JOIN = 4
 var _world_ids = []
 
 
@@ -63,9 +69,14 @@ func _ready():
 	net_row.add_theme_constant_override("separation", 12)
 	box.add_child(net_row)
 	play_mode = OptionButton.new()
-	for t in ["Solo", "Host a game", "Join a game"]:
+	for t in MODES:
 		play_mode.add_item(t)
-	play_mode.item_selected.connect(func(_i): ip_box.visible = play_mode.selected == 2)
+	if not SteamLink.available():	# grey out Steam until the add-on is in and Steam is running
+		play_mode.set_item_disabled(STEAM_HOST, true)
+		play_mode.set_item_disabled(STEAM_JOIN, true)
+		play_mode.set_item_tooltip(STEAM_HOST, SteamLink.why_not())
+		play_mode.set_item_tooltip(STEAM_JOIN, SteamLink.why_not())
+	play_mode.item_selected.connect(_on_mode)
 	net_row.add_child(play_mode)
 	ip_box = LineEdit.new()
 	ip_box.placeholder_text = "Host's address (blank = this PC)"
@@ -73,7 +84,13 @@ func _ready():
 	ip_box.visible = false
 	net_row.add_child(ip_box)
 	net_status = _text(box)
+	if not SteamLink.available():
+		net_status.text = "Steam: " + SteamLink.why_not()
 	Net.status.connect(func(t): net_status.text = t)
+	SteamLink.invite_waiting.connect(_on_invite)
+	SteamLink.lobby_ready.connect(func(): get_tree().change_scene_to_file("res://Home.tscn"))
+	if SteamLink.pending_lobby != 0:
+		_on_invite.call_deferred()
 
 	_title(box, "Class", 22)
 	# One button per class file (classes/*.json and mods). Hover to read about it, click to play.
@@ -105,9 +122,13 @@ func _read_command_line():
 	var class_id = ""
 	for arg in OS.get_cmdline_user_args() + OS.get_cmdline_args():
 		if arg == "--host":
-			play_mode.select(1)
+			play_mode.select(ADDR_HOST)
+		elif arg == "--steam-host":
+			play_mode.select(STEAM_HOST)
+		elif arg == "--steam-join":
+			play_mode.select(STEAM_JOIN)
 		elif arg.begins_with("--join"):
-			play_mode.select(2)
+			play_mode.select(ADDR_JOIN)
 			ip_box.visible = true
 			ip_box.text = arg.get_slice("=", 1) if "=" in arg else ""
 		elif arg.begins_with("--class="):
@@ -164,15 +185,40 @@ func _start(class_id: String):
 	GameState.player_class = class_id
 	Crafting.ensure_slots()
 	match play_mode.selected:
-		1:	# host: start the server, then play as normal (friends join you)
+		STEAM_HOST:	# make a Steam lobby; the game starts when it's ready (lobby_ready)
+			_waiting = true
+			SteamLink.host_lobby()
+			return
+		STEAM_JOIN:	# join the friend who invited me (or wait for an invite)
+			_waiting = true
+			if SteamLink.pending_lobby != 0:
+				SteamLink.join_lobby(SteamLink.pending_lobby)
+			else:
+				net_status.text = "Waiting for an invite. Ask your friend to press F7 and invite you,\nor right-click them in your Steam friends list > Join Game."
+			return
+		ADDR_HOST:	# start the server, then play as normal (friends join you)
 			if not Net.host():
 				net_status.text = "Couldn't host. See the error log."
 				return
-		2:	# join: connect, then the host brings you to where they are
+		ADDR_JOIN:	# connect, then the host brings you to where they are
 			if Net.join(ip_box.text.strip_edges()):
 				_waiting = true
 			return
 	get_tree().change_scene_to_file("res://Home.tscn")
+
+
+func _on_mode(i: int):
+	ip_box.visible = i == ADDR_JOIN
+
+
+## A Steam invite came in while on this screen.
+func _on_invite():
+	play_mode.select(STEAM_JOIN)
+	_on_mode(STEAM_JOIN)
+	if _waiting and play_mode.selected == STEAM_JOIN:	# already picked a class: go
+		SteamLink.join_lobby(SteamLink.pending_lobby)
+	else:
+		net_status.text = "A friend invited you! Pick your class to join them."
 
 
 func _title(box: VBoxContainer, t: String, size: int):

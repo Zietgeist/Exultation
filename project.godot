@@ -16,6 +16,7 @@ SkinManager="*res://SkinManager.gd"
 Crafting="*res://crafting.gd"
 Classes="*res://ClassManager.gd"
 Net="*res://net.gd"
+SteamLink="*res://steam_link.gd"
 
 [global_group]
 
