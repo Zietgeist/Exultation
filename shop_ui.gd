@@ -131,7 +131,7 @@ func _make_section():
 	_title("Make", 20)
 	var bases = []
 	for id in Crafting.BASES:
-		if Crafting.BASES[id].shop == shop:
+		if Crafting.BASES[id].shop == shop and Crafting.knows(id):
 			bases.append(id)
 	if sel_base == "" or not bases.has(sel_base):
 		sel_base = bases[0]
@@ -146,7 +146,7 @@ func _make_section():
 		var needs = []
 		for m in b.need:
 			needs.append("%d %s" % [b.need[m], Crafting.MATERIAL_LABELS[m]])
-		base_pick.add_item("%s  (%s, %d open slot%s) - %s" % [b.label, ", ".join(needs), b.slots, "" if b.slots == 1 else "s", b.about])
+		base_pick.add_item("%s%s  (%s, %d open slot%s) - %s" % ["* " if b.get("advanced", false) else "", b.label, ", ".join(needs), b.slots, "" if b.slots == 1 else "s", b.about])
 		if bases[i] == sel_base:
 			base_pick.select(i)
 	base_pick.item_selected.connect(func(i): sel_base = bases[i]; sel_q = -1; sel_slots = []; _rebuild.call_deferred())
@@ -174,8 +174,8 @@ func _make_section():
 	qrow.add_child(q_pick)
 	content.add_child(qrow)
 
-	# Creative slots: any refined material
-	var stash = Crafting.stash_list()
+	# Creative slots: any refined material (Sigils go into recipes, not slots)
+	var stash = Crafting.stash_list().filter(func(e): return not Crafting.is_sigil(e.mat))
 	while sel_slots.size() < base.slots:
 		sel_slots.append(-1)
 	var chosen = []

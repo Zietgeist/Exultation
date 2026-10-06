@@ -25,7 +25,10 @@
 		"enemy_trash_one": "Shambler",
 		"enemy_thug_one": "Runner",
 		"enemy_master_one": "Brute",
-		"enemy_boss_one": "Abomination"
+		"enemy_boss_one": "Abomination",
+		"shrine": "Old Terminal",
+		"trial_gate": "Bunker Hatch",
+		"trial_arena": "Bunker"
 	},
 	"classes": {
 		"dps": "Brawler",

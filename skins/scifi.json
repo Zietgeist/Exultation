@@ -25,7 +25,10 @@
 		"enemy_trash_one": "Drone",
 		"enemy_thug_one": "Trooper",
 		"enemy_master_one": "War mech",
-		"enemy_boss_one": "Hive queen"
+		"enemy_boss_one": "Hive queen",
+		"shrine": "Data Terminal",
+		"trial_gate": "Warp Gate",
+		"trial_arena": "Simulation"
 	},
 	"classes": {
 		"dps": "Striker",

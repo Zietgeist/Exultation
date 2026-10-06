@@ -25,7 +25,10 @@
 		"enemy_trash_one": "Goblin",
 		"enemy_thug_one": "Orc",
 		"enemy_master_one": "Warlock",
-		"enemy_boss_one": "Dragon"
+		"enemy_boss_one": "Dragon",
+		"shrine": "Shrine",
+		"trial_gate": "Trial Gate",
+		"trial_arena": "Trial Ground"
 	},
 	"classes": {
 		"dps": "Warrior",

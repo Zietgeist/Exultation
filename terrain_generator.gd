@@ -62,6 +62,9 @@ func _ready():
 		_make_ditch({p = p, sx = 4.0, sz = 4.0, w = false, r = randf_range(0, TAU)})
 	spawn_clusters("low", roundi(def.low * m))
 	spawn_clusters("solid", roundi(def.solid * m))
+	if _quality > 0:	# shrine trials from Zone 2 on: 1 shrine in Zone 2, 2 after that
+		for i in range(clampi(_quality, 1, 2)):
+			_make_shrine({p = get_clear_pos(5.0), ability = Trials.random_ability()})
 	print("Terrain: %s (%d pieces)" % [template, get_child_count()])
 	_announce.call_deferred()
 
@@ -75,6 +78,8 @@ func _announce():
 func save_state() -> Array:
 	var out = [{kind = "template", id = template}]
 	for piece in get_children():
+		if piece.is_queued_for_deletion():
+			continue
 		if piece.has_meta("kind"):
 			var t = piece.get_meta("data").duplicate()
 			t.kind = piece.get_meta("kind")
@@ -396,6 +401,8 @@ func _rebuild(t: Dictionary):
 		"ditch": _make_ditch(t)
 		"water": _make_water(t)
 		"deco": _make_deco(t)
+		"shrine": _make_shrine(t)
+		"gate": _make_gate(t)
 
 
 # ---------------- Resources ----------------
@@ -505,6 +512,51 @@ func _make_water(t: Dictionary):
 	body.add_child(mi)
 	add_child(body)
 	body.position = Vector3(t.p.x, 0, t.p.z)
+
+
+# ---------------- Shrines and trial gates ----------------
+
+func _make_shrine(t: Dictionary):
+	var s = load("res://shrine.gd").new()
+	s.ability = t.ability
+	s.set_meta("kind", "shrine")
+	s.set_meta("data", {ability = t.ability})
+	add_child(s)
+	s.position = Vector3(t.p.x, 0, t.p.z)
+
+
+## Failed: the shrine shows up somewhere else in the zone (maybe with a different trial).
+func move_shrine(s):
+	s.ability = Trials.random_ability()
+	s.set_meta("data", {ability = s.ability})
+	var p = get_clear_pos(5.0)
+	s.queue_free()
+	_make_shrine({p = p, ability = s.ability})
+
+
+## Passed: the shrine becomes a gate to a Trial Ground.
+func open_trial_gate(s):
+	var q = max(1, GameState.zone_quality(owner.scene_file_path) if owner else 1)
+	var p = s.position
+	s.queue_free()
+	_make_gate({p = p, ability = s.ability, q = q})
+	GameState.notify("A gate opens! Clear the Trial Ground beyond it. The last foe holds the Sigil.")
+
+
+func _make_gate(t: Dictionary):
+	var g = load("res://portal.gd").new()
+	g.target_scene = Trials.ARENA
+	g.label_text = "%s\n%s" % [SkinManager.name_of("trial_gate"), Trials.ability_name(t.ability)]
+	g.color = Trials.TYPES[t.ability].color
+	g.party_pull = true
+	g.set_meta("kind", "gate")
+	g.set_meta("data", {ability = t.ability, q = t.q})
+	var back = Vector3(t.p.x, 0, t.p.z + 3.0)
+	g.before_travel = func():
+		Trials.arena = {ability = t.ability, q = t.q, back_scene = owner.scene_file_path, back_pos = back}
+		g.queue_free()	# used up (not saved with the zone)
+	add_child(g)
+	g.position = Vector3(t.p.x, 0, t.p.z)
 
 
 ## Looks only (bridges, rail tracks): no collision. c = skin color id, f = fallback color.

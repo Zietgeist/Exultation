@@ -8,6 +8,7 @@ var label_text = "Portal"
 var color = Color(1.0, 0.8, 0.2)
 var active = true
 var before_travel: Callable	# optional: runs just before traveling
+var party_pull := false		# online: anyone stepping in takes the whole party (trial gates)
 
 var _ring: MeshInstance3D
 var _label: Label3D
@@ -34,6 +35,7 @@ func _ready():
 	_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_label.position.y = 3.8
 	_label.font_size = 44
+	_label.pixel_size = 0.01	# readable from the zoomed-out camera
 	_label.outline_size = 12
 	_label.no_depth_test = true
 	add_child(_label)
@@ -58,6 +60,12 @@ func _process(delta):
 
 func _on_body_entered(body: Node):
 	if not active or body.name != "Player":
+		return
+	if Net.is_client() and party_pull:	# ask the host to take the party through
+		if before_travel.is_valid():
+			before_travel.call()
+		Net.request_portal(target_scene, target_position, Trials.arena)
+		active = false
 		return
 	if Net.is_client():	# online: the host leads the party through gates
 		var back = body.global_position - global_position

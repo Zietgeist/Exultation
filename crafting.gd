@@ -46,7 +46,9 @@ const MATERIAL_NAMES = {
 	"tonic": ["Sunleaf tonic", "Moonleaf tonic"],
 	"essence": ["Pale Orchid essence", "Storm Orchid essence"],
 }
-const MATERIAL_LABELS = {"ingot": "Ingot", "silverbar": "Treesilver bar", "tonic": "Tonic", "essence": "Orchid essence"}
+const MATERIAL_LABELS = {"ingot": "Ingot", "silverbar": "Treesilver bar", "tonic": "Tonic", "essence": "Orchid essence",
+	"sigil_precision": "Sigil of Precision", "sigil_numbers": "Sigil of Numbers", "sigil_sorting": "Sigil of Color",
+	"sigil_typing": "Sigil of Swiftness", "sigil_logic": "Sigil of Logic"}
 
 # Herbs and orchids change element as quality rises (and keep cycling past the list)
 const HERB_ELEMENTS = ["radiant", "shadow", "nature", "storm"]
@@ -82,6 +84,19 @@ const BASES = {
 		stats = {heal = 30.0}, about = "A quick heal."},
 	"elixir": {label = "Elixir", shop = "chemist", slot = "potion", need = {"essence": 1}, slots = 2,
 		stats = {heal = 50.0}, about = "Strong heal, two creative slots."},
+
+	# ---- Advanced recipes: need a Sigil (from shrine trials) and are learned from your first Sigil of that kind ----
+	"masterwork_blade": {label = "Masterwork Blade", shop = "smith", slot = "weapon", need = {"ingot": 2, "sigil_precision": 1}, slots = 4, advanced = true,
+		stats = {st = 120.0, aoe = 60.0, cone = 0.3, targets = 5, st_cd = 1.8, aoe_cd = 0.9, reach = 11.0},
+		about = "Finer and faster, FOUR creative slots."},
+	"tally_plate": {label = "Tally Plate", shop = "smith", slot = "chest", need = {"ingot": 3, "sigil_numbers": 1}, slots = 3, advanced = true,
+		stats = {hardness = 9.0, move = 0.0}, about = "Plate-tough with no slowdown, three slots."},
+	"prism_ring": {label = "Prism Ring", shop = "smith", slot = "ring", need = {"ingot": 1, "sigil_sorting": 1}, slots = 3, advanced = true,
+		stats = {hardness = 0.0, move = 0.0}, about = "Three slots: mix several elements in one ring."},
+	"windrunner_boots": {label = "Windrunner Boots", shop = "smith", slot = "feet", need = {"ingot": 1, "sigil_typing": 1}, slots = 2, advanced = true,
+		stats = {hardness = 2.0, move = 0.08}, about = "8% faster, two slots."},
+	"grand_elixir": {label = "Grand Elixir", shop = "chemist", slot = "potion", need = {"essence": 1, "sigil_logic": 1}, slots = 3, advanced = true,
+		stats = {heal = 90.0}, about = "Huge heal, three creative slots."},
 }
 
 # ---------- What you own (saved) ----------
@@ -90,6 +105,7 @@ var items = []		# crafted gear and potions (each a Dictionary)
 var equipped = {}	# race slot id -> [item ids] (-1 = empty). Which slots exist depends on your RACE (from the skin).
 const ARMOR_SLOTS = ["head", "shoulders", "chest", "hands", "feet", "ring"]
 var next_id = 1
+var patterns = []	# advanced recipes you've learned (from your first Sigil of each kind)
 
 
 func _ready():
@@ -99,6 +115,7 @@ func _ready():
 		items = cfg.get_value("crafting", "items", [])
 		equipped = cfg.get_value("crafting", "equipped", {})
 		next_id = cfg.get_value("crafting", "next_id", 1)
+		patterns = cfg.get_value("crafting", "patterns", [])
 	_upgrade_old_save()
 	ensure_slots()
 	SkinManager.skin_changed.connect(ensure_slots)
@@ -123,6 +140,7 @@ func save():
 	cfg.set_value("crafting", "items", items)
 	cfg.set_value("crafting", "equipped", equipped)
 	cfg.set_value("crafting", "next_id", next_id)
+	cfg.set_value("crafting", "patterns", patterns)
 	if cfg.save(SAVE_PATH) != OK:
 		ErrorLog.fail("Could not save crafting to " + SAVE_PATH)
 	changed.emit()
@@ -158,6 +176,27 @@ func material_attributes(mat: String, q: int) -> Dictionary:
 	for k in a:
 		a[k] *= scale
 	return a
+
+
+## Recipes a shop shows: every basic one, plus advanced ones you've learned.
+func knows(base_id: String) -> bool:
+	return not BASES[base_id].get("advanced", false) or patterns.has(base_id)
+
+
+func learn(base_id: String):
+	if not patterns.has(base_id):
+		patterns.append(base_id)
+		save()
+
+
+func add_material(mat: String, q: int, n: int):
+	var key = "%s:%d" % [mat, q]
+	stash[key] = stash.get(key, 0) + n
+	save()
+
+
+func is_sigil(mat: String) -> bool:
+	return mat.begins_with("sigil_")
 
 
 func stash_count(mat: String, q: int) -> int:

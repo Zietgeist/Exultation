@@ -17,6 +17,7 @@ Crafting="*res://crafting.gd"
 Classes="*res://ClassManager.gd"
 Net="*res://net.gd"
 SteamLink="*res://steam_link.gd"
+Trials="*res://trials.gd"
 
 [global_group]
 

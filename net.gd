@@ -407,3 +407,39 @@ func _root(zone: String, id: int, seconds: float):
 	var e = enemies.get(id)
 	if e and is_instance_valid(e) and get_tree().current_scene.scene_file_path == zone:
 		e.root(seconds)
+
+
+# ---------------- Shared moments ----------------
+
+## Host: tell everyone in my zone about something that happened (the scene handles it in net_event).
+func scene_event(event: String, data: Dictionary):
+	if is_host() and puppets.size() > 0:
+		_scene_event.rpc(get_tree().current_scene.scene_file_path, event, data)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _scene_event(zone: String, event: String, data: Dictionary):
+	var scene = get_tree().current_scene
+	if scene and scene.scene_file_path == zone and scene.has_method("net_event"):
+		scene.net_event(event, data)
+
+
+## Client stepped into a party gate (trial gate / Trial Ground exit): the host takes everyone through.
+func request_portal(scene_path: String, spot, info: Dictionary):
+	_request_portal.rpc_id(1, scene_path, spot if spot != null else Vector3.INF, info)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _request_portal(scene_path: String, spot: Vector3, info: Dictionary):
+	if not info.is_empty():
+		Trials.arena = info
+	if scene_path == "" and Trials.arena.has("back_scene"):	# "back where we came from"
+		scene_path = Trials.arena.back_scene
+		spot = Trials.arena.back_pos
+	if not ResourceLoader.exists(scene_path):
+		ErrorLog.fail("A player asked to travel to a missing scene: " + scene_path)
+		return
+	GameState.remember_current_zone()
+	GameState.previous_scene = get_tree().current_scene.scene_file_path
+	GameState.pending_spawn = null if spot == Vector3.INF else spot
+	get_tree().change_scene_to_file.call_deferred(scene_path)

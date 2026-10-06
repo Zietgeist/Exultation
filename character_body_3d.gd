@@ -68,6 +68,8 @@ var spawn_point = Vector3.ZERO
 var invulnerable_time = 0.0
 
 
+var warded := false	# taking a shrine trial: nothing can hurt you
+
 # Online: a stand-in for another player (their game moves it; mine just shows it)
 var is_puppet := false
 var peer_id := 0
@@ -179,6 +181,8 @@ func _physics_process(delta):
 	if Input.is_action_pressed("ui_up") or Input.is_key_pressed(KEY_W):
 		direction.z -= 1
 
+	if GameState.input_locked:
+		direction = Vector3.ZERO
 	if direction.length() > 0:
 		direction = direction.normalized()
 
@@ -280,7 +284,7 @@ func take_damage(amount, source = null):
 	if is_puppet:	# another player: their game takes the hit
 		Net.hurt_player(peer_id, amount, source)
 		return
-	if invulnerable_time > 0.0:
+	if invulnerable_time > 0.0 or warded:
 		return
 	if gather_node != null:
 		_stop_gathering("Interrupted!")

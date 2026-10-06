@@ -215,10 +215,24 @@ func _roll_element(t: int) -> String:
 func _place_dormant(t: int, pos: Vector3, h := -1.0, element := ""):
 	_count_spawn(t)
 	pos = _on_land(pos)
+	pos = _away_from_shrines(pos)
 	pos.y = ENEMY_REST_HEIGHT
 	if element == "":
 		element = _roll_element(t)
 	dormant.append({t = t, p = clamp_to_map(pos), h = h, e = element})
+
+
+## Keep a little room around shrines, so taking a trial doesn't start in a crowd.
+const SHRINE_CLEAR = 9.0
+
+func _away_from_shrines(pos: Vector3) -> Vector3:
+	for s in get_tree().get_nodes_in_group("shrine"):
+		var d = Vector3(pos.x - s.global_position.x, 0, pos.z - s.global_position.z)
+		if d.length() < SHRINE_CLEAR:
+			if d.length() < 0.1:
+				d = Vector3(1, 0, 0)
+			pos = s.global_position + d.normalized() * SHRINE_CLEAR + Vector3(0, pos.y, 0)
+	return pos
 
 
 ## Island maps: slide a spot toward the middle until it's on land.
