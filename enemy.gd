@@ -6,16 +6,16 @@ enum Tier {TRASH, THUG, MASTER, BOSS}
 var tier = Tier.TRASH
 const TIER_IDS = {Tier.TRASH: "enemy_trash", Tier.THUG: "enemy_thug", Tier.MASTER: "enemy_master", Tier.BOSS: "enemy_boss"}
 
-# Base stats per tier
+# Base stats per tier (aggro raised 1.2x in Oct 2026: 8/12/15/20 -> 9.6/14.4/18/24)
 const TIER_STATS = {
-	Tier.TRASH:  {health = 100,  damage = 5,  speed = 4.0, aggro = 8.0,  color = Color(0.15, 0.9, 0.13)},
-	Tier.THUG:   {health = 400,  damage = 15, speed = 3.0, aggro = 12.0, color = Color(0.2,  0.4, 1.0)},
-	Tier.MASTER: {health = 1200, damage = 35, speed = 2.5, aggro = 15.0, color = Color(0.6,  0.0, 0.9)},
-	Tier.BOSS:   {health = 5000, damage = 60, speed = 2.0, aggro = 20.0, color = Color(1.0,  0.8, 0.0)},
+	Tier.TRASH:  {health = 100,  damage = 5,  speed = 4.0, aggro = 9.6,  color = Color(0.15, 0.9, 0.13)},
+	Tier.THUG:   {health = 400,  damage = 15, speed = 3.0, aggro = 14.4, color = Color(0.2,  0.4, 1.0)},
+	Tier.MASTER: {health = 1200, damage = 35, speed = 2.5, aggro = 18.0, color = Color(0.6,  0.0, 0.9)},
+	Tier.BOSS:   {health = 5000, damage = 60, speed = 2.0, aggro = 24.0, color = Color(1.0,  0.8, 0.0)},
 }
 
-# Energy in the blue orb each tier drops
-const ORB_ENERGY = {Tier.TRASH: 1.0, Tier.THUG: 2.0, Tier.MASTER: 4.0, Tier.BOSS: 8.0}
+# Energy in the blue orb each tier drops (halved in Oct 2026: was 1/2/4/8)
+const ORB_ENERGY = {Tier.TRASH: 0.5, Tier.THUG: 1.0, Tier.MASTER: 2.0, Tier.BOSS: 4.0}
 
 const ATTACK_RANGE = 1.2
 var MAX_HEALTH = 100.0
