@@ -110,6 +110,7 @@ func leave():
 	mirrors.clear()
 	enemies.clear()
 	SteamLink.leave_lobby()
+	Party.end()
 
 
 func _fail(text: String):
@@ -158,6 +159,7 @@ func _unload_if_empty(z):
 func _register(info: Dictionary):
 	var id = multiplayer.get_remote_sender_id()
 	players[id] = info
+	Party.host_member_joined(info.get("name", "a friend"))
 	GameState.notify("%s joined the party!" % Classes.label(info.class_id))
 	var here = Zones.local_zone()
 	if here:
@@ -670,3 +672,36 @@ func _pet_hurt(amount: float):
 func _pet_guarded_rpc():
 	if Zones.player and Zones.player.pet:
 		Zones.player.pet.guarded()
+
+
+# ---------------- Party saves (party.gd) ----------------
+
+## Host: send the party to everyone.
+func send_party(p: Dictionary):
+	if is_host():
+		_party.rpc(p)
+
+## Joined player: something happened that the party should remember (the host records it).
+func party_event(kind: String, path: String):
+	_party_event.rpc_id(1, kind, path)
+
+## Host: the party just cleared the last zone. Everyone celebrates.
+func party_legend():
+	if is_host():
+		_party_legend.rpc()
+
+
+@rpc("authority", "call_remote", "reliable")
+func _party(p: Dictionary):
+	Party.receive(p)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _party_event(kind: String, path: String):
+	if kind == "unlock":
+		GameState.unlock(path)
+	elif kind == "cleared":
+		Party.zone_cleared(path)
+
+@rpc("authority", "call_remote", "reliable")
+func _party_legend():
+	Party.become_legend.call_deferred()

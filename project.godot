@@ -35,6 +35,7 @@ Story="*res://story.gd"
 Rivals="*res://rivals.gd"
 Traits="*res://traits.gd"
 Travel="*res://fast_travel.gd"
+Party="*res://party.gd"
 
 [global_group]
 

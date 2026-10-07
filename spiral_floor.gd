@@ -27,6 +27,8 @@ func _ready():
 	_build_floor()
 	_build_walls_and_gates()
 	_place_stations.call_deferred()	# after the terrain is up (so stations stay out of deep water)
+	if path == "res://Home.tscn":
+		_build_hall()
 
 
 ## Half the floor size (x, z). The spawner and terrain use this to stay on the map.
@@ -228,6 +230,59 @@ func _tube(a: Vector3, b: Vector3):
 	add_child(tube)
 	var basis = Basis(Quaternion(Vector3.UP, dir.normalized()))
 	tube.global_transform = Transform3D(basis, (a + b) / 2.0 + Vector3(0, 4.0, 0))
+
+
+## Home: the Hall of Legends. Every party (that this PC knows) which cleared the last zone.
+const HALL_SPOT = Vector3(34, 0, 30)
+var _hall_label: Label3D
+
+func _build_hall():
+	var stone = MeshInstance3D.new()
+	var b = BoxMesh.new()
+	b.size = Vector3(2.2, 7.0, 2.2)
+	stone.mesh = b
+	stone.position = HALL_SPOT + Vector3(0, 3.5, 0)
+	var m = StandardMaterial3D.new()
+	m.albedo_color = Color(0.85, 0.72, 0.35)
+	m.metallic = 0.6
+	m.roughness = 0.3
+	stone.material_override = m
+	add_child(stone)
+	var col = StaticBody3D.new()
+	var cs = CollisionShape3D.new()
+	var shape = BoxShape3D.new()
+	shape.size = b.size
+	cs.shape = shape
+	col.add_child(cs)
+	col.position = stone.position
+	add_child(col)
+	_hall_label = Label3D.new()
+	_hall_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_hall_label.position = HALL_SPOT + Vector3(0, 7.6, 0)
+	_hall_label.font_size = 30
+	_hall_label.pixel_size = 0.012
+	_hall_label.outline_size = 10
+	_hall_label.no_depth_test = true
+	_hall_label.modulate = Color(1.0, 0.85, 0.35)
+	add_child(_hall_label)
+	_refresh_hall()
+	Party.changed.connect(_refresh_hall)
+
+
+func _refresh_hall():
+	if not is_instance_valid(_hall_label):
+		return
+	var lines = ["HALL OF LEGENDS", "(clear %s to be written here)" % GameState.ZONE_NAMES.get(GameState.ZONE_ORDER[-1], "the last zone")]
+	var legends = Party.legends()
+	if legends.size() > 0 or Story.firsts.has("legend_solo"):
+		lines = ["HALL OF LEGENDS"]
+		for l in legends:
+			lines.append("%s  (%s)\n%s" % [l.name, l.date, ", ".join(l.members)])
+		if Story.firsts.has("legend_solo"):
+			lines.append("%s, alone" % Story.player_name)
+	if Party.active():
+		lines.append("\nNow playing: %s" % Party.label())
+	_hall_label.text = "\n".join(lines)
 
 
 ## The zone's name for the HUD (set on the zone, since several zones can be loaded at once).

@@ -17,6 +17,7 @@ const LAYOUT = preload("res://world_layout.gd")
 const SAVE_PATH = "user://travel.cfg"
 const MIN_ZONE_SIZE = 200.0		# zones smaller than this walk fine without stations
 const GRID_SPACING = 200.0
+const MAX_GRID = 6				# at most 6 x 6 stops in a zone (plus one by each gate)
 const GATE_INSET = 16.0			# gate stations sit this far inside the gate
 const HOME_SPOT = Vector3(-32, 0, 32)
 const WAKE_RANGE = 10.0
@@ -69,8 +70,8 @@ func stations_for(path: String) -> Array:
 			"w": inward = Vector3(1, 0, 0)
 		out.append({id = "gate:" + g.to.get_file().get_basename(), pos = g.pos + inward * GATE_INSET,
 			label = "%s, by the %s gate" % [zname, GameState.ZONE_NAMES.get(g.to, "?")]})
-	var nx = max(1, roundi(half.x * 2.0 / GRID_SPACING))
-	var nz = max(1, roundi(half.y * 2.0 / GRID_SPACING))
+	var nx = clampi(roundi(half.x * 2.0 / GRID_SPACING), 1, MAX_GRID)	# huge zones: stops farther apart
+	var nz = clampi(roundi(half.y * 2.0 / GRID_SPACING), 1, MAX_GRID)
 	for i in nx:
 		for j in nz:
 			var p = Vector3(-half.x + (i + 0.5) * half.x * 2.0 / nx, 0, -half.y + (j + 0.5) * half.y * 2.0 / nz)

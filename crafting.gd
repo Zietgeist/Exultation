@@ -680,6 +680,10 @@ const ZONE_ELEMENTS = {
 	"res://Zone4.tscn": ["physical", "nature", "storm", "radiant"],
 	"res://Zone5.tscn": ["physical", "shadow", "nature", "storm"],
 	"res://Zone6.tscn": ["radiant", "shadow", "nature", "storm"],
+	"res://Zone7.tscn": ["storm", "storm", "shadow", "radiant"],
+	"res://Zone8.tscn": ["nature", "nature", "shadow", "storm"],
+	"res://Zone9.tscn": ["shadow", "shadow", "radiant", "nature"],
+	"res://Zone10.tscn": ["radiant", "shadow", "nature", "storm"],
 }
 
 ## Pick a damage type for an enemy in this zone. Bosses always carry the zone's element.

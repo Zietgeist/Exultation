@@ -35,7 +35,7 @@ func collect_orb(cost: int) -> void:
 # Zones in spiral order. Killing BOSSES_TO_UNLOCK bosses in a zone unlocks the next one.
 signal zone_unlocked(scene_path)
 
-const ZONE_ORDER = ["res://Zone1.tscn", "res://Zone2.tscn", "res://Zone3.tscn", "res://Zone4.tscn", "res://Zone5.tscn", "res://Zone6.tscn"]
+const ZONE_ORDER = ["res://Zone1.tscn", "res://Zone2.tscn", "res://Zone3.tscn", "res://Zone4.tscn", "res://Zone5.tscn", "res://Zone6.tscn", "res://Zone7.tscn", "res://Zone8.tscn", "res://Zone9.tscn", "res://Zone10.tscn"]
 const ZONE_NAMES = {
 	"res://Home.tscn": "Home",
 	"res://Zone1.tscn": "Zone 1",
@@ -44,6 +44,10 @@ const ZONE_NAMES = {
 	"res://Zone4.tscn": "Zone 4",
 	"res://Zone5.tscn": "Zone 5",
 	"res://Zone6.tscn": "Zone 6",
+	"res://Zone7.tscn": "Zone 7",
+	"res://Zone8.tscn": "Zone 8",
+	"res://Zone9.tscn": "Zone 9",
+	"res://Zone10.tscn": "Zone 10",
 }
 const BOSSES_TO_UNLOCK = 2
 const PROGRESS_PATH = "user://progress.cfg"
@@ -67,12 +71,15 @@ func zone_area_scale(node = null) -> float:
 
 ## Up to Zone 3's size (about 12x Zone 1), enemies and terrain grow with the floor area.
 ## Past that they grow more slowly (area ^ 0.6), so huge zones are roomier, not endless.
-## Zone 4: ~18x Zone 1's enemies, Zone 5: ~33x, Zone 6: ~59x (instead of 29x / 77x / 202x).
+## With BIG_ZONE_DENSITY: Zone 4 ~15x Zone 1, Zone 6 ~49x, Zone 10 ~490x (capped by the spawner).
 const CONTENT_KNEE = 12.0
 func content_scale(area_scale: float) -> float:
 	if area_scale <= CONTENT_KNEE:
 		return area_scale
-	return CONTENT_KNEE * pow(area_scale / CONTENT_KNEE, 0.6)
+	return CONTENT_KNEE * pow(area_scale / CONTENT_KNEE, 0.6) * BIG_ZONE_DENSITY
+
+
+const BIG_ZONE_DENSITY = 0.75	# Zone 4 and up: 25% less crowded
 
 
 ## How many obstacles to make, compared to the original counts.
@@ -88,7 +95,8 @@ func obstacle_multiplier(node = null) -> float:
 		_obstacle_mults[floor_node] = mult
 	return mult
 
-var unlocked_zones = ["res://Home.tscn", "res://Zone1.tscn"]
+var personal_unlocked = ["res://Home.tscn", "res://Zone1.tscn"]	# your own (solo) progress
+var unlocked_zones = personal_unlocked	# what's open in THIS game: yours, or your party's (party.gd)
 
 
 func _ready():
@@ -97,7 +105,8 @@ func _ready():
 		# While testing from Godot, every run starts with the next zones LOCKED.
 		# (A finished, exported game remembers unlocks between plays.)
 		if not OS.is_debug_build():
-			unlocked_zones = cfg.get_value("progress", "unlocked_zones", unlocked_zones)
+			personal_unlocked = cfg.get_value("progress", "unlocked_zones", personal_unlocked)
+			unlocked_zones = personal_unlocked
 		gold_carried = cfg.get_value("gold", "carried", 0)
 		gold_banked = cfg.get_value("gold", "banked", 0)
 		satchel = cfg.get_value("resources", "satchel", {})
@@ -108,7 +117,7 @@ func _ready():
 
 func save_progress():
 	var cfg = ConfigFile.new()
-	cfg.set_value("progress", "unlocked_zones", unlocked_zones)
+	cfg.set_value("progress", "unlocked_zones", personal_unlocked)
 	cfg.set_value("gold", "carried", gold_carried)
 	cfg.set_value("gold", "banked", gold_banked)
 	cfg.set_value("resources", "satchel", satchel)
@@ -137,13 +146,20 @@ func on_boss_killed(bosses_killed_here: int, here := ""):
 	if here == "":
 		here = Zones.local_path()
 	var i = ZONE_ORDER.find(here)
-	if i == -1 or i + 1 >= ZONE_ORDER.size():
+	if i == -1:
+		return
+	Party.zone_cleared(here)
+	if i + 1 >= ZONE_ORDER.size():	# the last zone: the journey's end
+		if not Party.active():
+			notify("You have cleared %s. You are a Legend of the Spiral!" % ZONE_NAMES.get(here, here))
+			Story.once("legend_solo", "Cleared %s alone. A Legend of the Spiral." % ZONE_NAMES.get(here, here))
 		return
 	unlock(ZONE_ORDER[i + 1])
 
 
 func reset_zone_progress():
-	unlocked_zones = ["res://Home.tscn", "res://Zone1.tscn"]
+	personal_unlocked = ["res://Home.tscn", "res://Zone1.tscn"]
+	unlocked_zones = personal_unlocked
 	save_progress()
 	print("Zone progress reset: only Home and Zone 1 are open.")
 	zone_unlocked.emit("")	# doors refresh their color and label
@@ -152,10 +168,25 @@ func reset_zone_progress():
 func unlock(scene_path: String):
 	if is_unlocked(scene_path):
 		return
-	unlocked_zones.append(scene_path)
+	unlocked_zones.append(scene_path)	# (the party's list when playing as a party)
+	unlock_personal(scene_path)
 	save_progress()
 	print("UNLOCKED: ", ZONE_NAMES.get(scene_path, scene_path))
+	Party.zone_unlocked(scene_path)
 	zone_unlocked.emit(scene_path)
+
+
+## Zones opened with a party also open in your own progress.
+func unlock_personal(scene_path: String):
+	if not scene_path in personal_unlocked:
+		personal_unlocked.append(scene_path)
+		save_progress()
+
+
+## Play with a party's open zones (list), or your own again (null).
+func use_party(list):
+	unlocked_zones = list if list != null else personal_unlocked
+	zone_unlocked.emit("")	# doors refresh
 
 
 # Test key (only in debug builds): Shift + F10 = unlock the next zone

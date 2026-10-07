@@ -66,9 +66,9 @@ func _ready():
 		_make_ditch({p = p, sx = 4.0, sz = 4.0, w = false, r = randf_range(0, TAU)})
 	spawn_clusters("low", roundi(def.low * m))
 	spawn_clusters("solid", roundi(def.solid * m))
-	if _quality > 0:	# shrine trials from Zone 2 on: 1 shrine in Zone 2, 2 after that
-		for i in range(clampi(_quality, 1, 2)):
-			_make_shrine({p = get_clear_pos(5.0), ability = Trials.random_ability()})
+	if _quality > 0:	# shrine trials from Zone 2 on
+		for i in range(shrine_count()):
+			_make_shrine({p = get_clear_pos(5.0), ability = Trials.due_abilities().pick_random()})
 	print("Terrain: %s (%d pieces)" % [template, get_child_count()])
 	_announce.call_deferred()
 
@@ -157,7 +157,7 @@ func _near_gate(pos: Vector3) -> bool:
 
 ## Island: deep water all around, a land bridge from every gate to the middle.
 func _layout_island():
-	var step = 5.0
+	var step = max(5.0, max(_half.x, _half.y) / 150.0)	# huge zones: coarser water strips
 	var z = -_half.y + step / 2.0
 	while z < _half.y:
 		var run_start = null
@@ -174,11 +174,13 @@ func _layout_island():
 			x += step
 		z += step
 	# shallows: a ring of slow water along the shore
-	for i in range(int(TAU * _half.length() * MAPS.ISLAND_SIZE / 6.0)):
-		var a = TAU * i / int(TAU * _half.length() * MAPS.ISLAND_SIZE / 6.0)
+	var ring = mini(int(TAU * _half.length() * MAPS.ISLAND_SIZE / 6.0), 400)	# at most 400 pieces of shallows
+	var size = max(6.0, TAU * _half.length() * MAPS.ISLAND_SIZE / ring)
+	for i in range(ring):
+		var a = TAU * i / ring
 		var p = Vector3(cos(a) * _half.x * MAPS.ISLAND_SIZE * 0.93, 0, sin(a) * _half.y * MAPS.ISLAND_SIZE * 0.93)
 		if not _near_gate(p):
-			_make_ditch({p = p, sx = 6.0, sz = 6.0, w = true, r = -a})
+			_make_ditch({p = p, sx = size, sz = 6.0, w = true, r = -a})
 
 
 ## River: a winding band of slow water across the map, with 2-3 bridges.
@@ -193,6 +195,8 @@ func _layout_river():
 	var bridges = []
 	for i in range(randi_range(2, 3)):
 		bridges.append(randf_range(-length * 0.8, length * 0.8))
+	var step = max(3.0, length / 150.0)	# huge zones: fewer, longer pieces (at most ~300)
+	var piece = step + 1.0
 	var t = -length + 2.0	# stay inside the walls
 	while t <= length - 2.0:
 		var c = center + amp * sin(t * wave * TAU / 4.0 + phase)
@@ -200,9 +204,9 @@ func _layout_river():
 		if bridges.any(func(b): return abs(t - b) < 3.0):
 			pass	# bridge here: dry crossing
 		elif not _near_gate(p):
-			_make_ditch({p = p, sx = 10.0 if not along_x else 4.0, sz = 4.0 if not along_x else 10.0, w = true, r = 0.0})
+			_make_ditch({p = p, sx = 10.0 if not along_x else piece, sz = piece if not along_x else 10.0, w = true, r = 0.0})
 		_keep_out.append(Rect2(p.x - 6, p.z - 6, 12, 12))
-		t += 3.0
+		t += step
 	for bt in bridges:
 		var c = center + amp * sin(bt * wave * TAU / 4.0 + phase)
 		var p = Vector3(c, 0.2, bt) if not along_x else Vector3(bt, 0.2, c)
@@ -254,8 +258,15 @@ func _layout_rooms(count: int):
 ## Rails: long parallel walls make lanes, with crossings here and there. Tracks run down each lane.
 func _layout_lanes():
 	var along_x = _half.x >= _half.y
-	var long = _half.x if along_x else _half.y
-	var wide = _half.y if along_x else _half.x
+	# Huge zones get a rail YARD (at most 600 long, 240 wide) somewhere on the map, not rails everywhere
+	var long = min(_half.x if along_x else _half.y, YARD_HALF_LONG)
+	var wide = min(_half.y if along_x else _half.x, YARD_HALF_WIDE)
+	var room_l = (_half.x if along_x else _half.y) - long
+	var room_w = (_half.y if along_x else _half.x) - wide
+	var off_l = randf_range(-room_l, room_l) * 0.8
+	var off_w = randf_range(-room_w, room_w) * 0.8
+	var at = func(t: float, w: float) -> Vector3:	# lane coordinates -> map
+		return Vector3(t + off_l, 0, w + off_w) if along_x else Vector3(w + off_w, 0, t + off_l)
 	var spacing = 13.0
 	var c = -wide + spacing * 0.75
 	var lines = []
@@ -267,12 +278,11 @@ func _layout_lanes():
 		while t < long:
 			var seg = randf_range(10, 18)
 			var t1 = min(t + seg, long)
-			var a = Vector3(t, 0, line) if along_x else Vector3(line, 0, t)
-			var b = Vector3(t1, 0, line) if along_x else Vector3(line, 0, t1)
-			_place_wall("solid", a, b)
+			_place_wall("solid", at.call(t, line), at.call(t1, line))
 			t = t1 + randf_range(5, 7)	# crossing
-		var r = Rect2(-long, line - 1.5, long * 2, 3) if along_x else Rect2(line - 1.5, -long, 3, long * 2)
-		_keep_out.append(r)
+		var a = at.call(-long, line - 1.5)
+		var b = at.call(long, line + 1.5)
+		_keep_out.append(Rect2(min(a.x, b.x), min(a.z, b.z), abs(b.x - a.x), abs(b.z - a.z)))
 	# tracks down the middle of each lane
 	var mids = []
 	var edges = [-wide] + lines + [wide]
@@ -282,12 +292,17 @@ func _layout_lanes():
 		var bed = Vector3(long * 2, 0.04, 2.6) if along_x else Vector3(2.6, 0.04, long * 2)
 		var rail = Vector3(long * 2, 0.1, 0.15) if along_x else Vector3(0.15, 0.1, long * 2)
 		var o = Vector3(0, 0, 0.7) if along_x else Vector3(0.7, 0, 0)
-		var base = Vector3(0, 0, mid) if along_x else Vector3(mid, 0, 0)
+		var base = at.call(0.0, mid)
 		_make_deco({p = base + Vector3(0, 0.19, 0), s = bed, c = "rail_bed", f = Color(0.42, 0.36, 0.3)})
 		_make_deco({p = base + o + Vector3(0, 0.24, 0), s = rail, c = "rail", f = Color(0.25, 0.25, 0.27)})
 		_make_deco({p = base - o + Vector3(0, 0.24, 0), s = rail, c = "rail", f = Color(0.25, 0.25, 0.27)})
-		var r = Rect2(-long, mid - 1.5, long * 2, 3) if along_x else Rect2(mid - 1.5, -long, 3, long * 2)
-		_keep_out.append(r)
+		var a = at.call(-long, mid - 1.5)
+		var b = at.call(long, mid + 1.5)
+		_keep_out.append(Rect2(min(a.x, b.x), min(a.z, b.z), abs(b.x - a.x), abs(b.z - a.z)))
+
+
+const YARD_HALF_LONG = 300.0
+const YARD_HALF_WIDE = 120.0
 
 
 ## Rolling hills: old stone fences between the hills.
@@ -551,6 +566,18 @@ func open_trial_gate(s):
 	s.queue_free()
 	_make_gate({p = p, ability = s.ability, q = q, level = Trials.next_level(s.ability)})
 	GameState.notify("A gate opens! Clear the Trial Ground beyond it. The last foe holds the Sigil.")
+
+
+## About one shrine per 30,000 square units (the density of Zones 2 and 3): 1 in Zone 2, 2 in Zone 3,
+## ~6 in Zone 4, ~40 in Zone 6, up to 60. Only for abilities whose next trial is open (off cooldown):
+## if none are, there are no shrines this visit.
+const SHRINE_AREA = 30000.0
+const MAX_SHRINES = 60
+
+func shrine_count() -> int:
+	if Trials.due_abilities().is_empty():
+		return 0
+	return clampi(roundi(_half.x * _half.y * 4.0 / SHRINE_AREA), 1, MAX_SHRINES)
 
 
 func _make_gate(t: Dictionary):

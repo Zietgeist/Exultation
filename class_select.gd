@@ -13,6 +13,10 @@ var class_buttons = {}	# class id -> Button
 var class_about: Label
 var play_mode: OptionButton	# Solo / Host / Join
 var ip_box: LineEdit
+var party_row: HBoxContainer	# hosting: which party's adventure to play
+var party_pick: OptionButton
+var party_name: LineEdit
+var _parties = []
 var net_status: Label
 var _waiting = false
 const MODES = ["Solo", "Host on Steam (friends)", "Join a Steam friend", "Host by address", "Join by address"]
@@ -83,6 +87,28 @@ func _ready():
 	ip_box.custom_minimum_size = Vector2(300, 0)
 	ip_box.visible = false
 	net_row.add_child(ip_box)
+	# Hosting: play a saved party (any member can host it) or start a new one
+	party_row = HBoxContainer.new()
+	party_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	party_row.add_theme_constant_override("separation", 12)
+	box.add_child(party_row)
+	var pl = Label.new()
+	pl.text = "Party:"
+	party_row.add_child(pl)
+	party_pick = OptionButton.new()
+	party_pick.add_item("New party")
+	_parties = Party.list_saved()
+	for p in _parties:
+		party_pick.add_item(Party.summary(p))
+	party_pick.tooltip_text = "Your party's progress is saved. Any member can host it next time and carry on."
+	party_pick.item_selected.connect(func(i): party_name.visible = i == 0)
+	party_row.add_child(party_pick)
+	party_name = LineEdit.new()
+	party_name.placeholder_text = "Name your party"
+	party_name.custom_minimum_size = Vector2(220, 0)
+	party_name.max_length = 32
+	party_row.add_child(party_name)
+	party_row.visible = false
 	net_status = _text(box)
 	if not SteamLink.available():
 		net_status.text = "Steam: " + SteamLink.why_not()
@@ -131,6 +157,11 @@ func _read_command_line():
 			play_mode.select(ADDR_JOIN)
 			ip_box.visible = true
 			ip_box.text = arg.get_slice("=", 1) if "=" in arg else ""
+		elif arg.begins_with("--party="):	# test: pick (or make) a party by name
+			var want = arg.get_slice("=", 1)
+			var found = _parties.map(func(p): return p.name).find(want)
+			party_pick.select(found + 1 if found != -1 else 0)
+			party_name.text = want
 		elif arg.begins_with("--class="):
 			class_id = arg.get_slice("=", 1)
 	if class_id != "" and not _waiting:
@@ -187,6 +218,7 @@ func _start(class_id: String):
 	match play_mode.selected:
 		STEAM_HOST:	# make a Steam lobby; the game starts when it's ready (lobby_ready)
 			_waiting = true
+			_begin_party()
 			SteamLink.host_lobby()
 			return
 		STEAM_JOIN:	# join the friend who invited me (or wait for an invite)
@@ -200,6 +232,7 @@ func _start(class_id: String):
 			if not Net.host():
 				net_status.text = "Couldn't host. See the error log."
 				return
+			_begin_party()
 		ADDR_JOIN:	# connect, then the host brings you to where they are
 			if Net.join(ip_box.text.strip_edges()):
 				_waiting = true
@@ -209,6 +242,13 @@ func _start(class_id: String):
 
 func _on_mode(i: int):
 	ip_box.visible = i == ADDR_JOIN
+	party_row.visible = i == ADDR_HOST or i == STEAM_HOST
+
+
+## Hosting: start the chosen party (or a new one).
+func _begin_party():
+	var i = party_pick.selected
+	Party.begin(_parties[i - 1] if i > 0 else Party.new_party(party_name.text))
 
 
 ## A Steam invite came in while on this screen.

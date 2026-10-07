@@ -3,7 +3,7 @@ extends Node3D
 ## Enemies stand above it, so you can still see them coming.
 ## It lifts as you explore and stays lifted for the rest of the play session.
 
-const CELL = 4.0		# size of one fog square
+var CELL = 4.0		# size of one fog square (bigger in huge zones: world_layout.fog_cell)
 const REVEAL_RADIUS = 16.0	# how far around you the fog lifts. Smaller than the view, so the outer ~15% of the screen stays fogged
 const HEIGHT = 0.35		# just above the floor: hides the ground, but enemies and tall things stand out of it
 const FOG_COLOR = Color(0.06, 0.07, 0.1, 0.93)
@@ -25,6 +25,7 @@ func _ready():
 		ErrorLog.fail("Fog of war: no map floor found")
 		return
 	half = floor_node.get_half_size()
+	CELL = preload("res://world_layout.gd").fog_cell(Zones.path_of(self)) if preload("res://world_layout.gd").ZONES.has(Zones.path_of(self)) else 4.0
 	cols = ceili(half.x * 2.0 / CELL)
 	rows = ceili(half.y * 2.0 / CELL)
 
@@ -79,7 +80,7 @@ func _reveal_around_player():
 	if player == null:
 		return
 	var p = player.global_position
-	var radius = REVEAL_RADIUS * Traits.sight_mult()	# Wanderer: the fog clears wider
+	var radius = max(REVEAL_RADIUS, CELL * 1.5) * Traits.sight_mult()	# Wanderer: the fog clears wider
 	var c0 = clampi(floori((p.x - radius + half.x) / CELL), 0, cols - 1)
 	var c1 = clampi(floori((p.x + radius + half.x) / CELL), 0, cols - 1)
 	var r0 = clampi(floori((p.z - radius + half.y) / CELL), 0, rows - 1)
@@ -95,7 +96,7 @@ func _reveal_around_player():
 				mm.set_instance_color(i, Color(0, 0, 0, 0))
 				fresh += 1
 	if fresh > 0:
-		Traits.nudge("roam", -0.004 * fresh)	# exploring new ground: Wanderer
+		Traits.nudge("roam", -0.004 * fresh * (CELL / 4.0) * (CELL / 4.0))	# exploring new ground: Wanderer
 
 
 ## How much of the zone has been explored (0.0 to 1.0)

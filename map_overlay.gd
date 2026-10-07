@@ -5,7 +5,7 @@ extends Control
 ##   enemies still left, where you fell (red X) and where bosses fell (gold ring).
 ## - Anywhere else: no map. You learn the zone by walking it.
 
-const FOG_CELL = 4.0		# must match fog_of_war.gd CELL
+const LAYOUT = preload("res://world_layout.gd")	# fog square size per zone: LAYOUT.fog_cell(path)
 const BG = Color(0.03, 0.03, 0.05, 0.85)
 const UNEXPLORED = Color(0.12, 0.12, 0.16)
 const EXPLORED = Color(0.45, 0.45, 0.5)
@@ -79,7 +79,7 @@ func _draw_world(font):
 			status = "locked"
 		else:
 			var fog = GameState.zone_memory.get(p, {}).get("fog", null)
-			_draw_fog_cells(screen, r.size / 2.0, fog)
+			_draw_fog_cells(screen, r.size / 2.0, fog, LAYOUT.fog_cell(p))
 			if GameState.is_zone_cleared(p):
 				status = "cleared"
 			elif fog == null:
@@ -101,7 +101,7 @@ func _draw_zone(path: String, font):
 	var fit = _fit(local_rect, 0.8)
 	var screen = Rect2(fit.offset + local_rect.position * fit.scale, local_rect.size * fit.scale)
 	var fog = Zones.local_first("zone_fog")
-	_draw_fog_cells(screen, half, fog.revealed if fog else null)
+	_draw_fog_cells(screen, half, fog.revealed if fog else null, fog.CELL if fog else 4.0)
 	draw_rect(screen, GOLD, false, 2.0)
 	draw_string(font, Vector2(0, 50), GameState.ZONE_NAMES.get(path, path) + "  - cleared", HORIZONTAL_ALIGNMENT_CENTER, size.x, 30, GOLD)
 
@@ -143,12 +143,12 @@ func _to_screen(fit: Dictionary, world_pos: Vector3) -> Vector2:
 
 
 ## Paint a zone's fog grid into a screen rectangle: explored squares light, the rest dark.
-func _draw_fog_cells(screen: Rect2, half: Vector2, revealed):
+func _draw_fog_cells(screen: Rect2, half: Vector2, revealed, cell := 4.0):
 	draw_rect(screen, UNEXPLORED)
 	if revealed == null:
 		return
-	var cols = ceili(half.x * 2.0 / FOG_CELL)
-	var rows = ceili(half.y * 2.0 / FOG_CELL)
+	var cols = ceili(half.x * 2.0 / cell)
+	var rows = ceili(half.y * 2.0 / cell)
 	if revealed.size() != cols * rows:
 		return
 	var cw = screen.size.x / cols

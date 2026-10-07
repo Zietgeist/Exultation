@@ -14,6 +14,13 @@ const FOG_SCRIPT = preload("res://fog_of_war.gd")
 # Zone 1 numbers. Bigger zones scale these up by floor area (see GameState.zone_area_scale).
 const BASE_MIN_CLEAR = 227	# must kill at least this many before the 2nd boss can appear
 const BASE_MAX_CLEAR = 400	# the zone never holds more than this many
+const MAX_ENEMIES = 60000		# huge zones (9, 10) stop here
+const CLEAR_KNEE = 12.0
+
+## Kills needed before the 2nd boss. Grows with the zone up to Zone 3's size, then much more slowly:
+## Zone 4 ~3,000, Zone 6 ~4,500, Zone 8 ~6,700, Zone 10 ~10,000. Clearing Zone 10 is a big deal.
+static func clear_scale(scale: float) -> float:
+	return scale if scale <= CLEAR_KNEE else CLEAR_KNEE * pow(scale / CLEAR_KNEE, 0.35)
 const BASE_THUGS = 20
 const BASE_MASTERS = 5
 const MAX_BOSSES = 2		# always 2: beating both unlocks the next zone
@@ -112,8 +119,8 @@ func _setup_zone_targets():
 		return
 
 	zone_scale = GameState.zone_area_scale(self)
-	min_clear = roundi(BASE_MIN_CLEAR * zone_scale)
-	target_total = randi_range(min_clear, roundi(BASE_MAX_CLEAR * zone_scale))
+	min_clear = roundi(BASE_MIN_CLEAR * clear_scale(zone_scale))
+	target_total = mini(randi_range(roundi(BASE_MIN_CLEAR * zone_scale), roundi(BASE_MAX_CLEAR * zone_scale)), MAX_ENEMIES)
 	MAX_MASTERS = maxi(1, roundi(BASE_MASTERS * zone_scale))
 	MAX_THUGS = maxi(1, roundi(BASE_THUGS * zone_scale))
 	MAX_TRASH = target_total - MAX_THUGS - MAX_MASTERS - MAX_BOSSES

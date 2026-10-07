@@ -15,6 +15,8 @@ extends RefCounted
 ##              |             +--+-----+-------------------+
 ##              |             |        Zone 4 (42 x 42)    |
 ##              +-------------+----------------------------+
+## ...and on around: Zone 7 east (178 x 178), Zone 8 south (288), Zone 9 west (466),
+## Zone 10 north (754 x 754 tiles = 7540 units: crossing it on foot takes over 12 minutes).
 
 const ZONES = {
 	"res://Home.tscn": Rect2(0, 0, 100, 100),
@@ -24,9 +26,19 @@ const ZONES = {
 	"res://Zone4.tscn": Rect2(-60, 100, 420, 420),
 	"res://Zone5.tscn": Rect2(-740, -160, 680, 680),
 	"res://Zone6.tscn": Rect2(-740, -1260, 1100, 1100),
+	"res://Zone7.tscn": Rect2(360, -1260, 1780, 1780),
+	"res://Zone8.tscn": Rect2(-740, 520, 2880, 2880),
+	"res://Zone9.tscn": Rect2(-5400, -1260, 4660, 4660),
+	"res://Zone10.tscn": Rect2(-5400, -8800, 7540, 7540),
 }
 
 const GATE_WIDTH = 12.0
+
+
+## Fog squares get bigger in huge zones (so there are never more than ~90,000 of them).
+static func fog_cell(path: String) -> float:
+	var r = rect(path)
+	return max(4.0, max(r.size.x, r.size.y) / 300.0)
 
 
 static func rect(path: String) -> Rect2:
