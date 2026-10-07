@@ -67,29 +67,5 @@ script = ExtResource("6_s6wwu")
 [node name="Player" parent="." node_paths=PackedStringArray("camera") instance=ExtResource("1_pe76i")]
 camera = NodePath("../Camera3D")
 
-[node name="DoorToZone2" type="Area3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, -50)
-script = ExtResource("9_n350s")
-target_scene = "res://Zone2.tscn"
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="DoorToZone2"]
-shape = SubResource("BoxShape3D_2h68i")
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="DoorToZone2"]
-material_override = SubResource("StandardMaterial3D_n350s")
-mesh = SubResource("BoxMesh_25isr")
-
-[node name="DoorToHome" type="Area3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 31, 1, 0)
-script = ExtResource("9_n350s")
-target_scene = "res://Home.tscn"
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="DoorToHome"]
-material_override = SubResource("StandardMaterial3D_uy5g2")
-mesh = SubResource("BoxMesh_n350s")
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="DoorToHome"]
-shape = SubResource("BoxShape3D_25isr")
-
 [connection signal="body_shape_entered" from="DoorToZone2" to="DoorToZone2" method="_on_body_shape_entered"]
 [connection signal="body_shape_entered" from="DoorToHome" to="DoorToHome" method="_on_body_shape_entered"]

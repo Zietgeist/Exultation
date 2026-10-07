@@ -30,7 +30,8 @@
 		"shrine": "Shrine",
 		"trial_gate": "Trial Gate",
 		"trial_arena": "Trial Ground",
-		"pet": "Sprite"
+		"pet": "Sprite",
+		"waystation": "Waystone"
 	},
 	"classes": {
 		"dps": "Warrior",
@@ -252,5 +253,6 @@
 			"rails": "Hedgerow Roads",
 			"island": "Lake Isle"
 		}
-	}
+	},
+	"fast_travel": "portal"
 }

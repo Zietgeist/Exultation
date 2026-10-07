@@ -81,6 +81,7 @@ func _ready():
 	# Inventory (press I)
 	get_parent().add_child.call_deferred(load("res://inventory_ui.gd").new())
 	get_parent().add_child.call_deferred(load("res://chronicle_ui.gd").new())
+	get_parent().add_child.call_deferred(load("res://travel_ui.gd").new())
 
 func _on_notice(text: String):
 	notice_label.text = text

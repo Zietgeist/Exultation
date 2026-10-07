@@ -61,43 +61,9 @@ camera = NodePath("../Camera3D")
 
 [node name="HUD" parent="." instance=ExtResource("3_08a7v")]
 
-[node name="DoorToZone2" type="Area3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, -50)
-script = ExtResource("4_08a7v")
-target_scene = "res://Zone2.tscn"
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="DoorToZone2"]
-shape = SubResource("BoxShape3D_fs37c")
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="DoorToZone2"]
-material_override = SubResource("StandardMaterial3D_08a7v")
-mesh = SubResource("BoxMesh_55kc7")
-
-[node name="DoorToZone1" type="Area3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -50, 1, 0)
-script = ExtResource("4_08a7v")
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="DoorToZone1"]
-shape = SubResource("BoxShape3D_08a7v")
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="DoorToZone1"]
-mesh = SubResource("BoxMesh_fs37c")
-surface_material_override/0 = SubResource("StandardMaterial3D_f516x")
-
 [node name="PomodoroGate" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 14)
 script = ExtResource("5_gate")
-
-[node name="DoorToZone3" type="Area3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 50, 1, 0)
-script = ExtResource("4_08a7v")
-target_scene = "res://Zone3.tscn"
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="DoorToZone3"]
-shape = SubResource("Shape_DoorToZone3")
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="DoorToZone3"]
-mesh = SubResource("Mesh_DoorToZone3")
 
 [node name="Town" type="Node3D" parent="."]
 script = ExtResource("6_town")

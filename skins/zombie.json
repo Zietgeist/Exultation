@@ -30,7 +30,8 @@
 		"shrine": "Old Terminal",
 		"trial_gate": "Bunker Hatch",
 		"trial_arena": "Bunker",
-		"pet": "Scavenger"
+		"pet": "Scavenger",
+		"waystation": "Rail Stop"
 	},
 	"classes": {
 		"dps": "Brawler",
@@ -225,5 +226,6 @@
 			"rails": "Rail Yard",
 			"island": "Quarantine Island"
 		}
-	}
+	},
+	"fast_travel": "rail"
 }

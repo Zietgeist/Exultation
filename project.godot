@@ -34,6 +34,7 @@ Zones="*res://zones.gd"
 Story="*res://story.gd"
 Rivals="*res://rivals.gd"
 Traits="*res://traits.gd"
+Travel="*res://fast_travel.gd"
 
 [global_group]
 

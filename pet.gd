@@ -18,7 +18,8 @@ extends Node3D
 ##   Name       give it one in the Chronicle (J). Its milestones go in the Chronicle.
 ##
 ## Made by the local player (character_body_3d.gd). Follows you from zone to zone. Saved in user://pet.cfg.
-## Online: pets are your own; the host's enemies can target them only for the host (for now).
+## Online: every player's pet is shown to the others (pet_ghost.gd). The host runs the enemies, so on the
+## host a friend's pet can be targeted; the hit is sent to the friend's game, where the real pet takes it.
 
 const SAVE_PATH = "user://pet.cfg"
 const BASE_HEALTH = 80.0

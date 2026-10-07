@@ -34,6 +34,8 @@ func _ready():
 		return	# not inside the World yet (see zones.gd)
 	_find_gates()
 	_half = map_half_size(0.0)
+	for s in Travel.stations_for(owner.scene_file_path if owner else ""):	# keep fast-travel stops clear
+		_keep_out.append(Rect2(s.pos.x - 7, s.pos.z - 7, 14, 14))
 	var saved = GameState.saved_zone_part(self, "terrain")
 	if saved != null:
 		for t in saved:
@@ -117,6 +119,12 @@ func nearest_land(pos: Vector3) -> Vector3:
 			var p = pos + Vector3(cos(a), 0, sin(a)) * ring * 2.0
 			if not is_water(p) and abs(p.x) < _half.x and abs(p.z) < _half.y:
 				return p
+	# Big island maps: head toward the middle (the island) until we're on land
+	var q = Vector3(pos.x, 0, pos.z)
+	while q.length() > 4.0:
+		q = q.move_toward(Vector3.ZERO, 4.0)
+		if not is_water(q):
+			return Vector3(q.x, pos.y, q.z)
 	ErrorLog.fail("No land found near %s" % pos)
 	return pos
 
@@ -133,9 +141,9 @@ func get_clear_pos(pad := 0.0) -> Vector3:
 
 func _find_gates():
 	_gates.clear()
-	for n in get_parent().get_children():
-		if n is Area3D and "target_scene" in n:
-			_gates.append(n.position)
+	for n in get_parent().find_children("*", "Area3D", true, false):	# doors live under the floor (spiral_floor.gd)
+		if "target_scene" in n:
+			_gates.append(get_parent().to_local(n.global_position) if n.is_inside_tree() else n.position)
 
 
 func _near_gate(pos: Vector3) -> bool:

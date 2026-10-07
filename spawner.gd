@@ -29,7 +29,20 @@ const SLEEP_RADIUS = 60.0		# real, calm enemies farther than this go dormant
 const STREAM_EVERY = 0.1		# seconds between wake/sleep checks
 const MAX_WAKES_PER_CHECK = 40	# spread the work so there are no hitches
 
-var dormant = []	# [{t = tier, p = position, h = health (-1 = full)}]
+## Sleeping enemies, sorted into 50 x 50 squares so waking only looks near the party
+## (huge zones hold tens of thousands). `dormant` gives them all as one list.
+const BUCKET = 50.0
+var _buckets := {}	# Vector2i square -> [{t = tier, p = position, h = health (-1 = full), e = element}]
+var dormant: Array:
+	get:
+		var out = []
+		for b in _buckets.values():
+			out.append_array(b)
+		return out
+
+
+func _sleep(d: Dictionary):
+	_buckets.get_or_add(Vector2i(floori(d.p.x / BUCKET), floori(d.p.z / BUCKET)), []).append(d)
 var _stream_timer = 0.0
 
 # Set when the zone loads (random each visit, so no two runs are the same)
@@ -222,7 +235,7 @@ func _place_dormant(t: int, pos: Vector3, h := -1.0, element := ""):
 	pos.y = ENEMY_REST_HEIGHT
 	if element == "":
 		element = _roll_element(t)
-	dormant.append({t = t, p = clamp_to_map(pos), h = h, e = element})
+	_sleep({t = t, p = clamp_to_map(pos), h = h, e = element})
 
 
 ## Keep a little room around shrines, so taking a trial doesn't start in a crowd.
@@ -282,20 +295,26 @@ func _stream():
 		if is_instance_valid(m) and m.is_inside_tree():
 			spots.append(m.global_position)
 	var woke = 0
-	var i = dormant.size() - 1
-	while i >= 0 and woke < MAX_WAKES_PER_CHECK:
-		var d = dormant[i]
-		if _nearest(spots, d.p) < WAKE_RADIUS:
-			_instantiate(d.t, d.p, d.h, d.get("e", "physical"))
-			dormant.remove_at(i)
-			woke += 1
-		i -= 1
+	for s in spots:
+		for kx in range(floori((s.x - WAKE_RADIUS) / BUCKET), floori((s.x + WAKE_RADIUS) / BUCKET) + 1):
+			for kz in range(floori((s.z - WAKE_RADIUS) / BUCKET), floori((s.z + WAKE_RADIUS) / BUCKET) + 1):
+				var b = _buckets.get(Vector2i(kx, kz))
+				if b == null:
+					continue
+				var i = b.size() - 1
+				while i >= 0 and woke < MAX_WAKES_PER_CHECK:
+					var d = b[i]
+					if _nearest(spots, d.p) < WAKE_RADIUS:
+						_instantiate(d.t, d.p, d.h, d.get("e", "physical"))
+						b.remove_at(i)
+						woke += 1
+					i -= 1
 	for enemy in Zones.all(self, "enemy"):
 		if enemy.aggroed or enemy.is_queued_for_deletion() or not enemy.has_meta("from_spawner"):
 			continue
 		var ep = enemy.global_position
 		if _nearest(spots, ep) > SLEEP_RADIUS:
-			dormant.append({t = enemy.tier, p = ep, h = enemy.health, e = enemy.damage_type})
+			_sleep({t = enemy.tier, p = ep, h = enemy.health, e = enemy.damage_type})
 			enemy.queue_free()
 
 

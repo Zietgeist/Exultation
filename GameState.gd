@@ -35,13 +35,15 @@ func collect_orb(cost: int) -> void:
 # Zones in spiral order. Killing BOSSES_TO_UNLOCK bosses in a zone unlocks the next one.
 signal zone_unlocked(scene_path)
 
-const ZONE_ORDER = ["res://Zone1.tscn", "res://Zone2.tscn", "res://Zone3.tscn", "res://Zone4.tscn"]
+const ZONE_ORDER = ["res://Zone1.tscn", "res://Zone2.tscn", "res://Zone3.tscn", "res://Zone4.tscn", "res://Zone5.tscn", "res://Zone6.tscn"]
 const ZONE_NAMES = {
 	"res://Home.tscn": "Home",
 	"res://Zone1.tscn": "Zone 1",
 	"res://Zone2.tscn": "Zone 2",
 	"res://Zone3.tscn": "Zone 3",
 	"res://Zone4.tscn": "Zone 4",
+	"res://Zone5.tscn": "Zone 5",
+	"res://Zone6.tscn": "Zone 6",
 }
 const BOSSES_TO_UNLOCK = 2
 const PROGRESS_PATH = "user://progress.cfg"
@@ -49,6 +51,7 @@ const PROGRESS_PATH = "user://progress.cfg"
 # Zone size and obstacle density
 const BASE_ZONE_AREA = 6000.0	# Zone 1 floor: 60 x 100
 const OBSTACLE_DENSITY = 0.7	# Zone 1 has 70% of the original obstacle count
+const MAX_OBSTACLE_MULT = 16.0	# about twice Zone 3's terrain, however big the zone
 var _obstacle_mults = {}	# floor node -> this visit's obstacle roll
 
 
@@ -59,7 +62,17 @@ func zone_area_scale(node = null) -> float:
 		ErrorLog.fail("zone_area_scale: no map floor found (floor must be in group map_floor)")
 		return 1.0
 	var half = floor_node.get_half_size()
-	return (half.x * 2.0) * (half.y * 2.0) / BASE_ZONE_AREA
+	return content_scale((half.x * 2.0) * (half.y * 2.0) / BASE_ZONE_AREA)
+
+
+## Up to Zone 3's size (about 12x Zone 1), enemies and terrain grow with the floor area.
+## Past that they grow more slowly (area ^ 0.6), so huge zones are roomier, not endless.
+## Zone 4: ~18x Zone 1's enemies, Zone 5: ~33x, Zone 6: ~59x (instead of 29x / 77x / 202x).
+const CONTENT_KNEE = 12.0
+func content_scale(area_scale: float) -> float:
+	if area_scale <= CONTENT_KNEE:
+		return area_scale
+	return CONTENT_KNEE * pow(area_scale / CONTENT_KNEE, 0.6)
 
 
 ## How many obstacles to make, compared to the original counts.
@@ -68,7 +81,7 @@ func obstacle_multiplier(node = null) -> float:
 	var floor_node = Zones.first(node, "map_floor") if node else Zones.local_first("map_floor")
 	if floor_node != null and _obstacle_mults.has(floor_node):
 		return _obstacle_mults[floor_node]	# same zone visit: obstacles and terrain share one roll
-	var mult = OBSTACLE_DENSITY * zone_area_scale(node)
+	var mult = min(OBSTACLE_DENSITY * zone_area_scale(node), MAX_OBSTACLE_MULT)	# huge zones: more open ground (keeps them fast)
 	if floor_node == null or floor_node.get_script().resource_path != "res://zone1floor.gd":
 		mult *= randf_range(0.8, 1.2)
 	if floor_node:
@@ -328,12 +341,8 @@ func notify(text: String):
 
 # ---------------- Map data ----------------
 # Where each zone sits in the Golden Ratio spiral (x, z, width, depth in world units; Home is 0,0 to 100,100).
-const ZONE_LAYOUT = {
-	"res://Home.tscn": Rect2(0, 0, 100, 100),
-	"res://Zone1.tscn": Rect2(-60, 0, 60, 100),
-	"res://Zone2.tscn": Rect2(-60, -170, 170, 170),
-	"res://Zone3.tscn": Rect2(110, -165, 260, 260),
-}
+## Where each zone sits on the world map (x, z, width, depth): see world_layout.gd.
+const ZONE_LAYOUT = preload("res://world_layout.gd").ZONES
 
 var zone_marks = {}	# scene path -> [{kind = "death"/"boss", p = position}] (this play session)
 
@@ -365,10 +374,10 @@ func is_zone_cleared(path: String) -> bool:
 # (Zone 2 = 1, Zone 3 = 2, ... no upper limit). To add more qualities, add names below;
 # anything past the list still works and shows as "<type> (Quality N)".
 const RESOURCE_INFO = {
-	"ore": {label = "Ore", color = Color(0.75, 0.5, 0.3), names = ["Copper ore", "Iron ore"]},
-	"herb": {label = "Herb", color = Color(0.5, 0.85, 0.3), names = ["Sunleaf", "Moonleaf"]},
-	"treesilver": {label = "Treesilver", color = Color(0.82, 0.86, 0.92), names = ["Young Treesilver", "Elder Treesilver"]},
-	"orchid": {label = "Cliff Orchid", color = Color(0.9, 0.45, 0.8), names = ["Pale Cliff Orchid", "Storm Cliff Orchid"]},
+	"ore": {label = "Ore", color = Color(0.75, 0.5, 0.3), names = ["Copper ore", "Iron ore", "Silver ore", "Mithril ore", "Starmetal ore"]},
+	"herb": {label = "Herb", color = Color(0.5, 0.85, 0.3), names = ["Sunleaf", "Moonleaf", "Dawnroot", "Duskbloom", "Starpetal"]},
+	"treesilver": {label = "Treesilver", color = Color(0.82, 0.86, 0.92), names = ["Young Treesilver", "Elder Treesilver", "Ancient Treesilver", "Heartwood Treesilver", "World Treesilver"]},
+	"orchid": {label = "Cliff Orchid", color = Color(0.9, 0.45, 0.8), names = ["Pale Cliff Orchid", "Storm Cliff Orchid", "Ember Cliff Orchid", "Frost Cliff Orchid", "Void Cliff Orchid"]},
 }
 
 var satchel = {}	# "type:quality" -> count (saved between plays)

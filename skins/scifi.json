@@ -30,7 +30,8 @@
 		"shrine": "Data Terminal",
 		"trial_gate": "Warp Gate",
 		"trial_arena": "Simulation",
-		"pet": "Harvest Drone"
+		"pet": "Harvest Drone",
+		"waystation": "Transit Pad"
 	},
 	"classes": {
 		"dps": "Striker",
@@ -184,5 +185,6 @@
 			"rails": "Maglev Lines",
 			"island": "Orbital Platform"
 		}
-	}
+	},
+	"fast_travel": "tube"
 }
