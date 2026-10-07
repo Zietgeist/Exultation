@@ -148,7 +148,7 @@ func _pick_node():
 		if n == owner_player.gather_node:
 			continue
 		var d = _flat(n.global_position - me).length()
-		if d <= GATHER_RADIUS and d < best_d:
+		if d <= GATHER_RADIUS * Traits.sight_mult() and d < best_d:	# Wanderer: spots nodes farther out
 			best = n
 			best_d = d
 	return best
@@ -185,7 +185,7 @@ func _stop_gathering():
 func take_damage(amount, _source = null):
 	if not alive():
 		return
-	health -= amount
+	health -= amount * Traits.pet_guard_mult()	# Kin: you look after it
 	_since_hit = 0.0
 	if target != null:
 		_stop_gathering()	# getting hit interrupts gathering (like it does for you)

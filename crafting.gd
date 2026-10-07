@@ -334,6 +334,7 @@ func refine(raw: String, q: int) -> bool:
 	var out_key = "%s:%d" % [REFINE[raw].to, q]
 	stash[out_key] = stash.get(out_key, 0) + 1
 	save()
+	Traits.on_refine()	# Keeper
 	return true
 
 
@@ -403,6 +404,9 @@ func craft(base_id: String, q: int, slot_mats: Array):
 	for s in slot_mats:
 		_take(s.mat, s.q, 1)
 	var item = design(base_id, q, slot_mats)
+	for k in item.attrs:	# Keeper: what you make comes out a little stronger
+		item.attrs[k] *= Traits.craft_mult()
+	Traits.on_craft(item.name)
 	item.id = next_id
 	next_id += 1
 	# Gear memory: what it was made from, where, and when

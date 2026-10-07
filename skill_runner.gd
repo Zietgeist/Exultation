@@ -66,6 +66,8 @@ func use(key: String) -> bool:
 func _run(key: String, s: Dictionary, p: Dictionary) -> bool:
 	match s.effect:
 		"heal_self":
+			if player.health > player.MAX_HEALTH * 0.5:
+				Traits.on_early_heal()	# Wary
 			player.heal(p.amount)
 			return true
 		"damage_boost":

@@ -92,6 +92,7 @@ func _ready():
 	skills.setup(self, player_class)
 	Crafting.changed.connect(apply_gear)
 	GameState.buffs_changed.connect(apply_gear)
+	Traits.changed.connect(apply_gear)	# who you're becoming changes your stats a little
 	apply_gear()
 	health = MAX_HEALTH
 	if Net.is_online():	# my color, so friends can tell us apart (matches what they see)
@@ -248,10 +249,16 @@ func single_target_attack():
 			closest = enemy
 	
 	if closest:
-		var damage = st_damage * get_damage_multiplier() + _element_damage()
+		var damage = (st_damage * get_damage_multiplier() + _element_damage()) * Traits.damage_mult(health / MAX_HEALTH) * Traits.strike_mult()
+		if randf() < Traits.crit_chance():	# Precision
+			damage *= 2.0
+			_float_text("Critical!", Color(1, 0.9, 0.3))
 		_show_beam(closest.global_position, _beam_color())
 		closest.take_damage(damage)
 		_on_hit()
+		Traits.on_strike()
+		if health < MAX_HEALTH * 0.3:
+			Traits.on_hurt_fight()
 	else:
 		# Miss: a short, faint swing toward where you're facing
 		_show_beam(global_position - global_transform.basis.z * 3.0, Color(1.0, 0.9, 0.3, 0.35))
@@ -266,16 +273,19 @@ func aoe_attack():
 			var to_enemy = (enemy.global_position - global_position).normalized()
 			var facing = -global_transform.basis.z.normalized()
 			var dot = facing.dot(to_enemy)
-			if dot > aoe_cone:
+			if dot > aoe_cone - Traits.sweep_cone_shift():	# Fury: wider sweeps
 				in_range.append(enemy)
 	
 	in_range.sort_custom(func(a, b): 
 		return global_position.distance_to(a.global_position) < global_position.distance_to(b.global_position))
 	
-	var targets = in_range.slice(0, aoe_max_targets)
+	var targets = in_range.slice(0, aoe_max_targets + Traits.sweep_extra_targets())
 	_show_cone()
+	Traits.on_sweep()
+	if targets.size() > 0 and health < MAX_HEALTH * 0.3:
+		Traits.on_hurt_fight()
 	for enemy in targets:
-		var damage = aoe_damage * get_damage_multiplier() + _element_damage() * 0.5
+		var damage = (aoe_damage * get_damage_multiplier() + _element_damage() * 0.5) * Traits.damage_mult(health / MAX_HEALTH)
 		enemy.take_damage(damage)
 		_on_hit()
 
@@ -301,6 +311,7 @@ func take_damage(amount, source = null):
 		last_attacker = SkinManager.name_of(source.TIER_IDS[source.tier] + "_one") + " (" + SkinManager.element_label(element) + ")"
 	var raw = amount
 	amount *= 1.0 - resistance(element)
+	amount *= Traits.damage_taken_mult()	# Steadfast
 	amount = skills.absorb(amount)	# shield
 	health -= amount
 	lowest_pct = min(lowest_pct, int(max(health, 0.0) / MAX_HEALTH * 100.0))
@@ -318,8 +329,9 @@ func take_damage(amount, source = null):
 
 ## Any healing (skills, party heals, potions). Never above max.
 func heal(amount: float):
-	if is_puppet:
-		Net.heal_player(peer_id, amount)
+	if is_puppet:	# healing a friend: Kin makes it stronger
+		Net.heal_player(peer_id, amount * Traits.heal_others_mult())
+		Traits.on_heal_other()
 		return
 	health = min(health + amount, MAX_HEALTH)
 
@@ -703,9 +715,9 @@ func apply_gear():
 	armor_resist = t.resist
 	var old_max = MAX_HEALTH
 	var stats = class_def.get("stats", {})
-	MAX_HEALTH = (BASE_MAX_HEALTH * stats.get("health", 1.0) + t.max_health) * (1.2 if GameState.has_buff("tonic") else 1.0)
+	MAX_HEALTH = (BASE_MAX_HEALTH * stats.get("health", 1.0) + t.max_health) * (1.2 if GameState.has_buff("tonic") else 1.0) * Traits.health_mult()
 	health = clamp(health + (MAX_HEALTH - old_max), 1.0, MAX_HEALTH)
-	SPEED = BASE_SPEED * stats.get("speed", 1.0) * (1.0 + t.move)
+	SPEED = BASE_SPEED * stats.get("speed", 1.0) * (1.0 + t.move) * Traits.move_mult()
 	_refresh_damage()
 
 
@@ -755,11 +767,13 @@ func drink_potion():
 	if e == null:
 		_float_text("No potions", Color(0.8, 0.8, 0.8))
 		return
-	heal(e.heal)
+	if health > MAX_HEALTH * 0.5:
+		Traits.on_early_heal()	# Wary
+	heal(e.heal * Traits.potion_mult())
 	ward = e.ward
 	haste = e.haste
 	ward_time = 30.0
-	_float_text("+%d health" % e.heal, Color(0.5, 1.0, 0.5))
+	_float_text("+%d health" % (e.heal * Traits.potion_mult()), Color(0.5, 1.0, 0.5))
 
 
 func _tick_potion(delta):

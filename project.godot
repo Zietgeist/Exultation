@@ -33,6 +33,7 @@ Trials="*res://trials.gd"
 Zones="*res://zones.gd"
 Story="*res://story.gd"
 Rivals="*res://rivals.gd"
+Traits="*res://traits.gd"
 
 [global_group]
 

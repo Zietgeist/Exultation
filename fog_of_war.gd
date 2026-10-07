@@ -79,18 +79,23 @@ func _reveal_around_player():
 	if player == null:
 		return
 	var p = player.global_position
-	var c0 = clampi(floori((p.x - REVEAL_RADIUS + half.x) / CELL), 0, cols - 1)
-	var c1 = clampi(floori((p.x + REVEAL_RADIUS + half.x) / CELL), 0, cols - 1)
-	var r0 = clampi(floori((p.z - REVEAL_RADIUS + half.y) / CELL), 0, rows - 1)
-	var r1 = clampi(floori((p.z + REVEAL_RADIUS + half.y) / CELL), 0, rows - 1)
+	var radius = REVEAL_RADIUS * Traits.sight_mult()	# Wanderer: the fog clears wider
+	var c0 = clampi(floori((p.x - radius + half.x) / CELL), 0, cols - 1)
+	var c1 = clampi(floori((p.x + radius + half.x) / CELL), 0, cols - 1)
+	var r0 = clampi(floori((p.z - radius + half.y) / CELL), 0, rows - 1)
+	var r1 = clampi(floori((p.z + radius + half.y) / CELL), 0, rows - 1)
+	var fresh = 0
 	for r in range(r0, r1 + 1):
 		for c in range(c0, c1 + 1):
 			var i = r * cols + c
 			if revealed[i]:
 				continue
-			if Vector2(_cell_x(c) - p.x, _cell_z(r) - p.z).length() <= REVEAL_RADIUS:
+			if Vector2(_cell_x(c) - p.x, _cell_z(r) - p.z).length() <= radius:
 				revealed[i] = 1
 				mm.set_instance_color(i, Color(0, 0, 0, 0))
+				fresh += 1
+	if fresh > 0:
+		Traits.nudge("roam", -0.004 * fresh)	# exploring new ground: Wanderer
 
 
 ## How much of the zone has been explored (0.0 to 1.0)

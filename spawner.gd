@@ -352,6 +352,9 @@ func save_state() -> Dictionary:
 
 func _on_enemy_died(tier):
 	total_killed += 1
+	if total_killed >= ceili(target_total * 0.99) and Zones.first(self, "player"):	# 99% cleared: Steadfast
+		var z = Zones.zone_of(self)
+		Traits.on_zone_cleared(Zones.path_of(self), z.zone_name if z else "this zone")
 	match tier:
 		0: trash_killed += 1
 		1: thugs_killed += 1

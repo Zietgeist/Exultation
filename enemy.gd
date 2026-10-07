@@ -85,7 +85,7 @@ func _physics_process(delta):
 	if player:
 		var distance = global_position.distance_to(player.global_position)
 		
-		if distance <= AGGRO_RANGE:
+		if distance <= AGGRO_RANGE * (Traits.aggro_mult() if player == Zones.player else 1.0):	# Wary: notice you later
 			aggroed = true
 
 		# Idle enemies stand still and skip physics (zones can hold hundreds of them)
@@ -190,6 +190,8 @@ func die():
 	emit_signal("enemy_died", tier)
 	if Zones.first(self, "player"):	# loot is personal: the host only drops its own if it's here
 		Story.on_kill(self)	# my worn gear remembers it
+		if is_instance_valid(player) and player.is_in_group("pet"):	# it was going after my pet
+			Traits.on_guarded_pet()
 		drop_orb()
 		drop_gold()
 	queue_free()

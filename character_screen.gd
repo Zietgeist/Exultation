@@ -10,6 +10,7 @@ const GEAR_VIEW = preload("res://gear_view.gd")
 var panel: PanelContainer
 var left: VBoxContainer
 var right: VBoxContainer
+var you_box: VBoxContainer		# refreshed twice a second (health, energy, attacks)
 
 
 func _ready():
@@ -71,8 +72,8 @@ func _process(delta):
 	if _refresh <= 0.0:
 		_refresh = 0.5
 		var p = get_tree().get_first_node_in_group("player")
-		if p:
-			for c in left.get_children():
+		if p and is_instance_valid(you_box):
+			for c in you_box.get_children():
 				c.queue_free()
 			_you(p)
 
@@ -85,6 +86,9 @@ func _rebuild():
 	var p = get_tree().get_first_node_in_group("player")
 	if p == null:
 		return
+	_traits(p)
+	you_box = VBoxContainer.new()
+	left.add_child(you_box)
 	_you(p)
 	_gear(p)
 	_journey()
@@ -95,38 +99,83 @@ func _rebuild():
 
 
 func _you(p):
-	_title(left, "%s %s  -  %s" % [SkinManager.race().name, SkinManager.class_label(p.player_class), GameState.current_zone])
-	_text(left, "World: %s" % SkinManager.skin_name(), DIM)
-	_text(left, "Health %d / %d     Energy %.1f / %d" % [p.health, p.MAX_HEALTH, p.energy, p.MAX_ENERGY], SOFT)
-	_text(left, "Move speed %.1f%s" % [p.SPEED * (1.0 + p.haste), "  (hasted)" if p.haste > 0.0 else ""], SOFT)
+	_title(you_box, "%s %s  -  %s" % [SkinManager.race().name, SkinManager.class_label(p.player_class), GameState.current_zone])
+	_text(you_box, "World: %s" % SkinManager.skin_name(), DIM)
+	_text(you_box, Traits.rest_text(), Color(0.7, 0.95, 0.7) if not Traits.is_driven() else Color(1.0, 0.6, 0.4))
+	_text(you_box, "Health %d / %d     Energy %.1f / %d" % [p.health, p.MAX_HEALTH, p.energy, p.MAX_ENERGY], SOFT)
+	_text(you_box, "Move speed %.1f%s" % [p.SPEED * (1.0 + p.haste), "  (hasted)" if p.haste > 0.0 else ""], SOFT)
 
-	_title(left, "Attacks", 20)
+	_title(you_box, "Attacks", 20)
 	var bonus = p._element_damage()
-	_text(left, "Hit (left click): %d%s   reach %d" % [p.st_damage, "  +%d elemental" % bonus if bonus > 0 else "", p.ST_RANGE], SOFT)
-	_text(left, "Sweep (right click): %d%s   up to %d enemies, %d° wide" % [p.aoe_damage, "  +%d elemental" % (bonus * 0.5) if bonus > 0 else "", p.aoe_max_targets, roundi(rad_to_deg(acos(clamp(p.aoe_cone, -1.0, 1.0))) * 2)], SOFT)
-	_text(left, "Attack time: hit %.1fs, sweep %.1fs   (mouse wheel level %+d)" % [p.st_cooldown_time, p.aoe_cooldown_time, p.speed_level], SOFT)
+	_text(you_box, "Hit (left click): %d%s   reach %d" % [p.st_damage, "  +%d elemental" % bonus if bonus > 0 else "", p.ST_RANGE], SOFT)
+	_text(you_box, "Sweep (right click): %d%s   up to %d enemies, %d° wide" % [p.aoe_damage, "  +%d elemental" % (bonus * 0.5) if bonus > 0 else "", p.aoe_max_targets, roundi(rad_to_deg(acos(clamp(p.aoe_cone, -1.0, 1.0))) * 2)], SOFT)
+	_text(you_box, "Attack time: hit %.1fs, sweep %.1fs   (mouse wheel level %+d)" % [p.st_cooldown_time, p.aoe_cooldown_time, p.speed_level], SOFT)
 	for el in p.element_bonus:
-		_text(left, "  +%d %s damage per hit" % [p.element_bonus[el], SkinManager.element_label(el)], Crafting.ELEMENT_COLORS[el])
+		_text(you_box, "  +%d %s damage per hit" % [p.element_bonus[el], SkinManager.element_label(el)], Crafting.ELEMENT_COLORS[el])
 	if p.lifesteal > 0.0:
-		_text(left, "  Heals %.1f per hit" % p.lifesteal, Color(0.5, 1.0, 0.5))
+		_text(you_box, "  Heals %.1f per hit" % p.lifesteal, Color(0.5, 1.0, 0.5))
 	if p.dps_boost_stacks > 0:
-		_text(left, "  Boost x%d active" % pow(p.boost_base, p.dps_boost_stacks), Color(1.0, 0.5, 0.3))
+		_text(you_box, "  Boost x%d active" % pow(p.boost_base, p.dps_boost_stacks), Color(1.0, 0.5, 0.3))
 
-	_title(left, "Resistances", 20)
+	_title(you_box, "Resistances", 20)
 	for el in Crafting.ELEMENTS:
 		var r = p.resistance(el)
 		var line = "%s: %d%%" % [SkinManager.element_label(el), roundi(r * 100)]
 		if p.ward_time > 0.0 and p.ward.get(el, 0.0) > 0.0:
 			line += "  (potion ward, %ds left)" % p.ward_time
-		_text(left, line, Crafting.ELEMENT_COLORS[el] if r > 0.0 else DIM)
+		_text(you_box, line, Crafting.ELEMENT_COLORS[el] if r > 0.0 else DIM)
 
-	_title(left, "Skills  (they rank up as you use them)", 20)
+	_title(you_box, "Skills  (they rank up as you use them)", 20)
 	for s in p.skills.skill_list():
 		var cost = ("%d energy" % s.cost) if s.cost > 0 else "free"
-		_text(left, "%s  %s  rank %d  (%s)  -  %s" % [s.key, s.name, s.rank, cost, Classes.rank_progress(p.player_class, s.key)], SOFT)
-		_text(left, "      " + s.about, DIM)
+		_text(you_box, "%s  %s  rank %d  (%s)  -  %s" % [s.key, s.name, s.rank, cost, Classes.rank_progress(p.player_class, s.key)], SOFT)
+		_text(you_box, "      " + s.about, DIM)
 	for line in p.skills.status_lines():
-		_text(left, "  " + line, Color(1.0, 0.75, 0.35))
+		_text(you_box, "  " + line, Color(1.0, 0.75, 0.35))
+
+
+## Who you're becoming: six sliders that move with how you play. Hover a name for what it does.
+func _traits(p):
+	_title(left, "%s  -  Day %d" % [Story.player_name, Story.day()])
+	_title(left, "Who you're becoming", 20)
+	_text(left, "These move on their own with how you play. Hover a name or slider to see what it does.", DIM)
+	for t in Traits.ORDER:
+		var info = Traits.TENSIONS[t]
+		var row = HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		left.add_child(row)
+		var l = _side_label(info.left, info.left_tip, Traits.left(t) > 0.0)
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		row.add_child(l)
+		var sl = HSlider.new()
+		sl.min_value = -100
+		sl.max_value = 100
+		sl.value = Traits.values[t]
+		sl.editable = false
+		sl.focus_mode = Control.FOCUS_NONE
+		sl.custom_minimum_size = Vector2(170, 0)
+		sl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		sl.tooltip_text = "%s\n\n%s: %s\n\n%s: %s" % [Traits.label(t), info.left, info.left_tip, info.right, info.right_tip]
+		var h = Traits.history.get(t, [])
+		if h.size() > 0:
+			sl.tooltip_text += "\n\nLately:\n" + "\n".join(h)
+		row.add_child(sl)
+		row.add_child(_side_label(info.right, info.right_tip, Traits.right(t) > 0.0))
+		var state = Label.new()
+		state.text = Traits.label(t)
+		state.add_theme_color_override("font_color", DIM)
+		state.add_theme_font_size_override("font_size", 13)
+		row.add_child(state)
+
+
+func _side_label(text: String, tip: String, active: bool) -> Label:
+	var l = Label.new()
+	l.text = text
+	l.tooltip_text = tip
+	l.mouse_filter = Control.MOUSE_FILTER_STOP	# labels ignore the mouse by default; this turns the tooltip on
+	l.custom_minimum_size = Vector2(82, 0)
+	l.add_theme_color_override("font_color", GOLD if active else SOFT)
+	return l
 
 
 func _gear(p):

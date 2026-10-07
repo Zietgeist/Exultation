@@ -196,6 +196,9 @@ func go(path: String, key := "", spot = null, info := {}):
 	if key == "":
 		key = path
 	Rivals.leaving(Zones.local_zone())	# your rival here still lives: you skipped it
+	var sp = Zones.local_first("zone_spawner")
+	if sp and sp.total_killed < sp.min_clear * 0.5 and Zones.local_path() in GameState.ZONE_ORDER:
+		Traits.on_left_early(GameState.ZONE_NAMES.get(Zones.local_path(), "the zone"))	# Swift
 	if is_online() and Zones.local_key() != "" and not info.get("solo", false):	# solo trips (Trial Grounds) don't ask friends to follow
 		_left_zone.rpc(Zones.local_key(), path, key, spot if spot != null else NOWHERE, info, GameState.player_class)
 	if is_client():

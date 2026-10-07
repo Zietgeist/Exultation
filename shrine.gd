@@ -100,6 +100,9 @@ func talk():
 		GameState.notify("This shrine rests for you. " + ("You've mastered %s." % Trials.ability_name(ability) if w == "mastered" else "Your next %s trial opens in %s." % [Trials.ability_name(ability), w]))
 		return
 	busy = true
+	if not has_meta("found"):
+		set_meta("found", true)
+		Traits.on_found_shrine()	# Wanderer
 	Trials.run(ability, _on_result)
 
 

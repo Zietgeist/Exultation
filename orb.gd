@@ -51,7 +51,7 @@ func _on_body_entered(body: Node) -> void:
 func _collect():
 	collected = true
 	if kind == "gold":
-		GameState.add_gold(value)
+		GameState.add_gold(roundi(value * Traits.gold_mult()))	# Self: a little more gold
 	else:
 		player.add_energy(value)
 	queue_free()
