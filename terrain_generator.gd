@@ -36,6 +36,9 @@ func _ready():
 	_half = map_half_size(0.0)
 	for s in Travel.stations_for(owner.scene_file_path if owner else ""):	# keep fast-travel stops clear
 		_keep_out.append(Rect2(s.pos.x - 7, s.pos.z - 7, 14, 14))
+	for l in Landmarks.for_zone(owner.scene_file_path if owner else ""):	# and landmarks
+		var r = l.size + 8.0
+		_keep_out.append(Rect2(l.pos.x - r, l.pos.z - r, r * 2.0, r * 2.0))
 	var saved = GameState.saved_zone_part(self, "terrain")
 	if saved != null:
 		for t in saved:

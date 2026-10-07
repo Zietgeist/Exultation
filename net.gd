@@ -501,7 +501,7 @@ func enemy_died(e):
 	enemies.erase(e.net_id)
 	var key = Zones.key_of(e)
 	for peer in _peers_in(key):
-		_enemy_died.rpc_id(peer, key, e.net_id, e.tier if e.rival.is_empty() else -1)	# rivals don't count toward unlocks
+		_enemy_died.rpc_id(peer, key, e.net_id, e.tier if e.rival.is_empty() and not e.no_count else -1)	# rivals / landmark bosses don't count toward unlocks
 
 
 @rpc("authority", "call_remote", "reliable")
@@ -705,3 +705,31 @@ func _party_event(kind: String, path: String):
 @rpc("authority", "call_remote", "reliable")
 func _party_legend():
 	Party.become_legend.call_deferred()
+
+
+# ---------------- Landmarks (landmarks.gd, lm_*.gd) ----------------
+
+## Host: something happened at a landmark; the joined players in that zone see it too.
+func landmark_event(node, event: String, data: Dictionary):
+	if not is_host():
+		return
+	var key = Zones.key_of(node)
+	for peer in _peers_in(key):
+		_landmark_event.rpc_id(peer, key, str(node.name), event, data)
+
+## Joined player: please record this about a landmark (the host keeps the party's record).
+func landmark_state(path: String, id: String, changes: Dictionary):
+	_landmark_state.rpc_id(1, path, id, changes)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _landmark_event(key: String, id: String, event: String, data: Dictionary):
+	if Zones.local_key() != key:
+		return
+	for l in Zones.local_all("landmark"):
+		if str(l.name) == id:
+			l.net_event(event, data)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _landmark_state(path: String, id: String, changes: Dictionary):
+	Landmarks.set_state(path, id, changes)

@@ -133,6 +133,11 @@ static func hill(style: String, data: Dictionary) -> Node3D:
 ##   orchid      fantasy: pink orchid | zombie: glowing mold | scifi: plasma crystal
 static func node(style: String, type: String) -> Node3D:
 	var root = Node3D.new()
+	if type == "geode":	# caverns only: a glowing crystal cluster in every world
+		_mesh(root, _box(Vector3(1.0, 0.6, 0.9)), mat(Color(0.3, 0.28, 0.3)), Vector3(0, 0.3, 0))
+		for i in range(4):
+			_mesh(root, _cyl(0.0, 0.2, 0.9, 6), mat(Color(0.55, 0.85, 0.95), 1.5), Vector3(-0.3 + 0.2 * i, 0.9, 0.1 * (i % 2)), Vector3(0.3 * (i - 1.5), 0, 0.2))
+		return root
 	match style + ":" + type:
 		"fantasy:ore":
 			_mesh(root, _box(Vector3(1.1, 0.8, 1.0)), mat(Color(0.35, 0.33, 0.32)), Vector3(0, 0.4, 0), Vector3(0.1, 0.6, 0.15))

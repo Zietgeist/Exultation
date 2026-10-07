@@ -37,16 +37,18 @@ const REFINE = {
 	"treesilver": {to = "silverbar", cost = 1, shop = "smith"},
 	"herb": {to = "tonic", cost = 3, shop = "chemist"},
 	"orchid": {to = "essence", cost = 1, shop = "chemist"},
+	"geode": {to = "gem", cost = 2, shop = "smith"},	# caverns only
 }
 
 # Names per quality (add more as zones are added; past the list it shows "Ingot (Quality N)")
 const MATERIAL_NAMES = {
-	"ingot": ["Copper ingot", "Iron ingot"],
-	"silverbar": ["Young Treesilver bar", "Elder Treesilver bar"],
-	"tonic": ["Sunleaf tonic", "Moonleaf tonic"],
-	"essence": ["Pale Orchid essence", "Storm Orchid essence"],
+	"ingot": ["Copper ingot", "Iron ingot", "Silver ingot", "Mithril ingot", "Starmetal ingot", "Adamant ingot", "Orichalcum ingot", "Sunsteel ingot", "Voidsteel ingot"],
+	"silverbar": ["Young Treesilver bar", "Elder Treesilver bar", "Ancient Treesilver bar", "Heartwood Treesilver bar", "World Treesilver bar", "Star Treesilver bar", "Dream Treesilver bar", "Crown Treesilver bar", "First Treesilver bar"],
+	"tonic": ["Sunleaf tonic", "Moonleaf tonic", "Dawnroot tonic", "Duskbloom tonic", "Starpetal tonic", "Emberleaf tonic", "Frostfern tonic", "Ghostcap tonic", "Worldroot tonic"],
+	"essence": ["Pale Orchid essence", "Storm Orchid essence", "Ember Orchid essence", "Frost Orchid essence", "Void Orchid essence", "Sun Orchid essence", "Moon Orchid essence", "Star Orchid essence", "Dawn Orchid essence"],
+	"gem": ["Dull gem", "Clouded gem", "Bright gem", "Starlit gem", "Deep gem", "Heart gem", "Abyssal gem", "Prism gem", "Void gem"],
 }
-const MATERIAL_LABELS = {"ingot": "Ingot", "silverbar": "Treesilver bar", "tonic": "Tonic", "essence": "Orchid essence",
+const MATERIAL_LABELS = {"gem": "Gem", "ingot": "Ingot", "silverbar": "Treesilver bar", "tonic": "Tonic", "essence": "Orchid essence",
 	"sigil_precision": "Sigil of Precision", "sigil_numbers": "Sigil of Numbers", "sigil_sorting": "Sigil of Color",
 	"sigil_typing": "Sigil of Swiftness", "sigil_logic": "Sigil of Logic"}
 
@@ -255,6 +257,9 @@ func material_attributes(mat: String, q: int) -> Dictionary:
 		"essence":		# rare flower: lots of life and an element
 			a = {vitality = 5.0}
 			a[ORCHID_ELEMENTS[(q - 1) % ORCHID_ELEMENTS.size()]] = 2.0
+		"gem":			# from cavern geodes: hard, and a strong element (great in creative slots)
+			a = {hardness = 2.0}
+			a[ORCHID_ELEMENTS[q % ORCHID_ELEMENTS.size()]] = 6.0
 	var scale = pow(1.25, q - 1)
 	for k in a:
 		a[k] *= scale

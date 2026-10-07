@@ -247,8 +247,15 @@ func _place_dormant(t: int, pos: Vector3, h := -1.0, element := ""):
 
 ## Keep a little room around shrines, so taking a trial doesn't start in a crowd.
 const SHRINE_CLEAR = 9.0
+var _landmarks: Array:
+	get:
+		return Landmarks.for_zone(Zones.path_of(self))
 
 func _away_from_shrines(pos: Vector3) -> Vector3:
+	for l in _landmarks:	# landmarks bring their own foes (or none: neutral towns)
+		var dl = Vector3(pos.x - l.pos.x, 0, pos.z - l.pos.z)
+		if dl.length() < l.size + 6.0:
+			pos = l.pos + (dl.normalized() if dl.length() > 0.1 else Vector3(1, 0, 0)) * (l.size + 6.0) + Vector3(0, pos.y, 0)
 	for s in Zones.all(self, "shrine"):
 		var d = Vector3(pos.x - s.global_position.x, 0, pos.z - s.global_position.z)
 		if d.length() < SHRINE_CLEAR:
@@ -359,7 +366,7 @@ func save_state() -> Dictionary:
 	out.reserve = reserve.duplicate()
 	var alive = []
 	for enemy in Zones.all(self, "enemy"):
-		if enemy.is_queued_for_deletion() or not enemy.rival.is_empty():	# rivals are remembered by Rivals
+		if enemy.is_queued_for_deletion() or not enemy.rival.is_empty() or enemy.has_meta("landmark"):	# rivals / landmark foes bring themselves
 			continue
 		alive.append({t = enemy.tier, p = enemy.global_position, h = enemy.health, e = enemy.damage_type})
 	for d in dormant:

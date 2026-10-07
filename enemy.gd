@@ -38,6 +38,7 @@ var _retarget = 0.0
 var rooted_time = 0.0	# held in place (Warden's Root Field): can still swing if you're close
 var damage_type = "physical"	# radiant, shadow, nature, storm... (armor can resist these)
 var rival := {}		# not empty: a Rival (rivals.gd) {id, label, power, hp, dmg, owner}
+var no_count := false	# landmark bosses (Wardens, Guardians, Cavern Lords): not one of the zone's two bosses
 var _rival_label: Label3D
 var _power_t := 6.0		# seconds to its next power
 var _power_on := 0.0	# enrage / harden: seconds left
@@ -85,6 +86,14 @@ func _physics_process(delta):
 	if player:
 		var distance = global_position.distance_to(player.global_position)
 		
+		_safe_t -= delta
+		if _safe_t <= 0.0:	# neutral towns: no fighting inside the walls
+			_safe_t = 0.5
+			_target_safe = Landmarks.in_safe(player)
+		if _target_safe:
+			aggroed = false
+			hunter = false
+			return
 		if distance <= AGGRO_RANGE * (Traits.aggro_mult() if player == Zones.player else 1.0):	# Wary: notice you later
 			aggroed = true
 
@@ -220,6 +229,26 @@ func flash():
 
 ## This enemy (usually the one that just killed you) becomes a named Rival.
 ## s = {id, label, power, hp, dmg, owner} from Rivals.stats_for().
+var _safe_t := 0.0
+var _target_safe := false
+var _title_label: Label3D = null
+
+## A name over its head (landmark bosses).
+func set_title(text: String):
+	if _title_label == null:
+		_title_label = Label3D.new()
+		_title_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		_title_label.position.y = 3.0
+		_title_label.font_size = 38
+		_title_label.pixel_size = 0.011
+		_title_label.outline_size = 10
+		_title_label.no_depth_test = true
+		_title_label.modulate = Color(1.0, 0.75, 0.35)
+		add_child(_title_label)
+	_title_label.text = text
+	$MeshInstance3D.scale = Vector3.ONE * 1.3
+
+
 func become_rival(s: Dictionary):
 	rival = s
 	if has_meta("from_spawner"):	# no longer the spawner's: not saved with the zone, not counted

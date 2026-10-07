@@ -167,6 +167,7 @@ func _place_stations():
 		add_child(w)
 		spots.append(p)
 	_build_lines(spots)
+	Landmarks.build(self, path)	# strongholds, towns, caverns... (Zone 4 and up)
 
 
 ## Rail (Zombie): a track up on pillars. Tube (Sci-Fi): a glass tube. Portal (Fantasy): nothing.

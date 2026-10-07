@@ -54,7 +54,19 @@ func station_name() -> String:
 func stations_for(path: String) -> Array:
 	if path == "res://Home.tscn":
 		return [{id = "home", pos = HOME_SPOT, label = "Home"}]
-	if not LAYOUT.ZONES.has(path):
+	var out = grid_stations(path)
+	var zname = GameState.ZONE_NAMES.get(path, path.get_file().get_basename())
+	for l in Landmarks.for_zone(path):	# towns, monuments, caverns, and strongholds you've taken
+		var spot = Landmarks.station_spot(l)
+		if spot == null or (l.kind == "stronghold" and not Landmarks.state(path, l.id).has("taken")):
+			continue
+		out.append({id = "lm:" + l.id, pos = spot, label = "%s, %s" % [zname, Landmarks.station_label(l)]})
+	return out
+
+
+## The gate stops and the grid (no landmarks).
+func grid_stations(path: String) -> Array:
+	if not LAYOUT.ZONES.has(path) or path == "res://Home.tscn":
 		return []
 	var half = LAYOUT.half_size(path)
 	if min(half.x, half.y) * 2.0 < MIN_ZONE_SIZE:

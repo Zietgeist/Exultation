@@ -37,7 +37,7 @@ func _process(delta):
 	if rest_left > 0.0:
 		rest_left = max(rest_left - delta, 0.0)
 
-	if zone != "Home":
+	if zone != "Home" and not is_resting():	# resting at a camp or town pauses the flow clock
 		flow_seconds += delta
 		if flow_seconds >= FLOW_TARGET and not _flow_signal_sent:
 			_flow_signal_sent = true
@@ -58,6 +58,12 @@ func _start_break():
 	_flow_signal_sent = false
 	break_started.emit(blocks_today)
 	_save()
+
+
+## Banked gold at a forward camp or town Inn: counts as a rest at Home.
+func rest_here():
+	_start_break()
+	start_rest(5 * 60)
 
 
 func start_rest(seconds: float):

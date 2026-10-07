@@ -62,6 +62,7 @@ func new_party(party_name: String) -> Dictionary:
 		unlocked = ["res://Home.tscn", "res://Zone1.tscn"],
 		cleared = [],		# zones where both bosses fell
 		legend = "",		# date the last zone was cleared ("" = not yet)
+		landmarks = {},		# "zone|id" -> what happened there (taken, closed, saved, fallen...)
 	}
 
 

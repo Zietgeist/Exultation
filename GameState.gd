@@ -405,10 +405,11 @@ func is_zone_cleared(path: String) -> bool:
 # (Zone 2 = 1, Zone 3 = 2, ... no upper limit). To add more qualities, add names below;
 # anything past the list still works and shows as "<type> (Quality N)".
 const RESOURCE_INFO = {
-	"ore": {label = "Ore", color = Color(0.75, 0.5, 0.3), names = ["Copper ore", "Iron ore", "Silver ore", "Mithril ore", "Starmetal ore"]},
-	"herb": {label = "Herb", color = Color(0.5, 0.85, 0.3), names = ["Sunleaf", "Moonleaf", "Dawnroot", "Duskbloom", "Starpetal"]},
-	"treesilver": {label = "Treesilver", color = Color(0.82, 0.86, 0.92), names = ["Young Treesilver", "Elder Treesilver", "Ancient Treesilver", "Heartwood Treesilver", "World Treesilver"]},
-	"orchid": {label = "Cliff Orchid", color = Color(0.9, 0.45, 0.8), names = ["Pale Cliff Orchid", "Storm Cliff Orchid", "Ember Cliff Orchid", "Frost Cliff Orchid", "Void Cliff Orchid"]},
+	"ore": {label = "Ore", color = Color(0.75, 0.5, 0.3), names = ["Copper ore", "Iron ore", "Silver ore", "Mithril ore", "Starmetal ore", "Adamant ore", "Orichalcum ore", "Sunsteel ore", "Voidsteel ore"]},
+	"herb": {label = "Herb", color = Color(0.5, 0.85, 0.3), names = ["Sunleaf", "Moonleaf", "Dawnroot", "Duskbloom", "Starpetal", "Emberleaf", "Frostfern", "Ghostcap", "Worldroot"]},
+	"treesilver": {label = "Treesilver", color = Color(0.82, 0.86, 0.92), names = ["Young Treesilver", "Elder Treesilver", "Ancient Treesilver", "Heartwood Treesilver", "World Treesilver", "Star Treesilver", "Dream Treesilver", "Crown Treesilver", "First Treesilver"]},
+	"orchid": {label = "Cliff Orchid", color = Color(0.9, 0.45, 0.8), names = ["Pale Cliff Orchid", "Storm Cliff Orchid", "Ember Cliff Orchid", "Frost Cliff Orchid", "Void Cliff Orchid", "Sun Cliff Orchid", "Moon Cliff Orchid", "Star Cliff Orchid", "Dawn Cliff Orchid"]},
+	"geode": {label = "Geode", color = Color(0.55, 0.85, 0.95), names = ["Dull geode", "Clouded geode", "Bright geode", "Starlit geode", "Deep geode", "Heart geode", "Abyssal geode", "Prism geode", "Void geode"]},  # caverns only
 }
 
 var satchel = {}	# "type:quality" -> count (saved between plays)

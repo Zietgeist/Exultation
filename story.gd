@@ -169,6 +169,7 @@ func stamp_crafted(item: Dictionary, recipe_id: String):
 
 ## An enemy died in my zone while I'm there: every piece I wear remembers it.
 func on_kill(enemy):
+	Landmarks.on_kill(enemy)	# quest board hunts
 	var boss = "tier" in enemy and enemy.tier == 3
 	for it in Crafting.equipped_items():
 		var life = _life(it)

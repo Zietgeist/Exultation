@@ -60,6 +60,8 @@ func place_of(z) -> String:
 		return ""
 	if z.path == Trials.ARENA:
 		return "arena:" + str(z.info.get("ability", ""))
+	if z.path == "res://Cavern.tscn":
+		return "cavern:%s|%s" % [z.info.get("parent", ""), z.info.get("id", "")]
 	return z.path
 
 
@@ -181,8 +183,13 @@ func _spawn_mine_in(z):
 	if z == null or not is_instance_valid(z) or Zones.player == null:
 		return
 	var place = place_of(z)
+	var nest = ""	# caverns: sometimes your rivals from the zone above are hiding down here
+	if z.path == "res://Cavern.tscn" and randf() < 0.35:
+		nest = str(z.info.get("parent", ""))
+		if rivals.values().any(func(r): return r.place == nest):
+			GameState.notify("A Rival nest! Your rivals from above are hiding down here.")
 	for r in rivals.values():
-		if r.place != place:
+		if r.place != place and (nest == "" or r.place != nest):
 			continue
 		var s = stats_for(r)
 		var spot = _far_spot(z)
@@ -207,6 +214,8 @@ func spawn_rival(z, s: Dictionary, spot: Vector3):
 
 
 func _far_spot(z) -> Vector3:
+	if z.root.has_method("rival_spot"):
+		return z.root.rival_spot()
 	var me = Zones.player.global_position
 	var sp = Zones.first(z.root, "zone_spawner")
 	var spot = Vector3(randf_range(-14, 14), 1.2, randf_range(-16, 0))	# Trial Ground
