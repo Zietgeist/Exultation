@@ -12,6 +12,7 @@ const MIN_FLOW_FOR_LINE = 5 * 60	# only ask after a real stretch out
 var panel: PanelContainer
 var list: VBoxContainer
 var name_edit: LineEdit
+var pet_edit: LineEdit
 var title_label: Label
 var prompt: PanelContainer
 var prompt_edit: LineEdit
@@ -50,13 +51,15 @@ func toggle():
 	GameState.ui_open = panel.visible
 	if panel.visible:
 		name_edit.text = Story.player_name
+		var pet = Zones.player.pet if Zones.player else null
+		pet_edit.text = pet.pet_name_given if pet else ""
 		_rebuild()
 
 
 # ---------------- The book ----------------
 
 func _build_book():
-	panel = _panel(Vector2(820, 600), INK)
+	panel = _panel(Vector2(1000, 600), INK)
 	add_child(panel)
 	var box = VBoxContainer.new()
 	box.add_theme_constant_override("separation", 8)
@@ -80,12 +83,23 @@ func _build_book():
 	save.text = "Rename"
 	save.pressed.connect(_save_name)
 	head.add_child(save)
+	pet_edit = LineEdit.new()
+	pet_edit.placeholder_text = "Name your " + SkinManager.name_of("pet")
+	pet_edit.custom_minimum_size = Vector2(170, 0)
+	pet_edit.max_length = 20
+	pet_edit.tooltip_text = "Your gathering pet's name."
+	pet_edit.text_submitted.connect(func(t): _save_pet_name())
+	head.add_child(pet_edit)
+	var save_pet = Button.new()
+	save_pet.text = "Name pet"
+	save_pet.pressed.connect(_save_pet_name)
+	head.add_child(save_pet)
 	var hint = Label.new()
 	hint.text = "Written as you play. Your own lines (from rests) are in gold.   J or Esc closes."
 	hint.add_theme_color_override("font_color", DIM)
 	box.add_child(hint)
 	var scroll = ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(788, 500)
+	scroll.custom_minimum_size = Vector2(968, 500)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	box.add_child(scroll)
 	list = VBoxContainer.new()
@@ -93,6 +107,14 @@ func _build_book():
 	list.add_theme_constant_override("separation", 4)
 	scroll.add_child(list)
 	panel.visible = false
+
+
+func _save_pet_name():
+	var pet = Zones.player.pet if Zones.player else null
+	if pet:
+		pet.set_pet_name(pet_edit.text)
+	pet_edit.release_focus()
+	_rebuild()
 
 
 func _save_name():
@@ -121,7 +143,7 @@ func _line(text: String, color: Color, size := 16):
 	var l = Label.new()
 	l.text = text
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.custom_minimum_size = Vector2(760, 0)
+	l.custom_minimum_size = Vector2(940, 0)
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", color)
 	list.add_child(l)

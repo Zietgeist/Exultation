@@ -192,6 +192,7 @@ func die():
 		Story.on_kill(self)	# my worn gear remembers it
 		if is_instance_valid(player) and player.is_in_group("pet"):	# it was going after my pet
 			Traits.on_guarded_pet()
+			player.guarded()	# it bonds with you a little
 		drop_orb()
 		drop_gold()
 	queue_free()

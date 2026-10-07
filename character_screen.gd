@@ -87,6 +87,7 @@ func _rebuild():
 	if p == null:
 		return
 	_traits(p)
+	_pet(p)
 	you_box = VBoxContainer.new()
 	left.add_child(you_box)
 	_you(p)
@@ -166,6 +167,40 @@ func _traits(p):
 		state.add_theme_color_override("font_color", DIM)
 		state.add_theme_font_size_override("font_size", 13)
 		row.add_child(state)
+
+
+## Your pet: how it's growing.
+func _pet(p):
+	var pet = p.pet
+	if pet == null:
+		return
+	_title(left, "%s  (%s)" % [pet.full_name(), pet.mood()], 20)
+	var rows = [
+		["Bond", pet.bond, "Grows when you feed it (T near it: one herb), rest at Home together, and protect it.\nHigh Bond: faster, gathers from farther and quicker. At 80+ it gathers two nodes at once."],
+		["Sturdy", pet.sturdy, "Grows when it gets hit and gets through scares with you close by.\nSturdy: more health, but slower. (Low = nimble.)"],
+		["Stress", pet.stress, "Goes up when it's hit or enemies are near. Comes down with calm time, much faster when you're close.\nToo much at once and it's overwhelmed: it hides behind you until it settles."],
+		["Skittish", pet.skittish, "Being overwhelmed again and again (worse when you're far away) makes it panic sooner.\nCalm time near you and resting at Home heal it."],
+		["Hunger", pet.hunger, "Goes up while you're out. A hungry pet slowly drifts away. Feed it a herb (T)."],
+	]
+	for r in rows:
+		var row = HBoxContainer.new()
+		left.add_child(row)
+		var l = _side_label(r[0], r[2], false)
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		row.add_child(l)
+		var bar = ProgressBar.new()
+		bar.max_value = 100
+		bar.value = r[1]
+		bar.show_percentage = false
+		bar.custom_minimum_size = Vector2(170, 12)
+		bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		bar.tooltip_text = r[2]
+		row.add_child(bar)
+		var v = Label.new()
+		v.text = "%d" % r[1]
+		v.add_theme_color_override("font_color", DIM)
+		row.add_child(v)
+	_text(left, "Gathered %d · fed %d times · protected %d times · knocked out %d times" % [pet.record.gathered, pet.record.fed, pet.record.guarded, pet.record.knockouts], DIM)
 
 
 func _side_label(text: String, tip: String, active: bool) -> Label:
