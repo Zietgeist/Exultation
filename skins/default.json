@@ -15,7 +15,8 @@
 		"bridge": "#7a5533",
 		"rail_bed": "#6b5b4b",
 		"rail": "#5a4a3a",
-		"obstacle": "#6d6a64"
+		"obstacle": "#6d6a64",
+		"pet": "#8ce5ff"
 	},
 	"names": {
 		"enemy_trash": "Goblins",
@@ -28,7 +29,8 @@
 		"enemy_boss_one": "Dragon",
 		"shrine": "Shrine",
 		"trial_gate": "Trial Gate",
-		"trial_arena": "Trial Ground"
+		"trial_arena": "Trial Ground",
+		"pet": "Sprite"
 	},
 	"classes": {
 		"dps": "Warrior",

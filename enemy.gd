@@ -108,8 +108,10 @@ func _physics_process(delta):
 func _closest_party_member():
 	var best = null
 	var best_d = INF
-	for m in GameState.party(self):
+	for m in GameState.party(self) + Zones.all(self, "pet"):	# pets can be picked on too
 		if not is_instance_valid(m) or not m.is_inside_tree():
+			continue
+		if m.is_in_group("pet") and not m.alive():
 			continue
 		var d = global_position.distance_squared_to(m.global_position)
 		if d < best_d:

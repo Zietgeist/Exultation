@@ -15,7 +15,8 @@
 		"bridge": "#7c8a99",
 		"rail_bed": "#30363e",
 		"rail": "#8fd3ff",
-		"obstacle": "#4a5562"
+		"obstacle": "#4a5562",
+		"pet": "#99f2e5"
 	},
 	"names": {
 		"enemy_trash": "Drones",
@@ -28,7 +29,8 @@
 		"enemy_boss_one": "Hive queen",
 		"shrine": "Data Terminal",
 		"trial_gate": "Warp Gate",
-		"trial_arena": "Simulation"
+		"trial_arena": "Simulation",
+		"pet": "Harvest Drone"
 	},
 	"classes": {
 		"dps": "Striker",

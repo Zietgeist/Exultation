@@ -15,7 +15,8 @@
 		"bridge": "#5c4a36",
 		"rail_bed": "#5a5048",
 		"rail": "#3a3a3c",
-		"obstacle": "#5b5550"
+		"obstacle": "#5b5550",
+		"pet": "#bfa572"
 	},
 	"names": {
 		"enemy_trash": "Shamblers",
@@ -28,7 +29,8 @@
 		"enemy_boss_one": "Abomination",
 		"shrine": "Old Terminal",
 		"trial_gate": "Bunker Hatch",
-		"trial_arena": "Bunker"
+		"trial_arena": "Bunker",
+		"pet": "Scavenger"
 	},
 	"classes": {
 		"dps": "Brawler",

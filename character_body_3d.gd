@@ -72,6 +72,7 @@ var warded := false	# taking a shrine trial: nothing can hurt you
 
 # Online: a stand-in for another player (their game moves it; mine just shows it)
 var is_puppet := false
+var pet = null		# your gathering pet (pet.gd); not for other players' stand-ins
 var peer_id := 0
 var puppet_color := Color(0.3, 0.8, 1)
 var _net_pos = null
@@ -98,6 +99,8 @@ func _ready():
 		mat.albedo_color = Net.color_of(Net.my_id())
 		$MeshInstance3D.material_override = mat
 	print("Playing as class: ", Classes.label(player_class))
+	pet = preload("res://pet.gd").new()	# follows you between zones and gathers nearby nodes
+	pet.setup(self)
 	# Zones.travel() places us (arrive) every time we enter a zone
 
 
