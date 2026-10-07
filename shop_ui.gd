@@ -226,7 +226,7 @@ func _owned_section():
 	if pots.is_empty():
 		_text("Nothing yet.", Color(0.7, 0.7, 0.7))
 	for it in pots:
-		_text(it.name + "\n" + Crafting.describe(it), Color(0.9, 0.9, 0.9))
+		_text(Story.display_name(it) + "\n" + Crafting.describe(it), Color(0.9, 0.9, 0.9))
 
 
 func _inn_section():

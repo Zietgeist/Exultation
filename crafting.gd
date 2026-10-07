@@ -408,6 +408,7 @@ func craft(base_id: String, q: int, slot_mats: Array):
 	# Gear memory: what it was made from, where, and when
 	item.made_on = Time.get_date_string_from_system()
 	item.made_in = GameState.ZONE_NAMES.get(GameState.ZONE_ORDER[min(q, GameState.ZONE_ORDER.size() - 1)], "Zone %d" % (q + 1))
+	Story.stamp_crafted(item, base_id)	# who made it, the recipe's story, and a fresh life record
 	items.append(item)
 	# New gear goes straight onto an empty slot if your race has one
 	var rs = slot_for(item)
@@ -476,6 +477,7 @@ func equip(id: int) -> bool:
 	var arr = equipped[rs.slot]
 	var spot = arr.find(-1)
 	arr[0 if spot == -1 else spot] = id
+	Story.on_equip(it)
 	save()
 	return true
 
@@ -614,6 +616,7 @@ func describe(item: Dictionary) -> String:
 				lines.append("Ward: resist %d%% %s for 30s" % [roundi(e.ward[el] * 100), SkinManager.element_label(el)])
 			if e.haste > 0.0:
 				lines.append("Haste +%d%% for 30s" % roundi(e.haste * 100))
+	lines.append_array(Story.item_lines(item))
 	if item.has("made_from"):
 		var made = "Made from " + ", ".join(item.made_from)
 		if item.has("made_on"):

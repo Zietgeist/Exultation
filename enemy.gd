@@ -157,6 +157,8 @@ func drop_gold() -> void:
 
 ## Joined player: the host says this enemy died. My own orb and gold drop here.
 func mirror_died():
+	if Zones.first(self, "player"):
+		Story.on_kill(self)
 	if tier == Tier.BOSS:
 		GameState.add_mark("boss", global_position, self)
 	drop_orb()
@@ -171,6 +173,7 @@ func die():
 		GameState.add_mark("boss", global_position, self)
 	emit_signal("enemy_died", tier)
 	if Zones.first(self, "player"):	# loot is personal: the host only drops its own if it's here
+		Story.on_kill(self)	# my worn gear remembers it
 		drop_orb()
 		drop_gold()
 	queue_free()

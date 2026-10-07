@@ -195,7 +195,7 @@ func _process(delta):
 func go(path: String, key := "", spot = null, info := {}):
 	if key == "":
 		key = path
-	if is_online() and Zones.local_key() != "":
+	if is_online() and Zones.local_key() != "" and not info.get("solo", false):	# solo trips (Trial Grounds) don't ask friends to follow
 		_left_zone.rpc(Zones.local_key(), path, key, spot if spot != null else NOWHERE, info, GameState.player_class)
 	if is_client():
 		travelling = true
@@ -217,13 +217,16 @@ func rejoin():
 	else:
 		var counts = {}
 		for id in roster:
-			if id != 1:
+			if id != 1 and not roster[id].k.begins_with(Trials.ARENA):	# Trial Grounds are solo
 				counts[roster[id].k] = counts.get(roster[id].k, 0) + 1
 		var best = 0
 		for id in roster:
-			if id != 1 and counts[roster[id].k] > best:
+			if id != 1 and counts.get(roster[id].k, 0) > best:
 				best = counts[roster[id].k]
 				target = roster[id]
+	if target != null and target.k.begins_with(Trials.ARENA):
+		GameState.notify("They're in a Trial Ground. Those are solo; wait for them to come out.")
+		return
 	if target == null or target.k == Zones.local_key():
 		GameState.notify("You're already with the party")
 		return

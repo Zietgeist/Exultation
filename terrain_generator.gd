@@ -553,7 +553,7 @@ func _make_gate(t: Dictionary):
 	var key = t.get("key", "%s#%d" % [Trials.ARENA, randi()])	# its own copy of the Trial Ground
 	g.travel_key = key
 	g.arm_time = 1.5
-	g.travel_info = {ability = t.ability, q = t.q, level = t.get("level", 1), back_scene = owner.scene_file_path, back_pos = Vector3(t.p.x, 0, t.p.z + 3.0)}
+	g.travel_info = {solo = true, ability = t.ability, q = t.q, level = t.get("level", 1), back_scene = owner.scene_file_path, back_pos = Vector3(t.p.x, 0, t.p.z + 3.0)}
 	g.set_meta("kind", "gate")
 	g.set_meta("data", {ability = t.ability, q = t.q, key = key, level = t.get("level", 1)})
 	g.before_travel = func():

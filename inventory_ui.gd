@@ -110,7 +110,7 @@ func _carrying():
 
 	_title(left, "Wearing", 20)
 	var worn = Crafting.equipped_items().filter(func(it): return it.slot != "potion")
-	_text(left, "\n".join(worn.map(func(it): return "%s  (%s)" % [it.name, SkinManager.slot_label(it.slot)])) if worn.size() > 0 else "Nothing yet. The Smith makes gear.", SOFT if worn.size() > 0 else DIM)
+	_text(left, "\n".join(worn.map(func(it): return "%s  (%s)" % [Story.display_name(it), SkinManager.slot_label(it.slot)])) if worn.size() > 0 else "Nothing yet. The Smith makes gear.", SOFT if worn.size() > 0 else DIM)
 
 	var buffs = GameState.buffs.keys().map(func(id): return GameState.INN_OFFERS[id].name + ": " + GameState.INN_OFFERS[id].about)
 	if buffs.size() > 0:
@@ -126,7 +126,7 @@ func _at_home():
 	_text(right, "\n".join(mats.map(func(e): return "%s  x%d" % [e.name, e.count])) if mats.size() > 0 else "None yet. Refine resources at the Smith or Chemist.", BLUE if mats.size() > 0 else DIM)
 	_title(right, "Gear not worn", 20)
 	var spare = Crafting.items.filter(func(it): return it.slot != "potion" and not Crafting.is_equipped(it.id))
-	_text(right, "\n".join(spare.map(func(it): return it.name)) if spare.size() > 0 else "None.", SOFT if spare.size() > 0 else DIM)
+	_text(right, "\n".join(spare.map(func(it): return Story.display_name(it))) if spare.size() > 0 else "None.", SOFT if spare.size() > 0 else DIM)
 	var close = Button.new()
 	close.text = "Close (I or Esc)"
 	close.pressed.connect(toggle)

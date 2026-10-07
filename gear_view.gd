@@ -43,7 +43,7 @@ static func build(box: VBoxContainer, can_change: bool, on_change: Callable):
 static func _item_row(box: VBoxContainer, it: Dictionary, button_text: String, action: Callable):
 	var row = HBoxContainer.new()
 	var lbl = Label.new()
-	lbl.text = "  %s  [%s]\n%s" % [it.name, SkinManager.slot_label(it.slot), Crafting.describe(it)]
+	lbl.text = "  %s  [%s]\n%s" % [Story.display_name(it), SkinManager.slot_label(it.slot), Crafting.describe(it)]
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	lbl.add_theme_color_override("font_color", SOFT)

@@ -151,6 +151,7 @@ func record(id: String, passed: bool):
 	if passed:
 		passes[id] = passes.get(id, 0) + 1
 	_save()
+	Story.trial_result(id, passed)
 
 
 ## Start the trial UI for an ability. on_done(passed) is called when it ends.
@@ -164,7 +165,8 @@ func run(id: String, on_done: Callable):
 
 ## The last enemy of a Trial Ground fell and you took its Sigil.
 ## If your next level of that ability is open, you earn it and learn its recipe.
-func complete(id: String):
+## extra = {zone, low}: where the shrine stood and your lowest health in the Trial Ground (for the story).
+func complete(id: String, extra := {}):
 	if not is_due(id):
 		var w = wait_text(id)
 		GameState.notify("This %s Sigil fades... your next %s trial opens in %s." % [ability_name(id), ability_name(id), w] if w != "mastered" else "You've mastered %s." % ability_name(id))
@@ -172,6 +174,7 @@ func complete(id: String):
 	var l = next_level(id)
 	levels[id] = {level = l, cleared = now()}
 	_save()
+	Story.sigil_earned(id, l, extra)
 	var recipe = Crafting.advanced_id(id, l)
 	var text = "Sigil of %s %s! New recipe: %s." % [ability_name(id), ROMAN[l], Crafting.recipe(recipe).label]
 	if l < MAX_LEVEL:

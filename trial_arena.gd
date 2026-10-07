@@ -91,7 +91,7 @@ func _drop_sigil(at: Vector3):
 	s.global_position = Vector3(at.x, 0, at.z)
 	s.body_entered.connect(func(body):
 		if body.name == "Player" and is_instance_valid(s):
-			Trials.complete(info.ability)
+			Trials.complete(info.ability, {zone = GameState.ZONE_NAMES.get(info.get("back_scene", ""), ""), low = body.lowest_pct})
 			s.queue_free())
 
 

@@ -108,6 +108,7 @@ func _ready():
 ## or at the portal's spot. That's also where we respawn.
 func arrive():
 	gather_node = null
+	lowest_pct = 100
 	_hint_node = null
 	velocity = Vector3.ZERO
 	var z = Zones.zone_of(self)
@@ -209,6 +210,9 @@ func _physics_process(delta):
 
 	_tick_gathering(delta)
 	_tick_potion(delta)
+	if _close_call and health >= MAX_HEALTH * 0.5:	# pulled through
+		_close_call = false
+		Story.on_saved()
 	_update_gather_hint(delta)
 
 	if not GameState.ui_open and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
@@ -276,6 +280,9 @@ func aoe_attack():
 		_on_hit()
 
 var last_attacker = ""	# who hit us last (for the death message)
+var last_attacker_node = null	# the enemy itself (rivals are born from what kills you)
+var lowest_pct := 100	# lowest health % since entering this zone (Trial Grounds put it in the story)
+var _close_call := false	# dropped under 10%: if we get back to 50%, our gear "saved" us
 
 func take_damage(amount, source = null):
 	if is_puppet:	# another player: their game takes the hit
@@ -287,6 +294,7 @@ func take_damage(amount, source = null):
 		_stop_gathering("Interrupted!")
 	if source and "tier" in source:
 		last_attacker = SkinManager.name_of(source.TIER_IDS[source.tier] + "_one")
+		last_attacker_node = source
 	# Damage types: armor and potion wards soak their element
 	var element = source.damage_type if source and "damage_type" in source else "physical"
 	if element != "physical" and source and "tier" in source:
@@ -295,6 +303,9 @@ func take_damage(amount, source = null):
 	amount *= 1.0 - resistance(element)
 	amount = skills.absorb(amount)	# shield
 	health -= amount
+	lowest_pct = min(lowest_pct, int(max(health, 0.0) / MAX_HEALTH * 100.0))
+	if health > 0.0 and health < MAX_HEALTH * Story.SAVED_BELOW:
+		_close_call = true
 
 	# Some classes (tank) gain energy from taking damage
 	energy = min(energy + amount * class_def.get("energy", {}).get("per_damage_taken", 0.0), MAX_ENERGY)
@@ -361,6 +372,9 @@ func _puppet_move(delta):
 ## Token death: back to the entry door with full health. Nothing is lost (for now).
 func die(cause := ""):
 	GameState.deaths += 1
+	_close_call = false
+	var killer = last_attacker_node if is_instance_valid(last_attacker_node) else null
+	Story.on_death(killer.tier if killer and "tier" in killer else null)
 	GameState.add_mark("death", global_position, self)
 	print("DEFEATED by ", cause, ". Respawning at the entry door. Deaths: ", GameState.deaths)
 	health = MAX_HEALTH
