@@ -375,6 +375,7 @@ func die(cause := ""):
 	_close_call = false
 	var killer = last_attacker_node if is_instance_valid(last_attacker_node) else null
 	Story.on_death(killer.tier if killer and "tier" in killer else null)
+	Rivals.on_player_killed(killer)	# a small enemy that kills you becomes your Rival
 	GameState.add_mark("death", global_position, self)
 	print("DEFEATED by ", cause, ". Respawning at the entry door. Deaths: ", GameState.deaths)
 	health = MAX_HEALTH

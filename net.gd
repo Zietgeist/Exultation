@@ -195,6 +195,7 @@ func _process(delta):
 func go(path: String, key := "", spot = null, info := {}):
 	if key == "":
 		key = path
+	Rivals.leaving(Zones.local_zone())	# your rival here still lives: you skipped it
 	if is_online() and Zones.local_key() != "" and not info.get("solo", false):	# solo trips (Trial Grounds) don't ask friends to follow
 		_left_zone.rpc(Zones.local_key(), path, key, spot if spot != null else NOWHERE, info, GameState.player_class)
 	if is_client():
@@ -431,7 +432,7 @@ func _send_snapshots():
 			var p = e.global_position
 			if Vector2(p.x - c.x, p.z - c.z).length() > SNAPSHOT_RADIUS:
 				continue
-			data.append_array([id, e.tier, Crafting.ELEMENTS.find(e.damage_type), p.x, p.y, p.z, e.health, e.MAX_HEALTH, 1.0 if e.aggroed else 0.0])
+			data.append_array([id, e.tier + (10 if not e.rival.is_empty() else 0), Crafting.ELEMENTS.find(e.damage_type), p.x, p.y, p.z, e.health, e.MAX_HEALTH, 1.0 if e.aggroed else 0.0])
 			if data.size() >= FIELDS * PER_PACKET:
 				_snapshot.rpc_id(peer, z.key, counts, data, false)
 				data = PackedFloat32Array()
@@ -463,7 +464,9 @@ func _snapshot(key: String, counts: PackedInt32Array, data: PackedFloat32Array, 
 			m.net_id = id
 			scene.add_child(m)
 			var el = int(data[i + 2])
-			m.setup(1.0, int(data[i + 1]), Crafting.ELEMENTS[el] if el >= 0 else "physical")
+			m.setup(1.0, int(data[i + 1]) % 10, Crafting.ELEMENTS[el] if el >= 0 else "physical")
+			if int(data[i + 1]) >= 10:	# a rival: ask the host for its name and looks
+				_rival_info.rpc_id(1, key, id)
 			m.global_position = pos
 			mirrors[id] = m
 		m.net_target = pos
@@ -491,7 +494,7 @@ func enemy_died(e):
 	enemies.erase(e.net_id)
 	var key = Zones.key_of(e)
 	for peer in _peers_in(key):
-		_enemy_died.rpc_id(peer, key, e.net_id, e.tier)
+		_enemy_died.rpc_id(peer, key, e.net_id, e.tier if e.rival.is_empty() else -1)	# rivals don't count toward unlocks
 
 
 @rpc("authority", "call_remote", "reliable")
@@ -503,7 +506,7 @@ func _enemy_died(key: String, id: int, tier: int):
 	if m and is_instance_valid(m):
 		m.mirror_died()	# my own orb and gold
 	var sp = Zones.local_first("zone_spawner")
-	if sp:
+	if sp and tier >= 0:
 		sp._on_enemy_died(tier)	# boss unlocks, "zone cleared"
 
 
@@ -545,3 +548,55 @@ func _scene_event(key: String, event: String, data: Dictionary):
 	var scene = Zones.local_root()
 	if scene and Zones.local_key() == key and scene.has_method("net_event"):
 		scene.net_event(event, data)
+
+
+# ---------------- Rivals (rivals.gd) ----------------
+
+## Joined player: the enemy that killed me (a mirror) should become my rival. The host does it.
+func rival_born(enemy_id: int, s: Dictionary):
+	_rival_born.rpc_id(1, Zones.local_key(), enemy_id, s)
+
+## Joined player: my rival lives in this zone; host, please put it here.
+func spawn_rival(s: Dictionary, spot: Vector3):
+	_spawn_rival.rpc_id(1, Zones.local_key(), s, spot)
+
+## Host: show everyone in the zone the rival's name and looks.
+func rival_look_all(e):
+	var key = Zones.key_of(e)
+	for peer in _peers_in(key):
+		_rival_look.rpc_id(peer, key, e.net_id, e.rival)
+
+## Host: a rival owned by a joined player fell.
+func rival_avenged(owner: int, id: String):
+	_rival_avenged.rpc_id(owner, id)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rival_born(key: String, enemy_id: int, s: Dictionary):
+	var e = enemies.get(enemy_id)
+	if e and is_instance_valid(e) and Zones.key_of(e) == key:
+		s.owner = multiplayer.get_remote_sender_id()
+		e.become_rival(s)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _spawn_rival(key: String, s: Dictionary, spot: Vector3):
+	var z = Zones.get_zone(key)
+	if z:
+		s.owner = multiplayer.get_remote_sender_id()
+		Rivals.spawn_rival(z, s, spot)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rival_info(key: String, enemy_id: int):
+	var e = enemies.get(enemy_id)
+	if e and is_instance_valid(e) and not e.rival.is_empty():
+		_rival_look.rpc_id(multiplayer.get_remote_sender_id(), key, enemy_id, e.rival)
+
+@rpc("authority", "call_remote", "reliable")
+func _rival_look(key: String, enemy_id: int, s: Dictionary):
+	var m = mirrors.get(enemy_id)
+	if Zones.local_key() == key and m and is_instance_valid(m):
+		m.rival_look(s)
+
+@rpc("authority", "call_remote", "reliable")
+func _rival_avenged(id: String):
+	Rivals.avenge(id)

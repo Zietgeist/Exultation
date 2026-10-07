@@ -42,6 +42,12 @@ func _spawn_foes():
 			alive += 1
 
 
+## A rival came back here (rivals.gd): it has to fall before the ground is clear.
+func adopt_enemy(e):
+	e.enemy_died.connect(_on_enemy_died.bind(e))
+	alive += 1
+
+
 func _on_enemy_died(_tier, e):
 	alive -= 1
 	if alive <= 0 and not cleared:

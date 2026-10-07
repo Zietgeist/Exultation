@@ -32,6 +32,7 @@ SteamLink="*res://steam_link.gd"
 Trials="*res://trials.gd"
 Zones="*res://zones.gd"
 Story="*res://story.gd"
+Rivals="*res://rivals.gd"
 
 [global_group]
 

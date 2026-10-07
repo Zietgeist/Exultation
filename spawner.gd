@@ -333,7 +333,7 @@ func save_state() -> Dictionary:
 	out.reserve = reserve.duplicate()
 	var alive = []
 	for enemy in Zones.all(self, "enemy"):
-		if enemy.is_queued_for_deletion():
+		if enemy.is_queued_for_deletion() or not enemy.rival.is_empty():	# rivals are remembered by Rivals
 			continue
 		alive.append({t = enemy.tier, p = enemy.global_position, h = enemy.health, e = enemy.damage_type})
 	for d in dormant:
