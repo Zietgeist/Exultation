@@ -422,6 +422,44 @@ func craft(base_id: String, q: int, slot_mats: Array):
 	return item
 
 
+## Unworn gear can be given to a party member (online). Worn gear is bound.
+func can_give(it: Dictionary) -> bool:
+	return not it.has("bound_to") and not is_equipped(it.id)
+
+
+func give(id: int, to_id: int) -> bool:
+	var it = item_by_id(id)
+	if it == null or not can_give(it):
+		GameState.notify("Worn gear is bound to you and can't be given.")
+		return false
+	var to_name = Net.name_of(to_id)
+	if not it.has("story"):
+		it.story = {}
+	it.story.given_to = to_name
+	items.erase(it)
+	save()
+	Net.give_item(to_id, it)
+	Story.add("Gave %s to %s." % [Story.display_name(it), to_name])
+	Traits.on_gave_gear(to_name)
+	GameState.notify("Gave %s to %s" % [it.name, to_name])
+	return true
+
+
+## A friend gave me something.
+func receive_item(it: Dictionary, from_name: String):
+	it.id = next_id
+	next_id += 1
+	if not it.has("story"):
+		it.story = {}
+	it.story.given_to = Story.player_name
+	it.story.given_by = from_name
+	it.erase("bound_to")
+	items.append(it)
+	save()
+	Story.add("%s gave you %s." % [from_name, Story.display_name(it)])
+	GameState.notify("%s gave you %s!" % [from_name, it.name])
+
+
 func item_by_id(id: int):
 	for it in items:
 		if it.id == id:
@@ -481,6 +519,8 @@ func equip(id: int) -> bool:
 	var arr = equipped[rs.slot]
 	var spot = arr.find(-1)
 	arr[0 if spot == -1 else spot] = id
+	if not it.has("bound_to"):	# worn gear is yours for good (it can't be given away after this)
+		it.bound_to = Story.player_name
 	Story.on_equip(it)
 	save()
 	return true

@@ -272,6 +272,8 @@ func item_lines(item: Dictionary) -> Array:
 		if s.has("given_to"):
 			made += ", for %s" % s.given_to
 		lines.append(made)
+	elif s.has("given_by"):
+		lines.append("A gift from %s" % s.given_by)
 	var o = s.get("origin", {})
 	if not o.is_empty():
 		var l = "Recipe: Sigil of %s %s, Day %d" % [Trials.ability_name(o.ability), Trials.ROMAN[clampi(o.level, 1, Trials.MAX_LEVEL)], o.day]
@@ -297,4 +299,8 @@ func item_lines(item: Dictionary) -> Array:
 	var t = titles(item)
 	if t.size() > 0:
 		lines.append("Titles: " + ", ".join(t))
+	if item.has("bound_to"):
+		lines.append("Bound to %s (worn gear can't be given away)" % item.bound_to)
+	elif item.get("slot", "") != "potion":
+		lines.append("Unworn: can be given to a friend at Home")
 	return lines

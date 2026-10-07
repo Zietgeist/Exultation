@@ -122,7 +122,7 @@ func _fail(text: String):
 
 
 func _my_info() -> Dictionary:
-	return {class_id = GameState.player_class}
+	return {class_id = GameState.player_class, name = Story.player_name}
 
 
 ## Each player gets their own color (the host is always pink).
@@ -352,12 +352,12 @@ func _player_state(key: String, path: String, pos: Vector3, rot: float, hp: floa
 
 ## Host: who's where (for the party list and P to rejoin).
 func _update_roster():
-	roster = {1: {c = GameState.player_class, k = Zones.local_key(), p = Zones.local_path(), pos = Zones.player.global_position if Zones.player else Vector3.ZERO}}
+	roster = {1: {c = GameState.player_class, n = Story.player_name, k = Zones.local_key(), p = Zones.local_path(), pos = Zones.player.global_position if Zones.player else Vector3.ZERO}}
 	for id in puppets:
 		var p = puppets[id]
 		if is_instance_valid(p) and Zones.zone_of(p):
 			var z = Zones.zone_of(p)
-			roster[id] = {c = p.player_class, k = z.key, p = z.path, pos = p.global_position}
+			roster[id] = {c = p.player_class, n = players.get(id, {}).get("name", Classes.label(p.player_class)), k = z.key, p = z.path, pos = p.global_position}
 	_roster.rpc(roster)
 
 
@@ -603,3 +603,29 @@ func _rival_look(key: String, enemy_id: int, s: Dictionary):
 @rpc("authority", "call_remote", "reliable")
 func _rival_avenged(id: String):
 	Rivals.avenge(id)
+
+
+# ---------------- Giving gear (unworn gear only; worn gear is bound) ----------------
+
+## A friend's name (from the roster), or their class if we don't know it.
+func name_of(id: int) -> String:
+	var r = roster.get(id, {})
+	return r.get("n", Classes.label(r.get("c", "")) if r.has("c") else "a friend")
+
+
+## Everyone else in the party: [peer id, name]
+func others() -> Array:
+	var out = []
+	for id in roster:
+		if id != my_id():
+			out.append([id, name_of(id)])
+	return out
+
+
+func give_item(to_id: int, item: Dictionary):
+	_give_item.rpc_id(to_id, item, Story.player_name)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _give_item(item: Dictionary, from_name: String):
+	Crafting.receive_item(item, from_name)

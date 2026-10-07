@@ -38,6 +38,16 @@ static func build(box: VBoxContainer, can_change: bool, on_change: Callable):
 		if can_change and fits:
 			btn = "Equip"
 		_item_row(box, it, btn, func(): Crafting.equip(it.id); on_change.call())
+		if can_change and Net.is_online() and Crafting.can_give(it):	# unworn: give it to a friend
+			var row = HBoxContainer.new()
+			box.add_child(row)
+			for o in Net.others():
+				var g = Button.new()
+				g.text = "Give to " + o[1]
+				g.tooltip_text = "Unworn gear can be given. Its story goes with it (made by you, for them)."
+				var to_id = o[0]
+				g.pressed.connect(func(): Crafting.give(it.id, to_id); on_change.call())
+				row.add_child(g)
 
 
 static func _item_row(box: VBoxContainer, it: Dictionary, button_text: String, action: Callable):
