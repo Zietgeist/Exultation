@@ -9,13 +9,14 @@
 			"Bash(git diff:*)",
 			"Bash(git log:*)",
 			"Bash(git add:*)",
-			"Bash(git commit:*)"
+			"Bash(git commit:*)",
+			"mcp__plugin_discord_discord"
 		],
 		"deny": [
 			"Edit(./CLAUDE.md)",
 			"Edit(./.claude/**)",
 			"Edit(./.git/**)",
-			"Read(~/.claude/**)",
+			"Read(~/.claude/channels/discord/.env)",
 			"Bash(git push:*)",
 			"Bash(git reset:*)",
 			"Bash(git checkout:*)",
