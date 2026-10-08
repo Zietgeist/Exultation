@@ -5,6 +5,8 @@ extends Control
 ## - In a zone you've cleared (both bosses down): that zone, with you, the gates,
 ##   enemies still left, where you fell (red X) and where bosses fell (gold ring).
 ## - Anywhere else: no map. You learn the zone by walking it.
+## Zoom: left click zooms in on that spot, right click zooms out, mouse wheel too.
+## While the map is open, clicks go to the map (no attacks). You can still walk.
 
 const LAYOUT = preload("res://world_layout.gd")	# fog square size per zone: LAYOUT.fog_cell(path)
 const BG = Color(0.03, 0.03, 0.05, 0.85)
@@ -16,6 +18,10 @@ const TIER_COLORS = [Color(0.2, 0.9, 0.2), Color(0.3, 0.5, 1.0), Color(0.7, 0.2,
 
 var _redraw_timer = 0.0
 var _home_world := false	# at Home: false = town map, true = the whole spiral
+var _zoom := 1.0			# 1 = whole map fits; up to MAX_ZOOM
+var _focus := Vector2.ZERO	# how far the view is moved from the middle (in unzoomed screen pixels)
+var _took_ui := false		# we set GameState.ui_open, so we clear it on close
+const MAX_ZOOM = 16.0
 
 
 func _ready():
@@ -28,15 +34,62 @@ func _unhandled_input(event):
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_M:
 		if Zones.local_path() == "res://Home.tscn":	# town map -> spiral -> closed
 			if not visible:
-				visible = true
+				_set_open(true)
 				_home_world = false
 			elif not _home_world:
 				_home_world = true
+				_reset_zoom()
 			else:
-				visible = false
+				_set_open(false)
 		else:
-			visible = not visible
+			_set_open(not visible)
 		queue_redraw()
+
+
+func _set_open(open: bool):
+	visible = open
+	_reset_zoom()
+	mouse_filter = Control.MOUSE_FILTER_STOP if open else Control.MOUSE_FILTER_IGNORE
+	if open and not GameState.ui_open:
+		GameState.ui_open = true	# so clicks zoom the map instead of attacking
+		_took_ui = true
+	elif not open and _took_ui:
+		GameState.ui_open = false
+		_took_ui = false
+
+
+func _reset_zoom():
+	_zoom = 1.0
+	_focus = Vector2.ZERO
+
+
+## Left click: zoom in on that spot. Right click: zoom out. Wheel: in / out.
+func _gui_input(event):
+	if not (event is InputEventMouseButton and event.pressed):
+		return
+	match event.button_index:
+		MOUSE_BUTTON_LEFT, MOUSE_BUTTON_WHEEL_UP:
+			_zoom_at(event.position, 2.0 if event.button_index == MOUSE_BUTTON_LEFT else 1.25)
+		MOUSE_BUTTON_RIGHT, MOUSE_BUTTON_WHEEL_DOWN:
+			_zoom_at(event.position, 0.5 if event.button_index == MOUSE_BUTTON_RIGHT else 0.8)
+		_:
+			return
+	accept_event()
+	queue_redraw()
+
+
+func _zoom_at(click: Vector2, factor: float):
+	var new_zoom = clamp(_zoom * factor, 1.0, MAX_ZOOM)
+	if new_zoom <= 1.0:
+		_reset_zoom()
+		return
+	# The spot under the mouse (in unzoomed pixels). Clicks center it; the wheel keeps it under the mouse.
+	var u = (click - size / 2.0) / _zoom + size / 2.0 + _focus
+	if factor >= 2.0 or factor <= 0.5:
+		_focus = u - size / 2.0
+	else:
+		_focus = u - size / 2.0 - (click - size / 2.0) / new_zoom
+	_zoom = new_zoom
 
 
 func _process(delta):
@@ -58,14 +111,20 @@ func _draw():
 		_draw_world(font)
 	elif path == "res://Home.tscn":
 		_draw_town(font)
-		draw_string(font, Vector2(0, size.y - 30), "M: the whole spiral", HORIZONTAL_ALIGNMENT_CENTER, size.x, 18, Color(0.8, 0.8, 0.8))
+		_hint(font, "M: the whole spiral")
 		return
 	elif GameState.is_zone_cleared(path):
 		_draw_zone(path, font)
 	else:
 		var msg = "No map yet.\nDefeat both bosses in this zone to draw its map.\nThe map at Home shows everywhere you've been."
 		draw_multiline_string(font, Vector2(0, size.y / 2.0 - 40), msg, HORIZONTAL_ALIGNMENT_CENTER, size.x, 24, -1, GOLD)
-	draw_string(font, Vector2(0, size.y - 30), "M to close", HORIZONTAL_ALIGNMENT_CENTER, size.x, 18, Color(0.8, 0.8, 0.8))
+	_hint(font, "M to close")
+
+
+func _hint(font, text: String):
+	var z = "Click: zoom in  -  Right-click: zoom out" if _zoom <= 1.0 else "Zoom x%d  -  Right-click: zoom out" % int(round(_zoom))
+	draw_rect(Rect2(0, size.y - 52, size.x, 52), BG)	# keep the hint readable over a zoomed map
+	draw_string(font, Vector2(0, size.y - 30), text + "  -  " + z, HORIZONTAL_ALIGNMENT_CENTER, size.x, 18, Color(0.8, 0.8, 0.8))
 
 
 # ---------- World map (Home) ----------
@@ -201,7 +260,9 @@ func _draw_zone(path: String, font):
 func _fit(world: Rect2, share: float) -> Dictionary:
 	var s = min(size.x * share / world.size.x, size.y * share / world.size.y)
 	var offset = size / 2.0 - (world.position + world.size / 2.0) * s
-	return {scale = s, offset = offset}
+	# Zoom: screen = middle + (unzoomed - middle - focus) * zoom
+	offset = size / 2.0 + (offset - size / 2.0 - _focus) * _zoom
+	return {scale = s * _zoom, offset = offset}
 
 
 func _to_screen(fit: Dictionary, world_pos: Vector3) -> Vector2:
