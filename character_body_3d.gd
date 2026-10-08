@@ -579,10 +579,19 @@ var _label_tween: Tween = null
 
 
 ## The node G would gather from here (closest one in reach), or null.
+## What G would use: a shrine or shopkeeper in reach always comes first (so a tree or ore
+## right next to a shrine can't steal the key); otherwise the nearest resource.
 func _nearest_gatherable():
+	var talk = _nearest_in(Zones.all(self, "npc"))
+	if talk != null:
+		return talk
+	return _nearest_in(Zones.all(self, "resource_node"))
+
+
+func _nearest_in(nodes: Array):
 	var best = null
 	var best_d = INF
-	for n in Zones.all(self, "resource_node") + Zones.all(self, "npc"):
+	for n in nodes:
 		var d = n.horizontal_distance(global_position)
 		var score = d - n.reach	# nodes up on a hill or trunk count as a bit closer
 		if d <= GATHER_RANGE + n.reach and score < best_d:
@@ -623,7 +632,11 @@ func start_gathering():
 		_float_text("Satchel full (%d)" % GameState.satchel_capacity(), Color(1, 0.6, 0.4))
 		return
 	if best == null:
-		_float_text("Nothing to gather here", Color(0.8, 0.8, 0.8))
+		var gate = Zones.local_root().get_node_or_null("PomodoroGate") if Zones.local_root() else null
+		if gate and gate.shrine and gate.shrine.global_position.distance_to(global_position) < 6.0:
+			_float_text("Walk into the shrine to bank your gold", Color(1, 0.85, 0.3))
+		else:
+			_float_text("Nothing to gather here", Color(0.8, 0.8, 0.8))
 		return
 	gather_node = best
 	gather_left = GATHER_TIME

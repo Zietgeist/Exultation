@@ -4,7 +4,7 @@ extends Node3D
 ## Placed and saved by terrain_generator.gd (kind "shrine"), from Zone 2 on.
 
 var ability := "precision"
-var reach := 0.8
+var reach := 1.5	# G works from a step or two away
 var busy := false
 var _label: Label3D
 var _crystal: MeshInstance3D
