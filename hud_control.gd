@@ -121,6 +121,8 @@ func _process(delta):
 		health_bar.value = (player.health / player.MAX_HEALTH) * 100
 		energy_bar.value = (player.energy / player.MAX_ENERGY) * 100
 		speed_label.text = "Attack Speed: %d" % player.speed_level
+		if player.auto:
+			speed_label.text += ("   AUTO - target: %s (R)" % player.auto.mode_name()) if player.auto.on else "   Tab: auto-attack"
 	# Active skill effects (boost, shield, auras, vow...)
 	var active = []
 	if player and player.dps_boost_stacks > 0:

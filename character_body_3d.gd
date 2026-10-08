@@ -10,6 +10,8 @@ const BASE_MAX_HEALTH = 100.0
 var player_class := "dps"
 var class_def := {}
 var skills = null		# this player's SkillRunner
+var auto = null			# auto-attack and target choice (auto_fight.gd): Tab / R
+var auto_sweep = 3		# auto-attack sweeps when this many enemies fit one sweep (weapon; 0 = never)
 
 # Energy
 const MAX_ENERGY = 10.0
@@ -92,6 +94,9 @@ func _ready():
 	skills.name = "SkillRunner"
 	add_child(skills)
 	skills.setup(self, player_class)
+	auto = load("res://auto_fight.gd").new()
+	auto.name = "AutoFight"
+	add_child(auto)
 	Crafting.changed.connect(apply_gear)
 	GameState.buffs_changed.connect(apply_gear)
 	Traits.changed.connect(apply_gear)	# who you're becoming changes your stats a little
@@ -133,6 +138,8 @@ func _input(event):
 			KEY_Q: skills.use("Q")
 			KEY_F: skills.use("F")
 			KEY_G: start_gathering()
+			KEY_TAB: auto.toggle()
+			KEY_R: auto.next_mode()
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			_click_talking = event.pressed and _click_talk()
@@ -222,6 +229,9 @@ func _physics_process(delta):
 
 	if _click_talking and not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 		_click_talking = false	# let go (maybe while a window was open)
+	var clicking = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
+	if auto and not GameState.ui_open and not clicking:	# your own clicks always win
+		auto.tick()
 	if not GameState.ui_open and not _click_talking and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 		if st_cooldown <= 0:
 			single_target_attack()
@@ -243,25 +253,26 @@ func _physics_process(delta):
 	energy = min(energy + e_rules.get("regen", 0.15) * regen_mult * delta + moved * e_rules.get("per_meter_moved", 0.0), MAX_ENERGY)
 	
 
-func single_target_attack():
-	var enemies = Zones.all(self, "enemy")
-	var closest = null
-	var closest_dist = ST_RANGE
-	var aimed = null	# the one under (or near) your mouse pointer wins
-	var aimed_dist = AIM_RADIUS
-	for enemy in enemies:
-		var dist = global_position.distance_to(enemy.global_position)
-		if dist > ST_RANGE:
-			continue
-		if dist < closest_dist:
-			closest_dist = dist
-			closest = enemy
-		var to_mouse = Vector2(enemy.global_position.x - mouse_world_point.x, enemy.global_position.z - mouse_world_point.z).length()
-		if to_mouse < aimed_dist:
-			aimed_dist = to_mouse
-			aimed = enemy
-	if aimed:
-		closest = aimed
+## A single strike. forced = the target auto-attack chose. Your own click: the enemy under
+## (or near) the mouse wins; otherwise your main-target rule (R) picks one in reach.
+func single_target_attack(forced = null):
+	var closest = forced
+	if closest == null:
+		var in_reach = []
+		var aimed = null
+		var aimed_dist = AIM_RADIUS
+		for enemy in Zones.all(self, "enemy"):
+			if global_position.distance_to(enemy.global_position) > ST_RANGE:
+				continue
+			in_reach.append(enemy)
+			var to_mouse = Vector2(enemy.global_position.x - mouse_world_point.x, enemy.global_position.z - mouse_world_point.z).length()
+			if to_mouse < aimed_dist:
+				aimed_dist = to_mouse
+				aimed = enemy
+		if aimed:
+			closest = aimed
+		elif in_reach.size() > 0:
+			closest = auto.pick(in_reach) if auto else in_reach[0]
 
 	if closest:
 		var damage = (st_damage * get_damage_multiplier() + _element_damage()) * Traits.damage_mult(health / MAX_HEALTH) * Traits.strike_mult()
@@ -278,7 +289,10 @@ func single_target_attack():
 		# Miss: a short, faint swing toward where you're facing
 		_show_beam(global_position - global_transform.basis.z * 3.0, Color(1.0, 0.9, 0.3, 0.35))
 
-func aoe_attack():
+## A sweep in front of you. aim = a direction to face first (auto-attack aims where it catches the most).
+func aoe_attack(aim := Vector3.ZERO):
+	if aim != Vector3.ZERO:
+		look_at(global_position + aim, Vector3.UP)
 	var enemies = Zones.all(self, "enemy")
 	var in_range = []
 	
@@ -750,6 +764,7 @@ func apply_gear():
 		aoe_cone = e.cone
 		aoe_max_targets = e.targets
 		ST_RANGE = e.reach * REACH_MULT
+		auto_sweep = e.auto_sweep
 		gear_st_cd = e.st_cd
 		gear_aoe_cd = e.aoe_cd
 		element_bonus = e.element_bonus
@@ -761,6 +776,7 @@ func apply_gear():
 		aoe_cone = 0.3
 		aoe_max_targets = 4
 		ST_RANGE = 10.0 * REACH_MULT
+		auto_sweep = 3
 		gear_st_cd = BASE_ST_COOLDOWN
 		gear_aoe_cd = BASE_AOE_COOLDOWN
 		element_bonus = {}

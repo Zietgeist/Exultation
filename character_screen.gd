@@ -111,6 +111,12 @@ func _you(p):
 	_text(you_box, "Hit (left click): %d%s   reach %d" % [p.st_damage, "  +%d elemental" % bonus if bonus > 0 else "", p.ST_RANGE], SOFT)
 	_text(you_box, "Sweep (right click): %d%s   up to %d enemies, %d° wide" % [p.aoe_damage, "  +%d elemental" % (bonus * 0.5) if bonus > 0 else "", p.aoe_max_targets, roundi(rad_to_deg(acos(clamp(p.aoe_cone, -1.0, 1.0))) * 2)], SOFT)
 	_text(you_box, "Attack time: hit %.1fs, sweep %.1fs   (mouse wheel level %+d)" % [p.st_cooldown_time, p.aoe_cooldown_time, p.speed_level], SOFT)
+	if p.auto:
+		var al = _text(you_box, "Auto-attack (Tab): %s   Main target (R): %s   - hover for more" % ["ON" if p.auto.on else "off", p.auto.mode_name()], GOLD if p.auto.on else SOFT)
+		al.mouse_filter = Control.MOUSE_FILTER_STOP	# so the tooltip shows
+		al.tooltip_text = "Auto-attack fights enemies that are already after you. It never starts a fight.\n%s with your %s.\nYour own clicks always win.\n\nMain target: %s\n%s\nPress R to change: %s." % [
+			Crafting.auto_text(p.auto_sweep), p.weapon_name, p.auto.mode_name(), p.auto.MODE_TIPS[p.auto.mode],
+			", ".join(p.auto.MODES.map(func(m): return p.auto.MODE_NAMES[m]))]
 	for el in p.element_bonus:
 		_text(you_box, "  +%d %s damage per hit" % [p.element_bonus[el], SkinManager.element_label(el)], Crafting.ELEMENT_COLORS[el])
 	if p.lifesteal > 0.0:
@@ -273,3 +279,4 @@ func _text(box: VBoxContainer, t: String, color: Color):
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.add_theme_color_override("font_color", color)
 	box.add_child(l)
+	return l

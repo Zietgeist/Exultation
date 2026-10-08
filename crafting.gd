@@ -60,14 +60,14 @@ const ORCHID_ELEMENTS = ["nature", "storm", "radiant", "shadow"]
 # need: {material: count}  The quality you pick applies to the main material.
 const BASES = {
 	"blade": {label = "Blade", shop = "smith", slot = "weapon", need = {"ingot": 2}, slots = 2,
-		stats = {st = 100.0, aoe = 50.0, cone = 0.3, targets = 4, st_cd = 2.0, aoe_cd = 1.0, reach = 10.0},
-		about = "Balanced."},
+		stats = {st = 100.0, aoe = 50.0, cone = 0.3, targets = 4, st_cd = 2.0, aoe_cd = 1.0, reach = 10.0, auto_sweep = 3},
+		about = "Balanced. Auto-attack sweeps at 3+ enemies."},
 	"cleaver": {label = "Cleaver", shop = "smith", slot = "weapon", need = {"ingot": 3}, slots = 2,
-		stats = {st = 80.0, aoe = 75.0, cone = 0.0, targets = 7, st_cd = 2.4, aoe_cd = 1.3, reach = 9.0},
-		about = "Wide, heavy sweeps. Slower."},
+		stats = {st = 80.0, aoe = 75.0, cone = 0.0, targets = 7, st_cd = 2.4, aoe_cd = 1.3, reach = 9.0, auto_sweep = 2},
+		about = "Wide, heavy sweeps. Slower. Auto-attack sweeps at just 2+ enemies."},
 	"spear": {label = "Spear", shop = "smith", slot = "weapon", need = {"ingot": 2}, slots = 2,
-		stats = {st = 140.0, aoe = 30.0, cone = 0.6, targets = 2, st_cd = 1.8, aoe_cd = 1.0, reach = 14.0},
-		about = "Long reach, narrow sweep."},
+		stats = {st = 140.0, aoe = 30.0, cone = 0.6, targets = 2, st_cd = 1.8, aoe_cd = 1.0, reach = 14.0, auto_sweep = 5},
+		about = "Long reach, narrow sweep. Auto-attack only sweeps at 5+ enemies: it mostly strikes."},
 	"vest": {label = "Vest", shop = "smith", slot = "chest", need = {"ingot": 2}, slots = 2,
 		stats = {hardness = 2.0, move = 0.0}, about = "Light chest armor, room to customize."},
 	"plate": {label = "Plate", shop = "smith", slot = "chest", need = {"ingot": 4}, slots = 1,
@@ -152,6 +152,8 @@ func recipe(id: String) -> Dictionary:
 	b.slots = mini(b.slots + 1 + int(level / 2.0), 6)
 	b.label = "%s %s" % [fam.label, ROMAN[level]]
 	b.about = "Level %d recipe (from %s trials): power x%.1f, %d creative slots." % [level, ability.capitalize(), m, b.slots]
+	if st.has("auto_sweep"):
+		b.about += " " + auto_text(int(st.auto_sweep)) + "."
 	b.advanced = true
 	b.ability = ability
 	b.level = level
@@ -613,6 +615,7 @@ func effects(item: Dictionary) -> Dictionary:
 			e.cone = s.cone
 			e.targets = s.targets
 			e.reach = s.reach
+			e.auto_sweep = int(s.get("auto_sweep", 3))
 			var speed = 1.0 / (1.0 + a.get("swiftness", 0.0) * 0.04)
 			e.st_cd = s.st_cd * speed
 			e.aoe_cd = s.aoe_cd * speed
@@ -640,6 +643,13 @@ func effects(item: Dictionary) -> Dictionary:
 	return e
 
 
+## How auto-attack (Tab) fights with this weapon.
+static func auto_text(n: int) -> String:
+	if n <= 0:
+		return "Auto-attack: never sweeps, only strikes"
+	return "Auto-attack: sweeps at %d+ enemies, strikes when fewer" % n
+
+
 ## Plain-English summary of an item, for the shop screens.
 func describe(item: Dictionary) -> String:
 	var e = effects(item)
@@ -648,6 +658,7 @@ func describe(item: Dictionary) -> String:
 		"weapon":
 			lines.append("Hit %d / Sweep %d   (reach %d, sweep up to %d)" % [e.st, e.aoe, e.reach * 2, e.targets])	# strikes reach 2x (player REACH_MULT)
 			lines.append("Attack time %.1fs / %.1fs" % [e.st_cd, e.aoe_cd])
+			lines.append(auto_text(e.auto_sweep))
 			for el in e.element_bonus:
 				lines.append("+%d %s damage per hit" % [e.element_bonus[el], SkinManager.element_label(el)])
 			if e.lifesteal > 0.0:
