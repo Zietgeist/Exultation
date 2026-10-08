@@ -178,13 +178,14 @@ func _physics_process(delta):
 	st_cooldown -= delta
 	aoe_cooldown -= delta
 	
-	if Input.is_action_pressed("ui_right") or Input.is_key_pressed(KEY_D):
+	var typing = GameState.typing()	# typing a note or a name: don't walk
+	if not typing and (Input.is_action_pressed("ui_right") or Input.is_key_pressed(KEY_D)):
 		direction.x += 1
-	if Input.is_action_pressed("ui_left") or Input.is_key_pressed(KEY_A):
+	if not typing and (Input.is_action_pressed("ui_left") or Input.is_key_pressed(KEY_A)):
 		direction.x -= 1
-	if Input.is_action_pressed("ui_down") or Input.is_key_pressed(KEY_S):
+	if not typing and (Input.is_action_pressed("ui_down") or Input.is_key_pressed(KEY_S)):
 		direction.z += 1
-	if Input.is_action_pressed("ui_up") or Input.is_key_pressed(KEY_W):
+	if not typing and (Input.is_action_pressed("ui_up") or Input.is_key_pressed(KEY_W)):
 		direction.z -= 1
 
 	if GameState.input_locked:

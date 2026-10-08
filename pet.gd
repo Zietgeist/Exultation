@@ -15,7 +15,11 @@ extends Node3D
 ##   Bond       feeding it (T near it: one herb from your satchel), resting at Home together and
 ##              protecting it. A secure pet explores farther: high Bond = faster, gathers from
 ##              farther and quicker, and at 80+ gathers TWO nodes at once.
-##   Name       give it one in the Chronicle (J). Its milestones go in the Chronicle.
+##   Name       give it one in the Chronicle (J) or the pet window (K). Its milestones go in the Chronicle.
+##
+## Safety: it won't go for a node if an enemy you can see is close enough to notice it there,
+## and it drops the job and comes back if one wanders close. (Enemies that pop up out of nowhere
+## can still surprise it.)
 ##
 ## Made by the local player (character_body_3d.gd). Follows you from zone to zone. Saved in user://pet.cfg.
 ## Online: every player's pet is shown to the others (pet_ghost.gd). The host runs the enemies, so on the
@@ -34,6 +38,7 @@ const REGEN_RATE = 6.0			# health per second
 const NEAR_YOU = 5.0			# "you're close": it calms down much faster
 const FEED_RANGE = 4.0
 const FEED_COOLDOWN = 120.0		# a proper meal every 2 minutes; more is just a snack
+const DANGER_MARGIN = 1.15		# keeps a little more than an enemy's aggro range away from it
 
 # Grows over time (saved)
 var pet_name_given := ""
@@ -251,6 +256,13 @@ func _process(delta):
 	# Drop the job if the node is gone, or you walked off
 	if target != null and (not is_instance_valid(target) or _flat(target.global_position - me).length() > LEASH):
 		_stop_gathering()
+	# ...or an enemy came close enough to notice it
+	_danger_t -= delta
+	if target != null and _danger_t <= 0.0:
+		_danger_t = 0.25
+		if _danger_near(target.global_position) or _danger_near(global_position):
+			_stop_gathering()
+			_say("enemies near... coming back", Color(1.0, 0.8, 0.5))
 
 	# Look for a job a few times a second
 	_look_timer -= delta
@@ -369,21 +381,49 @@ func feed():
 
 # ---------------- Gathering ----------------
 
-## The closest resource node near YOU that you're not gathering yourself.
+## The closest resource node near YOU that you're not gathering yourself,
+## and that no enemy you can see is close enough to notice it at (there or on the way).
 func _pick_node():
 	if GameState.satchel_count() >= GameState.satchel_capacity():
 		return null
 	var me = owner_player.global_position
 	var best = null
 	var best_d = INF
+	var skipped = false
 	for n in Zones.all(owner_player, "resource_node"):
 		if n == owner_player.gather_node:
 			continue
 		var d = _flat(n.global_position - me).length()
 		if d <= gather_radius() and d < best_d:
+			if _danger_near(n.global_position) or _danger_near((n.global_position + me) / 2.0):
+				skipped = true
+				continue
 			best = n
 			best_d = d
+	if best == null and skipped:
+		_wary_t -= 0.4
+		if _wary_t <= 0.0:
+			_wary_t = 8.0
+			_say("an enemy is close to that one", Color(1.0, 0.8, 0.5))
 	return best
+
+
+var _danger_t := 0.0
+var _wary_t := 0.0
+
+## Would an enemy (one you can see) notice the pet at this spot?
+func _danger_near(spot: Vector3) -> bool:
+	for e in Zones.all(owner_player, "enemy"):
+		if not is_instance_valid(e) or e.health <= 0:
+			continue
+		if _flat(e.global_position - spot).length() <= e.AGGRO_RANGE * DANGER_MARGIN + 1.0:
+			return true
+	return false
+
+
+## 0..100: how full it is (the food bar).
+func food() -> float:
+	return 100.0 - hunger
 
 
 ## Devoted pets: another node close to the first.

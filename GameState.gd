@@ -16,6 +16,12 @@ var input_locked = false	# a trial is open: your character stands still (typing 
 var ui_open = false	# a shop window is open (the player ignores attack/ability input)
 
 
+## True while you're typing in a text box (a note, a name): WASD types letters instead of walking.
+func typing() -> bool:
+	var f = get_tree().root.gui_get_focus_owner()
+	return f is LineEdit or f is TextEdit
+
+
 func _process(delta: float) -> void:
 	_tick_gold(delta)
 	if is_overfilled:

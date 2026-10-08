@@ -16,6 +16,35 @@ var notice_timer = 0.0
 var gold_bar = null
 var gold_label = null
 var satchel_label = null
+var pet_label = null
+var pet_health = null
+var pet_food = null
+
+func _small_bar(color: Color, tip: String) -> ProgressBar:
+	var b = ProgressBar.new()
+	b.custom_minimum_size = Vector2(90, 12)
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	b.show_percentage = false
+	b.max_value = 100
+	b.tooltip_text = tip
+	var fill = StyleBoxFlat.new()
+	fill.bg_color = color
+	b.add_theme_stylebox_override("fill", fill)
+	return b
+
+
+func _update_pet():
+	var pet = player.pet if player and "pet" in player else null
+	var show = pet != null and is_instance_valid(pet)
+	pet_label.visible = show
+	pet_health.get_parent().visible = show
+	if not show:
+		return
+	pet_label.text = "%s (%s)   K: pet" % [pet.pet_name(), pet.mood()]
+	pet_health.value = 0.0 if not pet.alive() else 100.0 * pet.health / pet.MAX_HEALTH
+	pet_food.value = pet.food()
+	pet_food.modulate = Color(1, 0.5, 0.5) if pet.food() < 30.0 else Color.WHITE	# hungry: reddish
+
 
 func _ready():
 	zone_label = get_node("VBoxContainer/ZoneLabel")
@@ -42,6 +71,22 @@ func _ready():
 	$VBoxContainer.add_child(gold_bar)
 	satchel_label = Label.new()
 	$VBoxContainer.add_child(satchel_label)
+
+	# Your pet: name and mood, health and food bars (K opens the pet window)
+	pet_label = Label.new()
+	pet_label.add_theme_color_override("font_color", Color(0.7, 0.95, 1.0))
+	$VBoxContainer.add_child(pet_label)
+	var pet_row = HBoxContainer.new()
+	$VBoxContainer.add_child(pet_row)
+	pet_health = _small_bar(Color(0.3, 0.9, 0.4), "Pet health")
+	pet_food = _small_bar(Color(1.0, 0.6, 0.2), "Food: goes down while you're out. Feed a herb (T near your pet).")
+	for pair in [["HP", pet_health], ["Food", pet_food]]:
+		var l = Label.new()
+		l.text = pair[0]
+		pet_row.add_child(l)
+		pet_row.add_child(pair[1])
+	pet_label.visible = false
+	pet_row.visible = false
 
 	# The player is made by the World after the HUD, so it's picked up in _process
 
@@ -72,6 +117,8 @@ func _ready():
 	get_parent().add_child.call_deferred(notice_label)
 	GameState.notice.connect(_on_notice)
 
+	# The pet window (press K)
+	get_parent().add_child.call_deferred(load("res://pet_ui.gd").new())
 	# The map (press M)
 	get_parent().add_child.call_deferred(load("res://map_overlay.gd").new())
 	# The character screen (press C)
@@ -121,6 +168,7 @@ func _process(delta):
 		health_bar.value = (player.health / player.MAX_HEALTH) * 100
 		energy_bar.value = (player.energy / player.MAX_ENERGY) * 100
 		speed_label.text = "Attack Speed: %d" % player.speed_level
+		_update_pet()
 		if player.auto:
 			speed_label.text += ("   AUTO - target: %s (R)" % player.auto.mode_name()) if player.auto.on else "   Tab: auto-attack"
 	# Active skill effects (boost, shield, auras, vow...)
