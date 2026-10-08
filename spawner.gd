@@ -26,7 +26,7 @@ const BASE_MASTERS = 5
 const MAX_BOSSES = 2		# always 2: beating both unlocks the next zone
 
 const UPFRONT_SHARE = 0.9	# placed on the map at the start
-const SAFE_START_RADIUS = 25.0	# nothing is placed this close to where you walk in
+const SAFE_START_RADIUS = 40.0	# nothing is placed this close to where you walk in (or any way in)
 const NEAR_PLAYER_INTERVAL = 10.0	# seconds between "near the player" groups
 const NEAR_MIN = 12.0
 const NEAR_MAX = 18.0
@@ -107,6 +107,7 @@ func _setup_zone_targets():
 	if Net.is_client():	# online, joined: the host runs the enemies, I just show them
 		targets_ready = false
 		return
+	_find_safe_spots()
 
 	if saved != null:
 		for key in SAVED_KEYS:
@@ -193,7 +194,7 @@ func _process(delta):
 
 func _spawn_near_player():
 	var left = reserve[0] + reserve[1] + reserve[2]
-	if left <= 0:
+	if left <= 0 or in_safe_spot(player.global_position):
 		return
 	var angle = randf() * TAU
 	var center = player.global_position + Vector3(cos(angle), 0, sin(angle)) * randf_range(NEAR_MIN, NEAR_MAX)
@@ -239,10 +240,56 @@ func _place_dormant(t: int, pos: Vector3, h := -1.0, element := ""):
 	_count_spawn(t)
 	pos = _on_land(pos)
 	pos = _away_from_shrines(pos)
+	pos = _out_of_safe_spots(pos)
 	pos.y = ENEMY_REST_HEIGHT
 	if element == "":
 		element = _roll_element(t)
-	_sleep({t = t, p = clamp_to_map(pos), h = h, e = element})
+	pos = clamp_to_map(pos)
+	for i in 6:	# pushed off the map edge and clamped back in? try another way round
+		if not in_safe_spot(pos):
+			break
+		pos = _out_of_safe_spots(clamp_to_map(pos + Vector3(randf_range(-30, 30), 0, randf_range(-30, 30))))
+		pos = clamp_to_map(pos)
+	_sleep({t = t, p = pos, h = h, e = element})
+
+
+## Safe ground at every way in: where you arrived, every gate, every fast-travel stop.
+## Nothing is placed inside these circles, and no surprise groups appear while you stand in one.
+## Big zones: 40 across. Small zones get smaller circles so they don't swallow the map
+## (Zone 1: 25 where you walk in, 15 at the other gates).
+var _safe_spots := []	# [{p = Vector3, r = radius}]
+
+func _find_safe_spots():
+	var side = min(_half().x, _half().y) * 2.0
+	var r_entry = clamp(side * 0.4, 25.0, SAFE_START_RADIUS)
+	var r_gate = clamp(side * 0.25, 15.0, SAFE_START_RADIUS)
+	_safe_spots = [{p = player.global_position if player else Vector3.ZERO, r = r_entry}]
+	for d in Zones.all(self, "door"):
+		_safe_spots.append({p = d.global_position, r = r_gate})
+	for st in Travel.stations_for(Zones.path_of(self)):	# fast-travel stops (built a little later, so use the list)
+		_safe_spots.append({p = st.pos, r = r_gate})
+
+
+func in_safe_spot(p: Vector3) -> bool:
+	for c in _safe_spots:
+		if Vector2(p.x - c.p.x, p.z - c.p.z).length() < c.r:
+			return true
+	return false
+
+
+func _out_of_safe_spots(pos: Vector3) -> Vector3:
+	for i in 3:	# pushing out of one circle can land in the next
+		var moved = false
+		for c in _safe_spots:
+			var d = Vector3(pos.x - c.p.x, 0, pos.z - c.p.z)
+			if d.length() < c.r:
+				if d.length() < 0.1:
+					d = Vector3(randf_range(-1, 1), 0, randf_range(-1, 1))
+				pos = Vector3(c.p.x, pos.y, c.p.z) + d.normalized() * (c.r + randf_range(1, 6))
+				moved = true
+		if not moved:
+			break
+	return pos
 
 
 ## Keep a little room around shrines, so taking a trial doesn't start in a crowd.
