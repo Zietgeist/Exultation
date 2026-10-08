@@ -1,6 +1,7 @@
 extends Control
 ## The map (press M).
-## - At Home: the whole spiral, showing what you've explored in each zone.
+## - At Home: first the town map (shops, gates, the rest shrine, fast travel). Press M again for the
+##   whole spiral, showing what you've explored in each zone. Once more closes it.
 ## - In a zone you've cleared (both bosses down): that zone, with you, the gates,
 ##   enemies still left, where you fell (red X) and where bosses fell (gold ring).
 ## - Anywhere else: no map. You learn the zone by walking it.
@@ -14,6 +15,7 @@ const GOLD = Color(1.0, 0.85, 0.3)
 const TIER_COLORS = [Color(0.2, 0.9, 0.2), Color(0.3, 0.5, 1.0), Color(0.7, 0.2, 1.0), Color(1.0, 0.8, 0.0)]
 
 var _redraw_timer = 0.0
+var _home_world := false	# at Home: false = town map, true = the whole spiral
 
 
 func _ready():
@@ -24,7 +26,16 @@ func _ready():
 
 func _unhandled_input(event):
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_M:
-		visible = not visible
+		if Zones.local_path() == "res://Home.tscn":	# town map -> spiral -> closed
+			if not visible:
+				visible = true
+				_home_world = false
+			elif not _home_world:
+				_home_world = true
+			else:
+				visible = false
+		else:
+			visible = not visible
 		queue_redraw()
 
 
@@ -43,8 +54,12 @@ func _draw():
 	if path == "":
 		return
 	var font = get_theme_default_font()
-	if path == "res://Home.tscn":
+	if path == "res://Home.tscn" and _home_world:
 		_draw_world(font)
+	elif path == "res://Home.tscn":
+		_draw_town(font)
+		draw_string(font, Vector2(0, size.y - 30), "M: the whole spiral", HORIZONTAL_ALIGNMENT_CENTER, size.x, 18, Color(0.8, 0.8, 0.8))
+		return
 	elif GameState.is_zone_cleared(path):
 		_draw_zone(path, font)
 	else:
@@ -89,6 +104,57 @@ func _draw_world(font):
 		draw_string(font, screen.position + Vector2(0, 20), zone_label, HORIZONTAL_ALIGNMENT_CENTER, screen.size.x, 15, Color.WHITE)
 		if status != "":
 			draw_string(font, screen.position + Vector2(0, 36), status, HORIZONTAL_ALIGNMENT_CENTER, screen.size.x, 12, GOLD if status == "cleared" else Color(0.7, 0.7, 0.75))
+
+
+# ---------- Town map (Home) ----------
+func _draw_town(font):
+	var half = Vector2(50, 50)
+	var floor_node = Zones.local_first("map_floor")
+	if floor_node:
+		half = floor_node.get_half_size()
+	var local_rect = Rect2(-half, half * 2.0)
+	var fit = _fit(local_rect, 0.8)
+	var screen = Rect2(fit.offset + local_rect.position * fit.scale, local_rect.size * fit.scale)
+	draw_rect(screen, Color(0.3, 0.3, 0.32))
+	draw_rect(screen, GOLD, false, 2.0)
+	draw_string(font, Vector2(0, 50), "HOME", HORIZONTAL_ALIGNMENT_CENTER, size.x, 30, GOLD)
+	# Shops
+	for b in load("res://town.gd").BUILDINGS:
+		var c = _to_screen(fit, b.pos)
+		var r = Rect2(c - Vector2(b.size.x, b.size.z) * fit.scale / 2.0, Vector2(b.size.x, b.size.z) * fit.scale)
+		draw_rect(r, Color(0.55, 0.38, 0.25))
+		draw_string(font, Vector2(c.x - 60, r.position.y + r.size.y / 2.0 + 6), b.sign, HORIZONTAL_ALIGNMENT_CENTER, 120, 16, Color.WHITE)
+	# Rest shrine (Pomodoro gate: bank gold, rest)
+	var gate_node = Zones.local_root().get_node_or_null("PomodoroGate") if Zones.local_root() else null
+	if gate_node:
+		_map_mark(fit, gate_node.global_position, Color(1.0, 0.8, 0.2), "Deposit / rest", font)
+	# Fast travel, Hall of Legends
+	for w in Zones.local_all("waystation"):
+		_map_mark(fit, w.global_position, Color(0.5, 0.9, 1.0), Travel.station_name(), font)
+	_map_mark(fit, preload("res://spiral_floor.gd").HALL_SPOT, Color(0.85, 0.72, 0.35), "Hall of Legends", font)
+	# Gates to the zones
+	for door in Zones.local_all("door"):
+		var c = _to_screen(fit, door.global_position)
+		var open = GameState.is_unlocked(door.target_scene)
+		draw_rect(Rect2(c - Vector2(7, 7), Vector2(14, 14)), Color(0, 1, 1) if open else Color(0.9, 0.1, 0.1))
+		var text = GameState.ZONE_NAMES.get(door.target_scene, "?") + ("" if open else " (locked)")
+		var dir = (fit.offset + local_rect.get_center() * fit.scale - c).normalized()
+		var inward = dir * (34.0 + 50.0 * abs(dir.x))	# side gates need more room for the label
+		draw_string(font, c + inward - Vector2(60, -5), text, HORIZONTAL_ALIGNMENT_CENTER, 120, 15, Color.WHITE)
+	# Shopkeepers and you
+	for n in Zones.local_all("npc"):
+		if n.has_method("talk") and not n.is_in_group("shrine"):
+			draw_circle(_to_screen(fit, n.global_position), 4, Color(0.9, 0.75, 0.5))
+	var player = get_tree().get_first_node_in_group("player")
+	if player:
+		draw_circle(_to_screen(fit, player.global_position), 6, Color.WHITE)
+		draw_string(font, _to_screen(fit, player.global_position) + Vector2(-20, -10), "You", HORIZONTAL_ALIGNMENT_CENTER, 40, 14, Color.WHITE)
+
+
+func _map_mark(fit: Dictionary, pos: Vector3, c: Color, text: String, font):
+	var p = _to_screen(fit, pos)
+	draw_circle(p, 7, c)
+	draw_string(font, p + Vector2(-70, 22), text, HORIZONTAL_ALIGNMENT_CENTER, 140, 14, c)
 
 
 # ---------- Zone map (cleared zone) ----------
