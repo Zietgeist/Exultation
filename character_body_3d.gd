@@ -134,6 +134,8 @@ func _input(event):
 			KEY_F: skills.use("F")
 			KEY_G: start_gathering()
 	if event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			_click_talking = event.pressed and _click_talk()
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
 			speed_level = min(speed_level + 1, MAX_SPEED_LEVELS)
 			update_attack_speed()
@@ -218,7 +220,9 @@ func _physics_process(delta):
 		Story.on_saved()
 	_update_gather_hint(delta)
 
-	if not GameState.ui_open and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+	if _click_talking and not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+		_click_talking = false	# let go (maybe while a window was open)
+	if not GameState.ui_open and not _click_talking and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 		if st_cooldown <= 0:
 			single_target_attack()
 			st_cooldown = st_cooldown_time
@@ -600,6 +604,31 @@ func _nearest_in(nodes: Array):
 	return best
 
 
+const CLICK_PICK = 2.0		# how close to a shrine / shopkeeper the click has to land
+const CLICK_TALK_RANGE = 6.0	# how close you have to be for a click to use it
+var _click_talking := false	# this left click went to a shrine / shopkeeper: no attack until released
+
+
+## Left click on a shrine or shopkeeper: use it (same as G). Returns true if the click was used.
+func _click_talk() -> bool:
+	var best = null
+	var best_d = CLICK_PICK
+	for n in Zones.all(self, "npc"):
+		var d = n.horizontal_distance(mouse_world_point)
+		if d < best_d:
+			best = n
+			best_d = d
+	if best == null:
+		return false
+	if best.horizontal_distance(global_position) > CLICK_TALK_RANGE + best.reach:
+		_float_text("Walk closer", Color(0.85, 0.85, 0.85))
+		return true
+	if gather_node != null:
+		_stop_gathering("Stopped")
+	best.talk()
+	return true
+
+
 var _hint_node = null
 var _hint_timer = 0.0
 
@@ -692,6 +721,7 @@ func _float_text(text: String, color: Color):
 	_label_tween = _gather_label.create_tween()
 	_label_tween.tween_interval(0.8)
 	_label_tween.tween_property(_gather_label, "modulate:a", 0.0, 0.5)
+	_label_tween.tween_callback(func(): _gather_label.text = "")	# the outline doesn't fade with it: clear it
 
 
 # ---------------- Gear, damage types and potions ----------------

@@ -82,7 +82,7 @@ func _refresh_label():
 	var wait = Trials.wait_text(ability)
 	if wait == "":
 		title += " " + Trials.ROMAN[min(Trials.next_level(ability), Trials.MAX_LEVEL)]
-		_label.text = title + ("\nG: take the trial" if _lit else "")
+		_label.text = title + ("\nG or click: take the trial" if _lit else "")
 		_crystal.visible = true
 	else:
 		_label.text = title + "\n" + ("mastered" if wait == "mastered" else "rests for you: " + wait)
