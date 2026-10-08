@@ -94,8 +94,10 @@ func _physics_process(delta):
 			aggroed = false
 			hunter = false
 			return
-		if distance <= AGGRO_RANGE * (Traits.aggro_mult() if player == Zones.player else 1.0):	# Wary: notice you later
+		var notice = AGGRO_RANGE * (Traits.aggro_mult() if player == Zones.player else 1.0)	# Wary: notice you later
+		if distance <= notice and not aggroed:
 			aggroed = true
+			call_friends(notice * FRIEND_SHARE)
 
 		# Idle enemies stand still and skip physics (zones can hold hundreds of them)
 		if hunter:
@@ -141,6 +143,20 @@ func _closest_party_member():
 	return best
 
 
+## Secondary aggro: when you pull this one, its friends close by come too.
+## One jump only: friends pulled this way don't call their own friends.
+const FRIEND_SHARE = 0.5	# friends within half this enemy's aggro range
+
+func call_friends(radius: float):
+	if radius <= 0.0:
+		return
+	for e in Zones.all(self, "enemy"):
+		if e == self or e.aggroed or e.mirror or not is_instance_valid(e):
+			continue
+		if e.global_position.distance_to(global_position) <= radius:
+			e.aggroed = true	# set directly, so it doesn't call anyone else
+
+
 func root(seconds: float):
 	if mirror:
 		Net.root_enemy(net_id, seconds)
@@ -154,6 +170,9 @@ func take_damage(amount):
 		flash()
 		Net.hit_enemy(net_id, amount)
 		return
+	if not aggroed and not _target_safe:	# hit from afar: it comes for you, and so do its friends
+		aggroed = true
+		call_friends(AGGRO_RANGE * FRIEND_SHARE)
 	if _power_on > 0.0 and rival.get("power") == "harden":
 		amount *= 0.5
 	health -= amount
