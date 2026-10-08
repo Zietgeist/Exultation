@@ -515,16 +515,23 @@ func is_equipped(id: int) -> bool:
 
 
 ## Put an item on. Fills an empty spot; if all are full, swaps out the first one.
-## Returns false if your race can't wear this kind of item.
-func equip(id: int) -> bool:
+## slot_id / at: put it in that exact spot (the paper doll). Returns false if your race can't wear it there.
+func equip(id: int, slot_id := "", at := -1) -> bool:
 	var it = item_by_id(id)
 	if it == null or is_equipped(id):
 		return false
 	var rs = slot_for(it)
+	if slot_id != "":
+		rs = null
+		for r in SkinManager.race_slots():
+			if r.slot == slot_id and r.accepts == it.slot:
+				rs = r
 	if rs == null:
 		return false
 	var arr = equipped[rs.slot]
 	var spot = arr.find(-1)
+	if at >= 0 and at < arr.size():
+		spot = at
 	arr[0 if spot == -1 else spot] = id
 	if not it.has("bound_to"):	# worn gear is yours for good (it can't be given away after this)
 		it.bound_to = Story.player_name

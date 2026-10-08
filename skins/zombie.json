@@ -108,6 +108,7 @@
 	"races": [
 		{
 			"id": "survivor",
+			"body": {"color": "#9c8a78"},
 			"name": "Survivor",
 			"about": "An ordinary person who made it this far. Wears anything, two charms.",
 			"slots": [
@@ -143,6 +144,7 @@
 		},
 		{
 			"id": "bitten",
+			"body": {"lean": 0.7, "color": "#7f9a74"},
 			"name": "Bitten",
 			"about": "Infected but holding on. Can't keep headgear on, but carries four charms.",
 			"slots": [
@@ -174,6 +176,7 @@
 		},
 		{
 			"id": "veteran",
+			"body": {"build": 1.15, "color": "#8a7a68"},
 			"name": "Veteran",
 			"about": "Old soldier. Every armor slot, one dog tag.",
 			"slots": [

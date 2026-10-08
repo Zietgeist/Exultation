@@ -108,6 +108,7 @@
 	"races": [
 		{
 			"id": "human",
+			"body": {"color": "#b8a08a"},
 			"name": "Human",
 			"about": "Standard issue. Every armor slot, two modules.",
 			"slots": [
@@ -143,6 +144,7 @@
 		},
 		{
 			"id": "cyborg",
+			"body": {"mech": true, "color": "#8d96a3"},
 			"name": "Cyborg",
 			"about": "More machine than human. No gloves, boots or shoulder plates; six implants instead.",
 			"slots": [

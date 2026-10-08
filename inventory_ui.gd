@@ -9,6 +9,7 @@ const GOLD = Color(1.0, 0.85, 0.3)
 const SOFT = Color(0.85, 0.85, 0.85)
 const DIM = Color(0.6, 0.6, 0.6)
 const BLUE = Color(0.75, 0.85, 1.0)
+const TILE = preload("res://item_tile.gd")
 
 var panel: PanelContainer
 var left: VBoxContainer
@@ -70,10 +71,19 @@ func _process(delta):
 	_refresh -= delta
 	if _refresh <= 0.0:	# gold and gathering keep changing while it's open
 		_refresh = 1.0
-		_rebuild()
+		var sig = _signature()
+		if sig != _last_sig:	# only when something changed, so hovering a tile keeps its tooltip
+			_rebuild()
+
+
+var _last_sig := ""
+
+func _signature() -> String:
+	return str([GameState.gold_carried, GameState.gold_banked, GameState.satchel, Crafting.stash, Crafting.items.size(), Crafting.equipped, GameState.buffs.keys()])
 
 
 func _rebuild():
+	_last_sig = _signature()
 	for c in left.get_children() + right.get_children():
 		c.queue_free()
 	_carrying()
@@ -82,35 +92,48 @@ func _rebuild():
 
 func _carrying():
 	_title(left, "Carrying", 26)
-	_text(left, "Gold bag: %d / %d%s" % [GameState.gold_carried, GameState.GOLD_CAPACITY, "  - FULL, take the portal home" if GameState.is_bag_full() else ""], GOLD)
+	var gold_row = HBoxContainer.new()
+	left.add_child(gold_row)
+	gold_row.add_child(TILE.make("gold", GOLD, 7, 0, "Gold bag: gold you've picked up. Take it Home to bank it.", 44))
+	var gb = _meter(gold_row, GameState.gold_carried, GameState.GOLD_CAPACITY, Color(1.0, 0.8, 0.15))
+	gold_row.add_child(_small("%d / %d%s" % [GameState.gold_carried, GameState.GOLD_CAPACITY, "  FULL: take the portal home" if GameState.is_bag_full() else ""], GOLD))
 
 	var used = GameState.satchel_count()
 	var cap = GameState.satchel_capacity()
-	_title(left, "Satchel  %d / %d" % [used, cap], 20)
-	var bar = ProgressBar.new()
-	bar.max_value = cap
-	bar.value = used
-	bar.show_percentage = false
-	bar.custom_minimum_size = Vector2(0, 10)
-	left.add_child(bar)
+	var sat_row = HBoxContainer.new()
+	left.add_child(sat_row)
+	sat_row.add_child(TILE.make("satchel", Color.WHITE, 1, 0, "Satchel: raw resources. Refine them at the Smith or Chemist to free space.", 44))
+	_meter(sat_row, used, cap, Color(0.55, 0.75, 1.0))
+	sat_row.add_child(_small("%d / %d%s" % [used, cap, "  FULL" if used >= cap else ""], BLUE if used < cap else Color(1, 0.6, 0.45)))
+	var grid = _grid(left)
 	var keys = GameState.satchel.keys()
 	keys.sort()
-	var lines = []
 	for k in keys:
-		if GameState.satchel[k] > 0:
-			var bits = k.split(":")
-			lines.append("%s  x%d" % [GameState.resource_name(bits[0], int(bits[1])), GameState.satchel[k]])
-	_text(left, "\n".join(lines) if lines.size() > 0 else "Empty. Gather with G (ore by hills, herbs by trees).", BLUE if lines.size() > 0 else DIM)
-	if used >= cap:
-		_text(left, "Full! Refine at the Smith or Chemist, or buy a bigger satchel at the Inn.", Color(1, 0.6, 0.45))
+		if GameState.satchel[k] <= 0:
+			continue
+		var bits = k.split(":")
+		var type = bits[0]
+		var q = int(bits[1])
+		grid.add_child(TILE.make(type, GameState.RESOURCE_INFO[type].color, q, GameState.satchel[k],
+			"%s  x%d\nRefines into %s at the %s." % [GameState.resource_name(type, q), GameState.satchel[k],
+			Crafting.MATERIAL_LABELS.get(Crafting.REFINE[type].to, ""), Crafting.REFINE[type].shop.capitalize()]))
+	if grid.get_child_count() == 0:
+		_text(left, "Empty. Gather with G (ore by hills, herbs by trees).", DIM)
 
 	var pots = Crafting.potions()
-	_title(left, "Potions (press 1)  %d" % pots.size(), 20)
-	_text(left, "\n".join(pots.map(func(it): return it.name)) if pots.size() > 0 else "None. Make them at the Chemist.", SOFT if pots.size() > 0 else DIM)
+	_title(left, "Potions (press 1)", 20)
+	var pg = _grid(left)
+	for it in pots:
+		pg.add_child(TILE.for_item(it, 52))
+	if pots.is_empty():
+		_text(left, "None. Make them at the Chemist.", DIM)
 
 	_title(left, "Wearing", 20)
-	var worn = Crafting.equipped_items().filter(func(it): return it.slot != "potion")
-	_text(left, "\n".join(worn.map(func(it): return "%s  (%s)" % [Story.display_name(it), SkinManager.slot_label(it.slot)])) if worn.size() > 0 else "Nothing yet. The Smith makes gear.", SOFT if worn.size() > 0 else DIM)
+	var wg = _grid(left)
+	for it in Crafting.equipped_items().filter(func(it): return it.slot != "potion"):
+		wg.add_child(TILE.for_item(it, 52))
+	if wg.get_child_count() == 0:
+		_text(left, "Nothing yet. The Smith makes gear.", DIM)
 
 	var buffs = GameState.buffs.keys().map(func(id): return GameState.INN_OFFERS[id].name + ": " + GameState.INN_OFFERS[id].about)
 	if buffs.size() > 0:
@@ -120,17 +143,70 @@ func _carrying():
 
 func _at_home():
 	_title(right, "Stored at Home", 26)
-	_text(right, "Banked gold: %d  (spend it on crafting and at the Inn)" % GameState.gold_banked, GOLD)
+	var bank = HBoxContainer.new()
+	right.add_child(bank)
+	bank.add_child(TILE.make("gold", GOLD, 7, 0, "Banked gold: spend it on crafting and at the Inn.", 44))
+	bank.add_child(_small("Banked gold: %d" % GameState.gold_banked, GOLD))
 	_title(right, "Materials", 20)
-	var mats = Crafting.stash_list().filter(func(e): return not Crafting.is_sigil(e.mat))
-	_text(right, "\n".join(mats.map(func(e): return "%s  x%d" % [e.name, e.count])) if mats.size() > 0 else "None yet. Refine resources at the Smith or Chemist.", BLUE if mats.size() > 0 else DIM)
+	var mg = _grid(right)
+	for e in Crafting.stash_list():
+		var kind = "sigil" if Crafting.is_sigil(e.mat) else e.mat
+		var col = Trials.TYPES.get(e.mat.trim_prefix("sigil_"), {}).get("color", GOLD) if kind == "sigil" else _mat_color(e.mat)
+		mg.add_child(TILE.make(kind, col, e.q, e.count, "%s  x%d" % [e.name, e.count]))
+	if mg.get_child_count() == 0:
+		_text(right, "None yet. Refine resources at the Smith or Chemist.", DIM)
 	_title(right, "Gear not worn", 20)
-	var spare = Crafting.items.filter(func(it): return it.slot != "potion" and not Crafting.is_equipped(it.id))
-	_text(right, "\n".join(spare.map(func(it): return Story.display_name(it))) if spare.size() > 0 else "None.", SOFT if spare.size() > 0 else DIM)
+	var gg = _grid(right)
+	for it in Crafting.items.filter(func(it): return it.slot != "potion" and not Crafting.is_equipped(it.id)):
+		var t = TILE.for_item(it, 52)
+		t.tooltip_text += "\n\nWear it from the character window (C), in town."
+		gg.add_child(t)
+	if gg.get_child_count() == 0:
+		_text(right, "None.", DIM)
 	var close = Button.new()
 	close.text = "Close (I or Esc)"
+	close.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	close.pressed.connect(toggle)
 	right.add_child(close)
+
+
+## Refined materials take the color of what they came from.
+func _mat_color(mat: String) -> Color:
+	for raw in Crafting.REFINE:
+		if Crafting.REFINE[raw].to == mat:
+			return GameState.RESOURCE_INFO[raw].color
+	return SOFT
+
+
+func _grid(box) -> GridContainer:
+	var g = GridContainer.new()
+	g.columns = 7
+	g.add_theme_constant_override("h_separation", 6)
+	g.add_theme_constant_override("v_separation", 6)
+	box.add_child(g)
+	return g
+
+
+func _meter(row, value: float, max_v: float, color: Color) -> ProgressBar:
+	var b = ProgressBar.new()
+	b.max_value = max_v
+	b.value = value
+	b.show_percentage = false
+	b.custom_minimum_size = Vector2(200, 14)
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var fill = StyleBoxFlat.new()
+	fill.bg_color = color
+	b.add_theme_stylebox_override("fill", fill)
+	row.add_child(b)
+	return b
+
+
+func _small(t: String, color: Color) -> Label:
+	var l = Label.new()
+	l.text = "  " + t
+	l.add_theme_color_override("font_color", color)
+	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	return l
 
 
 func _title(box: VBoxContainer, t: String, size := 26):

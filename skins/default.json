@@ -108,6 +108,7 @@
 	"races": [
 		{
 			"id": "human",
+			"body": {"color": "#b08d74"},
 			"name": "Human",
 			"about": "Balanced. Wears anything, two rings.",
 			"slots": [
@@ -143,6 +144,7 @@
 		},
 		{
 			"id": "elf",
+			"body": {"build": 0.8, "height": 1.1, "color": "#c8d6bc"},
 			"name": "Elf",
 			"about": "Light and graceful. No shoulder pads, but four rings.",
 			"slots": [
@@ -174,6 +176,7 @@
 		},
 		{
 			"id": "dwarf",
+			"body": {"build": 1.35, "height": 0.72, "color": "#a07860"},
 			"name": "Dwarf",
 			"about": "Built for armor. Every slot, but thick fingers: one ring.",
 			"slots": [
@@ -209,6 +212,7 @@
 		},
 		{
 			"id": "ent",
+			"body": {"plan": "tree", "color": "#6b4f35"},
 			"name": "Ent",
 			"about": "A walking tree. No gloves, boots or shoulder pads, but twenty rings on its branches.",
 			"slots": [
