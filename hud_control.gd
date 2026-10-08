@@ -142,6 +142,8 @@ func _process(delta):
 		]
 		if spawner.targets_ready or Net.is_client():
 			kill_label.text += "   |   Cleared %d / %d" % [spawner.total_killed, spawner.min_clear]
+			var steadfast = ceili(spawner.target_total * 0.99)	# Steadfast: 99% of the zone
+			kill_label.text += ("   |   STEADFAST (99%) reached" if spawner.total_killed >= steadfast else "   |   99%%: %d" % steadfast)
 	else:
 		kill_label.text = ""	# no enemies here (Home)
 

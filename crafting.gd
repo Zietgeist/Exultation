@@ -646,7 +646,7 @@ func describe(item: Dictionary) -> String:
 	var lines = []
 	match item.slot:
 		"weapon":
-			lines.append("Hit %d / Sweep %d   (reach %d, sweep up to %d)" % [e.st, e.aoe, e.reach, e.targets])
+			lines.append("Hit %d / Sweep %d   (reach %d, sweep up to %d)" % [e.st, e.aoe, e.reach * 2, e.targets])	# strikes reach 2x (player REACH_MULT)
 			lines.append("Attack time %.1fs / %.1fs" % [e.st_cd, e.aoe_cd])
 			for el in e.element_bonus:
 				lines.append("+%d %s damage per hit" % [e.element_bonus[el], SkinManager.element_label(el)])

@@ -300,6 +300,11 @@ func on_zone_cleared(path: String, zone_name: String):
 	_cleared[path] = true
 	nudge("pace", 10.0, "cleared 99% of " + zone_name)
 	Story.add("Cleared nearly every foe in %s." % zone_name)
+	var banner = load("res://steadfast_flag.gd").new()	# the pop-up flag
+	banner.zone_name = zone_name
+	get_tree().root.add_child(banner)
+	if Zones.player:
+		banner.plant(Zones.player)
 
 
 func _on_entered(z):

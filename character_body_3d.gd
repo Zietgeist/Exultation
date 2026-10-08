@@ -32,7 +32,9 @@ var st_cooldown = 0.0
 var aoe_cooldown = 0.0
 
 # Base attack stats
-var ST_RANGE = 10.0		# weapon reach (spears reach farther)
+var ST_RANGE = 20.0		# weapon reach x REACH_MULT (spears reach farther)
+const REACH_MULT = 2.0	# single strikes reach twice the weapon's listed reach (they were too short)
+const AIM_RADIUS = 6.0	# strikes go to the enemy nearest your mouse pointer (within reach)
 const AOE_RANGE = 8.0
 
 # Current weapon stats
@@ -241,13 +243,22 @@ func single_target_attack():
 	var enemies = Zones.all(self, "enemy")
 	var closest = null
 	var closest_dist = ST_RANGE
-	
+	var aimed = null	# the one under (or near) your mouse pointer wins
+	var aimed_dist = AIM_RADIUS
 	for enemy in enemies:
 		var dist = global_position.distance_to(enemy.global_position)
+		if dist > ST_RANGE:
+			continue
 		if dist < closest_dist:
 			closest_dist = dist
 			closest = enemy
-	
+		var to_mouse = Vector2(enemy.global_position.x - mouse_world_point.x, enemy.global_position.z - mouse_world_point.z).length()
+		if to_mouse < aimed_dist:
+			aimed_dist = to_mouse
+			aimed = enemy
+	if aimed:
+		closest = aimed
+
 	if closest:
 		var damage = (st_damage * get_damage_multiplier() + _element_damage()) * Traits.damage_mult(health / MAX_HEALTH) * Traits.strike_mult()
 		if randf() < Traits.crit_chance():	# Precision
@@ -695,7 +706,7 @@ func apply_gear():
 		weapon_aoe_base = e.aoe
 		aoe_cone = e.cone
 		aoe_max_targets = e.targets
-		ST_RANGE = e.reach
+		ST_RANGE = e.reach * REACH_MULT
 		gear_st_cd = e.st_cd
 		gear_aoe_cd = e.aoe_cd
 		element_bonus = e.element_bonus
@@ -706,7 +717,7 @@ func apply_gear():
 		weapon_aoe_base = 50.0
 		aoe_cone = 0.3
 		aoe_max_targets = 4
-		ST_RANGE = 10.0
+		ST_RANGE = 10.0 * REACH_MULT
 		gear_st_cd = BASE_ST_COOLDOWN
 		gear_aoe_cd = BASE_AOE_COOLDOWN
 		element_bonus = {}
