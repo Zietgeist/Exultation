@@ -136,6 +136,9 @@ func _closest_party_member():
 			continue
 		if m.is_in_group("pet") and not m.alive():
 			continue
+		# A pet that isn't out gathering doesn't pull enemies (unless this one is already after it)
+		if m.is_in_group("pet") and m.has_method("draws_aggro") and not m.draws_aggro() and not (aggroed and m == player):
+			continue
 		var d = global_position.distance_squared_to(m.global_position)
 		if d < best_d:
 			best = m

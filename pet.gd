@@ -109,6 +109,11 @@ func set_pet_name(n: String):
 	Story.add(("You named your %s %s." if first else "Your %s goes by %s now.") % [SkinManager.name_of("pet"), n])
 
 
+## Enemies only notice it while it's out gathering (beside you it stays out of the fight).
+func draws_aggro() -> bool:
+	return target != null
+
+
 func alive() -> bool:
 	return knocked_out <= 0.0
 

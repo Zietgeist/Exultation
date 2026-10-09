@@ -6,6 +6,7 @@ extends Node3D
 var peer_id := 0
 var color := Color(0.55, 0.9, 1.0)
 var is_alive := true
+var gathering := false	# out on a job (only then can enemies notice it)
 var _target := Vector3.ZERO
 var _body: MeshInstance3D
 
@@ -25,7 +26,8 @@ func _ready():
 	add_child(_body)
 
 
-func net_state(pos: Vector3, alive_now: bool):
+func net_state(pos: Vector3, alive_now: bool, gathering_now := true):
+	gathering = gathering_now
 	_target = pos
 	is_alive = alive_now
 	visible = alive_now
@@ -40,6 +42,10 @@ func _process(delta):
 
 func alive() -> bool:
 	return is_alive
+
+
+func draws_aggro() -> bool:
+	return gathering
 
 
 ## An enemy hit it (host only): the owner's real pet takes the hit.

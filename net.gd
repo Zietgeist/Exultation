@@ -179,7 +179,7 @@ func _process(delta):
 		var me = Zones.player
 		_player_state.rpc(key, Zones.local_path(), me.global_position, me.rotation.y, me.health, me.MAX_HEALTH, me.player_class)
 		if me.pet and is_instance_valid(me.pet) and me.pet.is_inside_tree():
-			_pet_state.rpc(key, me.pet.global_position, me.pet.alive())
+			_pet_state.rpc(key, me.pet.global_position, me.pet.alive(), me.pet.draws_aggro())
 	if not is_host():
 		return
 	_snap_t -= delta
@@ -639,7 +639,7 @@ func _give_item(item: Dictionary, from_name: String):
 
 ## Someone's pet moved. Show it next to their stand-in (on the host, enemies can go after it).
 @rpc("any_peer", "call_remote", "unreliable_ordered")
-func _pet_state(key: String, pos: Vector3, alive: bool):
+func _pet_state(key: String, pos: Vector3, alive: bool, gathering := true):
 	var id = multiplayer.get_remote_sender_id()
 	var p = puppets.get(id)
 	if p == null or not is_instance_valid(p) or not p.is_inside_tree() or Zones.key_of(p) != key:
@@ -652,7 +652,7 @@ func _pet_state(key: String, pos: Vector3, alive: bool):
 		g.color = color_of(id)
 		p.add_child(g)
 		g.global_position = pos
-	g.net_state(pos, alive)
+	g.net_state(pos, alive, gathering)
 
 
 ## Host: an enemy hit a joined player's pet.
