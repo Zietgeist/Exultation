@@ -494,9 +494,9 @@ signal buffs_changed
 
 ## Inn treats: bought with banked gold, last until your next rest (the next time you bank gold).
 const INN_OFFERS = {
-	"meal": {name = "Hearty meal", gold = 25, about = "+15% damage"},
-	"sleep": {name = "A good night's sleep", gold = 40, about = "+50% energy regen"},
-	"tonic": {name = "Tamsin's tonic", gold = 30, about = "+20% max health"},
+	"meal": {name = "Hearty meal", gold = 6, about = "+15% damage"},				# was 25
+	"sleep": {name = "A good night's sleep", gold = 10, about = "+50% energy regen"},	# was 40
+	"tonic": {name = "Tamsin's tonic", gold = 8, about = "+20% max health"},			# was 30
 }
 var buffs = {}	# offer id -> true
 

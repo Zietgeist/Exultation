@@ -19,7 +19,7 @@ func _ready():
 	list.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	list.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	list.offset_left = -360
-	list.offset_top = 8
+	list.offset_top = 70	# under the buff icons (buff_bar.gd)
 	list.offset_right = -10
 	list.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	list.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))

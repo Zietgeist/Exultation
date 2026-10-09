@@ -117,6 +117,8 @@ func _ready():
 	get_parent().add_child.call_deferred(notice_label)
 	GameState.notice.connect(_on_notice)
 
+	# Buff icons, top right
+	get_parent().add_child.call_deferred(load("res://buff_bar.gd").new())
 	# The pet window (press K)
 	get_parent().add_child.call_deferred(load("res://pet_ui.gd").new())
 	# The map (press M)

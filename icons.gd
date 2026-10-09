@@ -161,5 +161,44 @@ static func draw(ci: CanvasItem, kind: String, r: Rect2, c: Color):
 			ci.draw_rect(Rect2(p.call(0.18, 0.35), Vector2(0.64, 0.5) * r.size), Color(0.55, 0.38, 0.22))
 			ci.draw_arc(p.call(0.5, 0.36), s * 0.2, PI, TAU, 12, Color(0.45, 0.3, 0.18), s * 0.07)
 			ci.draw_rect(Rect2(p.call(0.18, 0.35), Vector2(0.64, 0.16) * r.size), Color(0.45, 0.3, 0.18))
+		# ---- buffs (buff_bar.gd) ----
+		"meal":
+			ci.draw_arc(p.call(0.5, 0.45), s * 0.32, 0, PI, 16, c, s * 0.1)
+			ci.draw_line(p.call(0.18, 0.45), p.call(0.82, 0.45), c, s * 0.08)
+			for x in [0.38, 0.5, 0.62]:
+				ci.draw_line(p.call(x, 0.35), p.call(x + 0.04, 0.15), Color(1, 1, 1, 0.6), s * 0.04)
+		"sleep":
+			ci.draw_circle(p.call(0.45, 0.5), s * 0.3, c)
+			ci.draw_circle(p.call(0.6, 0.4), s * 0.27, Color(0.08, 0.08, 0.1))
+			ci.draw_string(ThemeDB.fallback_font, p.call(0.62, 0.42), "z", HORIZONTAL_ALIGNMENT_LEFT, -1, int(s * 0.35), c)
+		"ward", "shield":
+			var pts = PackedVector2Array([p.call(0.5, 0.12), p.call(0.84, 0.25), p.call(0.78, 0.62), p.call(0.5, 0.9), p.call(0.22, 0.62), p.call(0.16, 0.25)])
+			if kind == "shield":
+				ci.draw_colored_polygon(pts, c)
+			else:
+				pts.append(pts[0])
+				ci.draw_polyline(pts, c, s * 0.08)
+		"boost":
+			ci.draw_colored_polygon(PackedVector2Array([p.call(0.5, 0.1), p.call(0.85, 0.5), p.call(0.62, 0.5), p.call(0.62, 0.9), p.call(0.38, 0.9), p.call(0.38, 0.5), p.call(0.15, 0.5)]), c)
+		"thorns":
+			for i in 8:
+				var a = i * TAU / 8.0
+				ci.draw_line(p.call(0.5, 0.5), p.call(0.5 + cos(a) * 0.4, 0.5 + sin(a) * 0.4), c, s * 0.07)
+			ci.draw_circle(p.call(0.5, 0.5), s * 0.16, c)
+		"whirl":
+			ci.draw_arc(p.call(0.5, 0.5), s * 0.34, 0, PI * 1.6, 20, c, s * 0.08)
+			ci.draw_arc(p.call(0.5, 0.5), s * 0.18, PI, PI * 2.6, 16, c, s * 0.08)
+		"drain", "vow":
+			ci.draw_circle(p.call(0.5, 0.62), s * 0.25, c)
+			ci.draw_colored_polygon(PackedVector2Array([p.call(0.5, 0.12), p.call(0.72, 0.52), p.call(0.28, 0.52)]), c)
+		"totem":
+			ci.draw_rect(Rect2(p.call(0.38, 0.15), Vector2(0.24, 0.72) * r.size), c)
+			ci.draw_rect(Rect2(p.call(0.26, 0.28), Vector2(0.48, 0.1) * r.size), c.lightened(0.3))
+		"patient":
+			ci.draw_colored_polygon(PackedVector2Array([p.call(0.25, 0.12), p.call(0.75, 0.12), p.call(0.5, 0.5)]), c)
+			ci.draw_colored_polygon(PackedVector2Array([p.call(0.5, 0.5), p.call(0.75, 0.88), p.call(0.25, 0.88)]), c.darkened(0.3))
+		"driven":
+			ci.draw_colored_polygon(PackedVector2Array([p.call(0.5, 0.08), p.call(0.78, 0.55), p.call(0.66, 0.9), p.call(0.34, 0.9), p.call(0.22, 0.55)]), c)
+			ci.draw_colored_polygon(PackedVector2Array([p.call(0.5, 0.45), p.call(0.62, 0.72), p.call(0.5, 0.88), p.call(0.38, 0.72)]), Color(1, 0.95, 0.6))
 		_:
 			ci.draw_circle(p.call(0.5, 0.5), s * 0.3, c)
