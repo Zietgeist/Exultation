@@ -16,17 +16,19 @@ const SETTINGS_PATH := "user://settings.cfg"
 var skins := {}	# skin id -> skin data (Dictionary)
 var current_id := "default"
 var current_race := ""	# race id within the current skin
+var race_by_skin := {}	# skin id -> the race you last picked in it (switching worlds and back keeps your race)
 var _materials := {}	# id -> shared material (one per color, so hundreds of enemies share it)
 
 
 func _ready():
 	DirAccess.make_dir_recursive_absolute(PLAYER_DIR)
 	_load_folder(BUILTIN_DIR)
-	_load_folder(PLAYER_DIR)
+	_load_folder(PLAYER_DIR, true)
 	var cfg = ConfigFile.new()
 	if cfg.load(SETTINGS_PATH) == OK:
 		current_id = cfg.get_value("skin", "id", "default")
 		current_race = cfg.get_value("skin", "race", "")
+		race_by_skin = cfg.get_value("skin", "race_by_skin", {})
 	if not skins.has(current_id):
 		current_id = "default"
 	_check_race()
@@ -83,7 +85,10 @@ func skin_name() -> String:
 func set_skin(id: String):
 	if not skins.has(id):
 		return
+	if current_race != "":
+		race_by_skin[current_id] = current_race
 	current_id = id
+	current_race = race_by_skin.get(id, current_race)	# back to the race you had in this world
 	_check_race()
 	_save_settings()
 	print("Skin changed to: ", skin_name())
@@ -96,6 +101,7 @@ func next_skin():
 	ids.sort()
 	var i = ids.find(current_id)
 	set_skin(ids[(i + 1) % ids.size()])
+	GameState.notify("World: %s  ·  Race: %s   (F9 is a test key)" % [skin_name(), race().name])
 
 
 func _save_settings():
@@ -103,6 +109,7 @@ func _save_settings():
 	cfg.load(SETTINGS_PATH)
 	cfg.set_value("skin", "id", current_id)
 	cfg.set_value("skin", "race", current_race)
+	cfg.set_value("skin", "race_by_skin", race_by_skin)
 	cfg.save(SETTINGS_PATH)
 
 
@@ -173,6 +180,7 @@ func race() -> Dictionary:
 func set_race(id: String):
 	current_race = id
 	_check_race()
+	race_by_skin[current_id] = current_race
 	_save_settings()
 	skin_changed.emit()
 
@@ -190,7 +198,21 @@ func _check_race():
 	for r in races():
 		if r.id == current_race:
 			return
+	var was = current_race
 	current_race = races()[0].id if races().size() > 0 else ""
+	if was != "":	# loud: your race changed under you
+		ErrorLog.warn("SkinManager: race '%s' isn't in the %s world, so you're a %s now" % [was, skin_name(), current_race])
+
+
+func _fill_races(data: Dictionary, builtin: Dictionary):
+	var old = {}
+	for r in builtin.get("races", []):
+		old[r.id] = r
+	for r in data.get("races", []):
+		if r is Dictionary and old.has(r.get("id", "")):
+			for k in old[r.id]:
+				if not r.has(k):
+					r[k] = old[r.id][k]
 
 
 func _lookup(sec: String, id: String):
@@ -201,7 +223,9 @@ func _lookup(sec: String, id: String):
 	return fallback.get(id, null)
 
 
-func _load_folder(path: String):
+## player = a player's own skins (user://skins/). One with the same name as a built-in world
+## replaces it, but anything its races leave out (like the new "body" shapes) comes from the built-in race.
+func _load_folder(path: String, player := false):
 	var dir = DirAccess.open(path)
 	if dir == null:
 		return
@@ -210,6 +234,10 @@ func _load_folder(path: String):
 			var text = FileAccess.get_file_as_string(path + file)
 			var data = JSON.parse_string(text)
 			if data is Dictionary:
-				skins[file.get_basename()] = data
+				var id = file.get_basename()
+				if player and skins.has(id):
+					ErrorLog.warn("SkinManager: your own skin %s%s replaces the built-in one" % [path, file])
+					_fill_races(data, skins[id])
+				skins[id] = data
 			else:
 				ErrorLog.fail("Skin file has a mistake and was skipped: " + path + file)
