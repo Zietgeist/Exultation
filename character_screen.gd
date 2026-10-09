@@ -153,6 +153,7 @@ func _gear(page, p):
 			t.modulate = Color(1, 1, 1, 0.5)
 		var item = it
 		t.pressed.connect(func(): _spare_clicked(item, in_town))
+		t.wire_gear(_rebuild.call_deferred)
 		grid.add_child(t)
 	if spare.is_empty():
 		right.add_child(_label("Nothing else yet.", DIM, 13))

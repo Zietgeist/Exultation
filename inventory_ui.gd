@@ -131,7 +131,9 @@ func _carrying():
 	_title(left, "Wearing", 20)
 	var wg = _grid(left)
 	for it in Crafting.equipped_items().filter(func(it): return it.slot != "potion"):
-		wg.add_child(TILE.for_item(it, 52))
+		var wt = TILE.for_item(it, 52)
+		wt.wire_gear(_rebuild.call_deferred)
+		wg.add_child(wt)
 	if wg.get_child_count() == 0:
 		_text(left, "Nothing yet. The Smith makes gear.", DIM)
 
@@ -159,7 +161,7 @@ func _at_home():
 	var gg = _grid(right)
 	for it in Crafting.items.filter(func(it): return it.slot != "potion" and not Crafting.is_equipped(it.id)):
 		var t = TILE.for_item(it, 52)
-		t.tooltip_text += "\n\nWear it from the character window (C), in town."
+		t.wire_gear(_rebuild.call_deferred)
 		gg.add_child(t)
 	if gg.get_child_count() == 0:
 		_text(right, "None.", DIM)

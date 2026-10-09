@@ -105,6 +105,8 @@ func _tile(rs: Dictionary, index: int, id: int, small: bool):
 	if id != -1 and Crafting.item_by_id(id) != null:
 		var it = Crafting.item_by_id(id)
 		t = TILE.for_item(it, BIG)
+		t.wire_gear(_changed)
+		t.hint = "Click: change  ·  Right-click: take off (in town)" if can_change else "Change gear in town"
 		t.tooltip_text = "%s\n%s\n\n%s" % [rs.label, t.tooltip_text, "Click to change" if can_change else "Change gear in town"]
 	else:
 		t = TILE.for_empty(rs.accepts, rs.label, BIG)
