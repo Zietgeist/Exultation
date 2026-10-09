@@ -34,6 +34,7 @@ func _ready():
 	add_child(_label)
 	_refresh()
 	body_entered.connect(_on_body_entered)
+	body_exited.connect(_on_body_exited)
 
 
 func _refresh():
@@ -66,6 +67,16 @@ func _on_body_entered(body):
 		ErrorLog.fail("Waystation: no travel window (travel_ui.gd) in the HUD")
 		return
 	ui.open(zone_path, station_id)
+	ui.opened_by = self
+
+
+## Stepped off without picking a stop: close the list.
+func _on_body_exited(body):
+	if body != Zones.player:
+		return
+	var ui = get_tree().get_first_node_in_group("travel_ui")
+	if ui and ui.panel.visible and ui.opened_by == self:
+		ui.close()
 
 
 # ---------------- Looks ----------------

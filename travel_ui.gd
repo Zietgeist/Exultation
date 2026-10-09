@@ -10,6 +10,7 @@ const RIDE = {"portal": "You step through the ring...", "rail": "The train rattl
 var panel: PanelContainer
 var list: VBoxContainer
 var fade: ColorRect
+var opened_by = null	# the waystation you're standing on (stepping off it closes the list)
 
 
 func _ready():
@@ -92,6 +93,7 @@ func open(here_path: String, here_id: String):
 
 
 func close():
+	opened_by = null
 	panel.visible = false
 	GameState.ui_open = false
 
