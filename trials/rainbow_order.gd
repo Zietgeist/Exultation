@@ -13,7 +13,9 @@ func title() -> String:
 	return "Color Sense"
 
 func instructions() -> String:
-	return "Click from LIGHTEST to DARKEST." if shades else "Click in rainbow order: red, orange, yellow, green, blue, violet."
+	if shades:
+		return "Click from LIGHTEST to DARKEST."
+	return "Click in rainbow order: red, orange, yellow, green, blue, violet." + ("\nIn-between shades go in between." if order.size() > 6 else "")
 
 func time_limit() -> float:
 	return lerp(22.0, 15.0, difficulty)
@@ -21,17 +23,23 @@ func time_limit() -> float:
 
 func build():
 	custom_minimum_size = AREA
-	var n = 5 + roundi(difficulty * 3)
 	shades = difficulty > 0.5 and rng.randf() < 0.5
+	var n = 5 + roundi(difficulty * 3)
 	if shades:
 		var hue = rng.randf()
 		var lo = lerp(0.25, 0.4, difficulty)
 		for i in range(n):
 			order.append(Color.from_hsv(hue, 0.65, lerp(0.95, lo, float(i) / (n - 1))))
 	else:
-		for i in range(n):	# red (0.0) to violet (~0.78), small wobble so it's not a ruler
-			var h = lerp(0.0, 0.78, float(i) / (n - 1)) + rng.randf_range(-0.01, 0.01)
-			order.append(Color.from_hsv(clamp(h, 0.0, 0.8), lerp(0.85, 0.6, difficulty), 0.95))
+		# Always the six named colors (red, orange, yellow, green, blue, violet), so the
+		# instructions are true; harder trials add in-between shades (yellow-green, cyan).
+		var hues = [0.0, 0.075, 0.15, 0.33, 0.62, 0.78]
+		var extras = [0.5, 0.24]
+		for k in range(roundi(difficulty * 2)):
+			hues.append(extras[k])
+		hues.sort()
+		for h in hues:	# a small wobble so it's not a ruler
+			order.append(Color.from_hsv(clamp(h + rng.randf_range(-0.006, 0.006), 0.0, 0.8), lerp(0.9, 0.7, difficulty), 0.95))
 	var v = VBoxContainer.new()
 	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -41,8 +49,8 @@ func build():
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 10)
 	v.add_child(row)
-	var mixed = range(n)
-	while mixed == range(n):
+	var mixed = range(order.size())
+	while mixed == range(order.size()):
 		mixed.shuffle()
 	for i in mixed:
 		var b = Button.new()
