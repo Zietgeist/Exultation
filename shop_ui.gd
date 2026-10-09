@@ -143,12 +143,23 @@ func _make_section():
 		var needs = []
 		for m in b.need:
 			needs.append("%d %s" % [b.need[m], Crafting.MATERIAL_LABELS[m]])
-		base_pick.add_item("%s%s  (%s, %d open slot%s, %d gold) - %s" % ["* " if b.get("advanced", false) else "", b.label, ", ".join(needs), b.slots, "" if b.slots == 1 else "s", Crafting.gold_cost(bases[i], 1), b.about])
+		base_pick.add_item("%s%s  (%s, %d open slot%s, %d gold)" % ["* " if b.get("advanced", false) else "", b.label, ", ".join(needs), b.slots, "" if b.slots == 1 else "s", Crafting.gold_cost(bases[i], 1)])
+		base_pick.set_item_tooltip(i, b.about)	# the longer description (kept out of the list so it fits)
 		if bases[i] == sel_base:
 			base_pick.select(i)
+	base_pick.fit_to_longest_item = false	# a long recipe name mustn't stretch the window off the screen
+	base_pick.clip_text = true
+	base_pick.custom_minimum_size.x = 600
 	base_pick.item_selected.connect(func(i): sel_base = bases[i]; sel_q = -1; sel_slots = []; _rebuild.call_deferred())
 	row.add_child(base_pick)
 	content.add_child(row)
+	var about = Crafting.recipe(sel_base).get("about", "") if sel_base != "" else ""
+	if about != "":
+		var al = _label(about)
+		al.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		al.custom_minimum_size.x = 0
+		al.add_theme_color_override("font_color", Color(0.7, 0.7, 0.75))
+		content.add_child(al)
 
 	# Quality of the main material
 	var qs = Crafting.base_qualities(sel_base)
