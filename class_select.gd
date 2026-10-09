@@ -1,5 +1,7 @@
 extends Control
-## Start screen: pick a WORLD (skin), a RACE (from that world) and a CLASS.
+## Start screen. Left: your saved characters (Account) - Play one, or delete it - and how to play
+## (solo / host / join). Right: make a NEW character: a name, a WORLD (skin), a RACE and a CLASS.
+## Each character keeps its own gold, gear, pet and story. A different race or class = a new character.
 ## The world changes names, colors, terrain looks and which races you can play.
 ## The race decides which gear slots you have (an Ent has no boots, but twenty rings).
 
@@ -26,6 +28,9 @@ const STEAM_JOIN = 2
 const ADDR_HOST = 3
 const ADDR_JOIN = 4
 var _world_ids = []
+var name_edit: LineEdit
+var _char_list: VBoxContainer
+var _confirm: ConfirmationDialog
 
 
 func _ready():
@@ -40,13 +45,42 @@ func _ready():
 	var center = CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(center)
+	var outer = VBoxContainer.new()
+	outer.add_theme_constant_override("separation", 10)
+	center.add_child(outer)
+	_title(outer, "EXULTATION", 44)
+	var cols = HBoxContainer.new()
+	cols.add_theme_constant_override("separation", 40)
+	outer.add_child(cols)
+	var left = VBoxContainer.new()
+	left.custom_minimum_size = Vector2(460, 0)
+	left.add_theme_constant_override("separation", 10)
+	cols.add_child(left)
 	var box = VBoxContainer.new()
-	box.custom_minimum_size = Vector2(640, 0)
-	box.add_theme_constant_override("separation", 12)
-	center.add_child(box)
+	box.custom_minimum_size = Vector2(560, 0)
+	box.add_theme_constant_override("separation", 10)
+	cols.add_child(box)
+	var right = box
 
-	_title(box, "EXULTATION", 44)
+	# Left: your characters
+	_title(left, "Your characters", 26)
+	var scroll = ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(460, 250)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	left.add_child(scroll)
+	_char_list = VBoxContainer.new()
+	_char_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_char_list)
+	_confirm = ConfirmationDialog.new()
+	add_child(_confirm)
 
+	# Right: a new character
+	_title(box, "New character", 26)
+	name_edit = LineEdit.new()
+	name_edit.placeholder_text = "Name your character"
+	name_edit.max_length = 24
+	name_edit.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(name_edit)
 	_title(box, "World", 22)
 	world_pick = OptionButton.new()
 	_world_ids = SkinManager.skins.keys()
@@ -66,8 +100,9 @@ func _ready():
 	box.add_child(race_pick)
 	race_about = _text(box)
 
-	# Online co-op: host a game, or join a friend's
-	_title(box, "Play", 22)
+	# Online co-op: host a game, or join a friend's (left side, under your characters)
+	box = left
+	_title(box, "How to play", 22)
 	var net_row = HBoxContainer.new()
 	net_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	net_row.add_theme_constant_override("separation", 12)
@@ -118,7 +153,8 @@ func _ready():
 	if SteamLink.pending_lobby != 0:
 		_on_invite.call_deferred()
 
-	_title(box, "Class", 22)
+	box = right
+	_title(box, "Class  (click one to make this character and start)", 18)
 	# One button per class file (classes/*.json and mods). Hover to read about it, click to play.
 	var grid = GridContainer.new()
 	grid.columns = 3
@@ -140,6 +176,7 @@ func _ready():
 	_show_class(Classes.ids()[0])
 
 	_refresh()
+	_fill_characters()
 	_read_command_line.call_deferred()
 
 
@@ -210,10 +247,82 @@ func _show_class(id: String):
 	class_about.text = "\n".join(lines)
 
 
+## Your saved characters, newest played first.
+func _fill_characters():
+	for c in _char_list.get_children():
+		c.queue_free()
+	var chars = Account.list()
+	if chars.is_empty():
+		var l = _text(_char_list)
+		l.text = "No characters yet. Make one on the right."
+	for c in chars:
+		var card = PanelContainer.new()
+		var st = StyleBoxFlat.new()
+		st.bg_color = Color(0.12, 0.11, 0.14)
+		st.border_color = GOLD.darkened(0.4)
+		st.border_width_left = 3
+		st.set_content_margin_all(8)
+		card.add_theme_stylebox_override("panel", st)
+		_char_list.add_child(card)
+		var row = HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		card.add_child(row)
+		var info = VBoxContainer.new()
+		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(info)
+		var skin = SkinManager.skins.get(c.skin, {})
+		var race_name = c.race
+		for r in skin.get("races", []):
+			if r.get("id", "") == c.race:
+				race_name = r.get("name", c.race)
+		var title = Label.new()
+		title.text = "%s  ·  %s %s" % [c.name, race_name, Classes.label(Classes.normalize(c["class"]))]
+		title.add_theme_color_override("font_color", GOLD)
+		title.add_theme_font_size_override("font_size", 17)
+		info.add_child(title)
+		var sub = Label.new()
+		sub.text = "%s  ·  %s" % [skin.get("name", c.skin), Account.summary(c)]
+		sub.add_theme_color_override("font_color", Color(0.75, 0.75, 0.75))
+		sub.add_theme_font_size_override("font_size", 13)
+		info.add_child(sub)
+		var play = Button.new()
+		play.text = "Play"
+		play.custom_minimum_size = Vector2(70, 0)
+		play.pressed.connect(_play.bind(c.id))
+		row.add_child(play)
+		var del = Button.new()
+		del.text = "X"
+		del.tooltip_text = "Delete this character"
+		del.pressed.connect(_ask_delete.bind(c))
+		row.add_child(del)
+
+
+func _ask_delete(c: Dictionary):
+	_confirm.dialog_text = "Delete %s for good?\nTheir gold, gear, pet and story will be gone." % c.name
+	for con in _confirm.confirmed.get_connections():
+		_confirm.confirmed.disconnect(con.callable)
+	_confirm.confirmed.connect(func(): Account.remove(c.id); _fill_characters())
+	_confirm.popup_centered()
+
+
+## Play a saved character.
+func _play(char_id: String):
+	if _waiting:
+		return
+	Account.select(char_id)
+	_launch()
+
+
+## Make a new character from the right side (name, world, race, this class) and start.
 func _start(class_id: String):
 	if _waiting:
 		return
-	GameState.player_class = class_id
+	var id = Account.create(name_edit.text, SkinManager.current_id, SkinManager.current_race, class_id)
+	Account.select(id)
+	_launch()
+
+
+func _launch():
 	Crafting.ensure_slots()
 	match play_mode.selected:
 		STEAM_HOST:	# make a Steam lobby; the game starts when it's ready (lobby_ready)
@@ -237,7 +346,7 @@ func _start(class_id: String):
 			if Net.join(ip_box.text.strip_edges()):
 				_waiting = true
 			return
-	Zones.start("res://Home.tscn")
+	Zones.start(Account.start_scene())	# back where this character left off
 
 
 func _on_mode(i: int):
@@ -258,7 +367,7 @@ func _on_invite():
 	if _waiting and play_mode.selected == STEAM_JOIN:	# already picked a class: go
 		SteamLink.join_lobby(SteamLink.pending_lobby)
 	else:
-		net_status.text = "A friend invited you! Pick your class to join them."
+		net_status.text = "A friend invited you! Play a character (or make one) to join them."
 
 
 func _title(box: VBoxContainer, t: String, size: int):

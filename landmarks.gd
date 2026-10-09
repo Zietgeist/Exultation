@@ -13,7 +13,9 @@ extends Node
 ## when playing solo (user://landmarks.cfg). The host runs the fights; joined players see the results.
 
 const LAYOUT = preload("res://world_layout.gd")
-const SAVE_PATH = "user://landmarks.cfg"
+var SAVE_PATH: String:	# this character's save (Account)
+	get:
+		return Account.path("landmarks.cfg")
 const FIRST_ZONE = 4			# landmarks start in Zone 4
 const AREA_EACH = 120000.0		# one more landmark per this much floor (Zone 4: 2, Zone 5: 5, Zone 6+: 8)
 const MAX_PER_ZONE = 8
@@ -47,6 +49,12 @@ var _safe := {}			# zone key -> [[center, radius]] (neutral towns)
 
 
 func _ready():
+	load_character()
+
+
+func load_character():
+	_personal = {}
+	_quests = []
 	var cfg = ConfigFile.new()
 	if cfg.load(SAVE_PATH) == OK:
 		_personal = cfg.get_value("landmarks", "state", {})

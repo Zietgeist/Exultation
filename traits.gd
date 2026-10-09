@@ -15,7 +15,9 @@ extends Node
 
 signal changed
 
-const SAVE_PATH = "user://traits.cfg"
+var SAVE_PATH: String:	# this character's save (Account)
+	get:
+		return Account.path("traits.cfg")
 const EDGE = 0.12	# the most any pole gives
 
 const TENSIONS = {
@@ -49,6 +51,19 @@ var _tick := 0.0
 
 
 func _ready():
+	load_character()
+	Rivals.avenged.connect(func(r): nudge("pace", 8.0, "beat your Rival " + r.name))
+	Rivals.skipped.connect(func(r): nudge("pace", -4.0, "walked past your Rival " + r.name))
+	SessionManager.break_started.connect(_on_break)
+	Zones.entered.connect(_on_entered)
+
+
+func load_character():
+	values = {}
+	history = {}
+	patient_stacks = 0
+	seen_zones = {}
+	_cleared = {}
 	var cfg = ConfigFile.new()
 	if cfg.load(SAVE_PATH) == OK:
 		values = cfg.get_value("traits", "values", {})
@@ -57,10 +72,7 @@ func _ready():
 		seen_zones = cfg.get_value("traits", "seen_zones", {})
 	for t in ORDER:
 		values[t] = float(values.get(t, 0.0))
-	Rivals.avenged.connect(func(r): nudge("pace", 8.0, "beat your Rival " + r.name))
-	Rivals.skipped.connect(func(r): nudge("pace", -4.0, "walked past your Rival " + r.name))
-	SessionManager.break_started.connect(_on_break)
-	Zones.entered.connect(_on_entered)
+	changed.emit()
 
 
 func _save():

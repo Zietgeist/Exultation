@@ -14,7 +14,9 @@ extends Node
 ## Skins (worlds) can rename classes and skills: "classes": {"healer": "Cleric"}, "skills": {"life_drain": "Siphon"}
 
 const DIRS := ["res://classes/", "res://mods/classes/", "user://mods/classes/"]
-const RANKS_PATH := "user://classes.cfg"
+var RANKS_PATH: String:	# this character's save (Account)
+	get:
+		return Account.path("classes.cfg")
 const OLD_IDS := ["dps", "tank", "healer"]	# saves from before classes were files used 0, 1, 2
 const KEYS := ["E", "Q", "F"]
 const RANK_USES := [0, 10, 30, 70, 150]	# total uses needed for rank 1, 2, 3, 4, 5
@@ -33,10 +35,16 @@ func _ready():
 		_load_folder(d)
 	if classes.is_empty():
 		ErrorLog.fail("No classes found in res://classes/ - the game can't start without them")
+	load_character()
+	print("Classes: ", ids())
+
+
+## Skill ranks belong to the character.
+func load_character():
+	uses = {}
 	var cfg = ConfigFile.new()
 	if cfg.load(RANKS_PATH) == OK:
 		uses = cfg.get_value("ranks", "uses", {})
-	print("Classes: ", ids())
 
 
 ## Class ids sorted by their "order" number (mods without one go last).

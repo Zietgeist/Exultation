@@ -15,7 +15,9 @@ extends Node
 ## Each trial type is its own script in res://trials/ (extends trial_base.gd).
 ## Add one to TYPES and shrines start offering it.
 
-const SAVE_PATH = "user://trials.cfg"
+var SAVE_PATH: String:	# this character's save (Account)
+	get:
+		return Account.path("trials.cfg")
 const ARENA = "res://TrialArena.tscn"
 const MAX_LEVEL = 8
 const DAY = 86400
@@ -47,15 +49,23 @@ var arena := {}			# (old) last Trial Ground info; zones carry their own info now
 
 
 func _ready():
+	load_character()
+	for id in TYPES:
+		if not ResourceLoader.exists(TYPES[id].script):
+			ErrorLog.fail("Trial '%s' points at a missing script: %s" % [id, TYPES[id].script])
+
+
+func load_character():
+	ratings = {}
+	passes = {}
+	levels = {}
+	time_offset = 0
 	var cfg = ConfigFile.new()
 	if cfg.load(SAVE_PATH) == OK:
 		ratings = cfg.get_value("trials", "ratings", {})
 		passes = cfg.get_value("trials", "passes", {})
 		levels = cfg.get_value("trials", "levels", {})
 		time_offset = cfg.get_value("trials", "time_offset", 0)
-	for id in TYPES:
-		if not ResourceLoader.exists(TYPES[id].script):
-			ErrorLog.fail("Trial '%s' points at a missing script: %s" % [id, TYPES[id].script])
 
 
 func _save():

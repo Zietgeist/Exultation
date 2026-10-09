@@ -56,7 +56,9 @@ const ZONE_NAMES = {
 	"res://Zone10.tscn": "Zone 10",
 }
 const BOSSES_TO_UNLOCK = 2
-const PROGRESS_PATH = "user://progress.cfg"
+var PROGRESS_PATH: String:	# this character's save (Account)
+	get:
+		return Account.path("progress.cfg")
 
 # Zone size and obstacle density
 const BASE_ZONE_AREA = 6000.0	# Zone 1 floor: 60 x 100
@@ -106,19 +108,36 @@ var unlocked_zones = personal_unlocked	# what's open in THIS game: yours, or you
 
 
 func _ready():
+	load_character()
+	bag_full.connect(_on_bag_full)
+
+
+## Fresh start for a character, then whatever it has saved (Account.select calls this too).
+func load_character():
+	personal_unlocked = ["res://Home.tscn", "res://Zone1.tscn"]
+	unlocked_zones = personal_unlocked
+	gold_carried = 0
+	gold_banked = 0
+	satchel = {}
+	satchel_upgrades = 0
+	buffs = {}
+	deaths = 0
+	zone_memory = {}
+	zone_marks = {}
+	zone_templates = {}
+	return_scene = ""
+	return_position = null
+	pending_spawn = null
 	var cfg = ConfigFile.new()
 	if cfg.load(PROGRESS_PATH) == OK:
-		# While testing from Godot, every run starts with the next zones LOCKED.
-		# (A finished, exported game remembers unlocks between plays.)
-		if not OS.is_debug_build():
-			personal_unlocked = cfg.get_value("progress", "unlocked_zones", personal_unlocked)
-			unlocked_zones = personal_unlocked
+		# Each character keeps its unlocked zones (to test from scratch, make a new character).
+		personal_unlocked = cfg.get_value("progress", "unlocked_zones", personal_unlocked)
+		unlocked_zones = personal_unlocked
 		gold_carried = cfg.get_value("gold", "carried", 0)
 		gold_banked = cfg.get_value("gold", "banked", 0)
 		satchel = cfg.get_value("resources", "satchel", {})
 		satchel_upgrades = cfg.get_value("resources", "satchel_upgrades", 0)
 		buffs = cfg.get_value("inn", "buffs", {})
-	bag_full.connect(_on_bag_full)
 
 
 func save_progress():

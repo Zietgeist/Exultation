@@ -15,7 +15,9 @@ extends Node
 
 signal changed
 
-const SAVE_PATH = "user://crafting.cfg"
+var SAVE_PATH: String:	# this character's save (Account)
+	get:
+		return Account.path("crafting.cfg")
 
 # ---------- Damage types ----------
 const ELEMENTS = ["physical", "radiant", "shadow", "nature", "storm"]
@@ -196,6 +198,16 @@ var patterns = []	# advanced recipes you've learned (from your first Sigil of ea
 
 
 func _ready():
+	load_character()
+	SkinManager.skin_changed.connect(ensure_slots)
+
+
+func load_character():
+	stash = {}
+	items = []
+	equipped = {}
+	next_id = 1
+	patterns = []
 	var cfg = ConfigFile.new()
 	if cfg.load(SAVE_PATH) == OK:
 		stash = cfg.get_value("crafting", "stash", {})
@@ -205,7 +217,7 @@ func _ready():
 		patterns = cfg.get_value("crafting", "patterns", [])
 	_upgrade_old_save()
 	ensure_slots()
-	SkinManager.skin_changed.connect(ensure_slots)
+	changed.emit()
 
 
 ## Older saves had one "armor" slot holding a single id.

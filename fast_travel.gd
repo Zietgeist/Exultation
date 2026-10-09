@@ -14,7 +14,9 @@ extends Node
 ## and you can travel to a zone that isn't loaded. Found stations are saved in user://travel.cfg.
 
 const LAYOUT = preload("res://world_layout.gd")
-const SAVE_PATH = "user://travel.cfg"
+var SAVE_PATH: String:	# this character's save (Account)
+	get:
+		return Account.path("travel.cfg")
 const MIN_ZONE_SIZE = 200.0		# zones smaller than this walk fine without stations
 const GRID_SPACING = 200.0
 const MAX_GRID = 6				# at most 6 x 6 stops in a zone (plus one by each gate)
@@ -26,6 +28,11 @@ var found := {}		# zone path -> [station ids]
 
 
 func _ready():
+	load_character()
+
+
+func load_character():
+	found = {}
 	var cfg = ConfigFile.new()
 	if cfg.load(SAVE_PATH) == OK:
 		found = cfg.get_value("travel", "found", {})

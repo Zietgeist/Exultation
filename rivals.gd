@@ -18,7 +18,9 @@ signal avenged(data)	# you (or your party) beat one of your rivals
 signal skipped(data)	# you left a zone while your rival there still lives
 signal born(data)
 
-const SAVE_PATH = "user://rivals.cfg"
+var SAVE_PATH: String:	# this character's save (Account)
+	get:
+		return Account.path("rivals.cfg")
 const POWER_FOR = {	# your skill's effect -> the rival's version of it
 	"damage_boost": "enrage", "whirlwind": "enrage",
 	"heal_self": "mend", "mending": "mend", "drain_aura": "mend",
@@ -37,11 +39,18 @@ var _visit_skips := {}	# rival ids already counted as "skipped" this visit
 
 
 func _ready():
+	load_character()
+	Zones.entered.connect(_on_entered)
+
+
+func load_character():
+	rivals = {}
+	trophies = []
+	_visit_skips = {}
 	var cfg = ConfigFile.new()
 	if cfg.load(SAVE_PATH) == OK:
 		rivals = cfg.get_value("rivals", "rivals", {})
 		trophies = cfg.get_value("rivals", "trophies", [])
-	Zones.entered.connect(_on_entered)
 
 
 func _save():

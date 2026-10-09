@@ -12,7 +12,9 @@ extends Node
 
 signal chronicle_changed
 
-const SAVE_PATH = "user://story.cfg"
+var SAVE_PATH: String:	# this character's save (Account)
+	get:
+		return Account.path("story.cfg")
 const MAX_ENTRIES = 400
 const SAVED_BELOW = 0.10	# under 10% health and lived: the gear "saved you"
 
@@ -26,6 +28,18 @@ var _losses := {}				# enemy tier -> date you last fell to one (for comebacks)
 
 
 func _ready():
+	load_character()
+	Zones.entered.connect(_on_zone_entered)
+
+
+func load_character():
+	player_name = ""
+	first_date = ""
+	chronicle = []
+	trial_tries = {}
+	origins = {}
+	firsts = {}
+	_losses = {}
 	var cfg = ConfigFile.new()
 	if cfg.load(SAVE_PATH) == OK:
 		player_name = cfg.get_value("story", "name", "")
@@ -40,7 +54,6 @@ func _ready():
 		_save()
 	if player_name == "":
 		player_name = _default_name()
-	Zones.entered.connect(_on_zone_entered)
 
 
 func _save():

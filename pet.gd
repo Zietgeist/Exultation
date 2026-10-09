@@ -25,7 +25,9 @@ extends Node3D
 ## Online: every player's pet is shown to the others (pet_ghost.gd). The host runs the enemies, so on the
 ## host a friend's pet can be targeted; the hit is sent to the friend's game, where the real pet takes it.
 
-const SAVE_PATH = "user://pet.cfg"
+var SAVE_PATH: String:	# this character's save (Account)
+	get:
+		return Account.path("pet.cfg")
 const BASE_HEALTH = 80.0
 const KNOCKOUT_TIME = 20.0		# seconds out after being knocked out
 const BASE_SPEED = 9.0			# a bit faster than you, so it keeps up
