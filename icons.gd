@@ -194,6 +194,11 @@ static func draw(ci: CanvasItem, kind: String, r: Rect2, c: Color):
 		"totem":
 			ci.draw_rect(Rect2(p.call(0.38, 0.15), Vector2(0.24, 0.72) * r.size), c)
 			ci.draw_rect(Rect2(p.call(0.26, 0.28), Vector2(0.48, 0.1) * r.size), c.lightened(0.3))
+		"parley":	# a speech bubble
+			ci.draw_rect(Rect2(p.call(0.14, 0.18), Vector2(0.72, 0.46) * r.size), c)
+			ci.draw_colored_polygon(PackedVector2Array([p.call(0.3, 0.6), p.call(0.48, 0.6), p.call(0.24, 0.85)]), c)
+			for x in [0.32, 0.5, 0.68]:
+				ci.draw_circle(p.call(x, 0.41), s * 0.05, Color(0.1, 0.1, 0.12))
 		"patient":
 			ci.draw_colored_polygon(PackedVector2Array([p.call(0.25, 0.12), p.call(0.75, 0.12), p.call(0.5, 0.5)]), c)
 			ci.draw_colored_polygon(PackedVector2Array([p.call(0.5, 0.5), p.call(0.75, 0.88), p.call(0.25, 0.88)]), c.darkened(0.3))

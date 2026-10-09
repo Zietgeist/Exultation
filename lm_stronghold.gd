@@ -3,9 +3,14 @@ extends "res://lm_base.gd"
 ## the middle of the zone, and a keep at the back. Defenders and a named Warden hold it.
 ## Beat the Warden and it's TAKEN for good (saved with the party): it becomes a forward camp with a
 ## bank (deposit = a proper rest), a Smith, a campfire and a fast-travel stop.
+## A taken stronghold is safe ground (no enemies spawn or fight inside), and a Survivor there asks
+## you to recruit guards: press V (Parley) near Trash or Thugs; about half join (landmarks.gd).
+## Guards you bring back stand watch on the walls.
 
 const HALF = 34.0
 var _camp_built := false
+var _guards_shown := 0
+var _guard_nodes := []
 
 
 func title_height() -> float:
@@ -112,3 +117,37 @@ func _build_camp():
 	light.position.y = 2.0
 	fire.add_child(light)
 	label(Landmarks.word("camp"), Vector3(0, 9, 0) + f * 2.0, 40, Color(0.7, 1.0, 0.7))
+	# Safe ground: enemies don't spawn here or fight inside the walls any more
+	Landmarks.add_safe(Zones.key_of(self), global_position, HALF + 2.0)
+	# The survivor, who wants guards
+	var rui = load("res://recruit_ui.gd").new()
+	rui.lm = self
+	add_child(rui)
+	npc(-f * 8.0, "Survivor", "needs guards", "recruit", rui, Color(0.75, 0.65, 0.5))
+	_show_guards()
+
+
+## Guards stand along the walls, one per recruit (up to 24 shown).
+func _show_guards():
+	var n = mini(int(state().get("guards", 0)), 24)
+	if n == _guards_shown:
+		return
+	for g in _guard_nodes:
+		g.queue_free()
+	_guard_nodes.clear()
+	_guards_shown = n
+	var gm = mat("lm_guard", Color(0.45, 0.6, 0.85))
+	for i in n:
+		var side = i % 4
+		var t = (float(i / 4) + 0.5) / 6.0 * 2.0 - 1.0	# spread along the wall
+		var h = HALF - 3.0
+		var pos = [Vector3(t * h, 0, -h), Vector3(h, 0, t * h), Vector3(-t * h, 0, h), Vector3(-h, 0, -t * h)][side]
+		var g = box(Vector3(0.9, 1.9, 0.9), pos + Vector3(0, 0.95, 0), gm, false)
+		var head = box(Vector3(0.6, 0.6, 0.6), pos + Vector3(0, 2.2, 0), gm, false)
+		_guard_nodes.append(g)
+		_guard_nodes.append(head)
+
+
+func tick(_dt: float):
+	if _camp_built:
+		_show_guards()

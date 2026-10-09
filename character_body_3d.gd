@@ -140,6 +140,7 @@ func _input(event):
 			KEY_G: start_gathering()
 			KEY_TAB: auto.toggle()
 			KEY_R: auto.next_mode()
+			KEY_V: Landmarks.parley(self)	# only while recruiting guards for a stronghold
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			_click_talking = event.pressed and _click_talk()

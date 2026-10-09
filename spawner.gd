@@ -194,7 +194,7 @@ func _process(delta):
 
 func _spawn_near_player():
 	var left = reserve[0] + reserve[1] + reserve[2]
-	if left <= 0 or in_safe_spot(player.global_position):
+	if left <= 0 or in_safe_spot(player.global_position) or Landmarks.in_safe(player):
 		return
 	var angle = randf() * TAU
 	var center = player.global_position + Vector3(cos(angle), 0, sin(angle)) * randf_range(NEAR_MIN, NEAR_MAX)
@@ -227,6 +227,7 @@ func _spawn_boss_near_player():
 ## Create one real enemy of a tier at a spot (kept inside the walls) and count it.
 func _make_enemy(t: int, pos: Vector3):
 	_count_spawn(t)
+	pos = _out_of_camps(pos)
 	return _instantiate(t, pos, -1, _roll_element(t))
 
 
@@ -289,6 +290,18 @@ func _out_of_safe_spots(pos: Vector3) -> Vector3:
 				moved = true
 		if not moved:
 			break
+	return pos
+
+
+## Taken strongholds and neutral towns: nothing new appears inside their walls.
+func _out_of_camps(pos: Vector3) -> Vector3:
+	var path = Zones.path_of(self)
+	for l in _landmarks:
+		if l.kind != "town" and not (l.kind == "stronghold" and Landmarks.state(path, l.id).has("taken")):
+			continue
+		var d = Vector3(pos.x - l.pos.x, 0, pos.z - l.pos.z)
+		if d.length() < l.size + 8.0:
+			pos = l.pos + (d.normalized() if d.length() > 0.1 else Vector3(1, 0, 0)) * (l.size + 8.0) + Vector3(0, pos.y, 0)
 	return pos
 
 

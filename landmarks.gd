@@ -45,7 +45,8 @@ const NAME_B = ["water", "stone", "hold", "fall", "crag", "moor", "gate", "ridge
 
 var _personal := {}		# solo: "path|id" -> state
 var _quests := []		# your quest board jobs (always yours, even in a party)
-var _safe := {}			# zone key -> [[center, radius]] (neutral towns)
+var _safe := {}			# zone key -> [[center, radius]] (neutral towns, taken strongholds)
+var recruit := {}		# the stronghold survivor's job: {path, id, name, have, need} ({} = none)
 
 
 func _ready():
@@ -55,16 +56,19 @@ func _ready():
 func load_character():
 	_personal = {}
 	_quests = []
+	recruit = {}
 	var cfg = ConfigFile.new()
 	if cfg.load(SAVE_PATH) == OK:
 		_personal = cfg.get_value("landmarks", "state", {})
 		_quests = cfg.get_value("landmarks", "quests", [])
+		recruit = cfg.get_value("landmarks", "recruit", {})
 
 
 func _save():
 	var cfg = ConfigFile.new()
 	cfg.set_value("landmarks", "state", _personal)
 	cfg.set_value("landmarks", "quests", _quests)
+	cfg.set_value("landmarks", "recruit", recruit)
 	if cfg.save(SAVE_PATH) != OK:
 		ErrorLog.fail("Landmarks: couldn't save " + SAVE_PATH)
 
@@ -353,10 +357,108 @@ func _finish(q: Dictionary):
 	Traits.nudge("bond", 2.0, "helped the townsfolk")
 
 
+# ---------------- Recruiting guards (the survivor at a taken stronghold) ----------------
+## While the job is on, V = Parley: talk to the Trash or Thug enemy nearest you (close by).
+## About half agree and head off to the stronghold; the rest get angry (and won't listen again).
+
+const RECRUIT_NEED = 10
+const RECRUIT_CHANCE = 0.5
+const PARLEY_RANGE = 8.0
+const PARLEY_WAIT = 1.2
+var _parley_wait := 0.0
+
+
+func start_recruit(path: String, id: String, lm_name: String):
+	recruit = {path = path, id = id, name = lm_name, have = 0, need = RECRUIT_NEED}
+	_save()
+	GameState.notify("Job: recruit %d guards for %s. Press V near a Trash or Thug enemy to talk." % [RECRUIT_NEED, lm_name])
+
+
+func parley(p) -> void:
+	if recruit.is_empty():
+		return
+	if recruit.have >= recruit.need:
+		GameState.notify("You have enough guards. Take them back to %s." % recruit.name)
+		return
+	if _parley_wait > 0.0:
+		return
+	var best = null
+	var best_d = PARLEY_RANGE
+	for e in Zones.all(p, "enemy"):
+		if not is_instance_valid(e) or e.health <= 0 or e.tier > 1 or not e.rival.is_empty() or e.has_meta("landmark") or e.has_meta("refused"):
+			continue
+		var d = p.global_position.distance_to(e.global_position)
+		if d < best_d:
+			best = e
+			best_d = d
+	if best == null:
+		p._float_text("No one to talk to (get close to a Trash or Thug)", Color(0.85, 0.85, 0.85))
+		return
+	_parley_wait = PARLEY_WAIT
+	if randf() < RECRUIT_CHANCE:
+		recruit.have += 1
+		_save()
+		_say_over(best, "I'll join you!", Color(0.6, 1.0, 0.6))
+		best.set_meta("recruited", true)	# no loot: it isn't dying, it's leaving
+		if best.mirror:
+			Net.hit_enemy(best.net_id, best.MAX_HEALTH * 10.0)
+		else:
+			best.die()
+		if recruit.have >= recruit.need:
+			GameState.notify("%d guards recruited! Head back to %s." % [recruit.have, recruit.name])
+		else:
+			GameState.notify("Recruited %d / %d" % [recruit.have, recruit.need])
+	else:
+		_say_over(best, "Never!", Color(1.0, 0.5, 0.4))
+		best.set_meta("refused", true)
+		if not best.mirror:
+			best.aggroed = true
+
+
+func _say_over(e, text: String, c: Color):
+	var l = Label3D.new()
+	l.text = text
+	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	l.no_depth_test = true
+	l.font_size = 40
+	l.pixel_size = 0.012
+	l.outline_size = 10
+	l.modulate = c
+	Zones.root_of(e).add_child(l)
+	l.global_position = e.global_position + Vector3(0, 2.6, 0)
+	var t = l.create_tween()
+	t.tween_property(l, "position:y", l.position.y + 1.5, 1.4)
+	t.parallel().tween_property(l, "modulate:a", 0.0, 1.4)
+	t.tween_callback(l.queue_free)
+
+
+## Turned in at the survivor: they become the stronghold's guards.
+func finish_recruit() -> int:
+	if recruit.is_empty() or recruit.have < recruit.need:
+		return 0
+	var n = recruit.have
+	var path = recruit.path
+	var id = recruit.id
+	var lm_name = recruit.name
+	recruit = {}
+	var guards = int(state(path, id).get("guards", 0)) + n
+	set_state(path, id, {guards = guards})
+	var gold = 10 * max(1, zone_number(path))
+	GameState.gold_banked += gold
+	GameState.save_progress()
+	GameState.gold_changed.emit()
+	_save()
+	Story.add("Talked %d of them into guarding %s." % [n, lm_name])
+	Traits.nudge("bond", 5.0, "recruited guards for " + lm_name)
+	GameState.notify("%d new guards at %s. The survivor pays you %d gold (banked)." % [n, lm_name, gold])
+	return guards
+
+
 var _save_later := false
 var _t := 0.0
 
 func _process(delta):
+	_parley_wait -= delta
 	_t += delta
 	if _t > 5.0:
 		_t = 0.0

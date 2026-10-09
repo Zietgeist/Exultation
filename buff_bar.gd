@@ -90,6 +90,10 @@ func _active() -> Dictionary:
 			add.call("totem", "totem", Color(0.9, 0.75, 0.4), "Totems", "%d totem(s) fighting for you." % sk.totems.size(), -1.0, "", sk.totems.size())
 		if not sk.mending.is_empty():
 			add.call("vow", "vow", Color(0.5, 1.0, 0.6), "Mending Vow", "Heals %d, %d jump(s) left." % [sk.mending.heal, sk.mending.jumps], float(sk.mending.get("time", -1.0)))
+	# The Survivor's job: Parley (V)
+	if not Landmarks.recruit.is_empty():
+		var j = Landmarks.recruit
+		add.call("parley", "parley", Color(0.75, 0.9, 0.6), "Parley (V)", "Recruiting guards for %s: %d / %d.\nPress V next to a Trash or Thug enemy. About half say yes." % [j.name, j.have, j.need], -1.0, "%d/%d" % [j.have, j.need])
 	# Patient / Driven (pomodoro)
 	if Traits.patient_stacks > 0:
 		add.call("patient", "patient", Color(0.7, 0.95, 0.7), "Patient", "+%d%% damage and max health (1%% per rest you took on time, up to 10)." % Traits.patient_stacks, -1.0, "", Traits.patient_stacks)

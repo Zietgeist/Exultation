@@ -219,7 +219,7 @@ func die():
 	if tier == Tier.BOSS:
 		GameState.add_mark("boss", global_position, self)
 	emit_signal("enemy_died", tier)
-	if Zones.first(self, "player"):	# loot is personal: the host only drops its own if it's here
+	if Zones.first(self, "player") and not has_meta("recruited"):	# loot is personal: the host only drops its own if it's here (none for a recruit: it's leaving, not dying)
 		Story.on_kill(self)	# my worn gear remembers it
 		if is_instance_valid(player) and player.is_in_group("pet"):	# it was going after my pet
 			Traits.on_guarded_pet()
