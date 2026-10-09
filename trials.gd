@@ -45,6 +45,7 @@ var ratings := {}		# ability -> rating
 var passes := {}		# ability -> times passed
 var levels := {}		# ability -> {level, cleared (unix time it was earned)}
 var time_offset := 0	# debug: trial clock moved forward (seconds)
+var cleared_gates := {}	# Trial Ground keys already cleared this session (their gates close)
 var arena := {}			# (old) last Trial Ground info; zones carry their own info now
 
 
@@ -53,6 +54,16 @@ func _ready():
 	for id in TYPES:
 		if not ResourceLoader.exists(TYPES[id].script):
 			ErrorLog.fail("Trial '%s' points at a missing script: %s" % [id, TYPES[id].script])
+
+
+## The Trial Ground behind this gate was cleared: close its gate (in any loaded zone).
+func gate_done(key: String):
+	if key == "":
+		return
+	cleared_gates[key] = true
+	for g in get_tree().get_nodes_in_group("trial_gate"):
+		if g.travel_key == key:
+			g.queue_free()
 
 
 func load_character():
