@@ -69,7 +69,8 @@ func _ready():
 	fill.bg_color = Color(1.0, 0.8, 0.15)
 	gold_bar.add_theme_stylebox_override("fill", fill)
 	$VBoxContainer.add_child(gold_bar)
-	satchel_label = Label.new()
+	satchel_label = Label.new()	# the satchel list lives in the inventory window (I) now, not on screen
+	satchel_label.visible = false
 	$VBoxContainer.add_child(satchel_label)
 
 	# Your pet: name and mood, health and food bars (K opens the pet window)
@@ -159,7 +160,7 @@ func _process(delta):
 			notice_label.visible = false
 	gold_bar.value = GameState.gold_carried
 	gold_label.text = "Gold: %d / %d" % [GameState.gold_carried, GameState.GOLD_CAPACITY]
-	satchel_label.text = GameState.satchel_text()
+	satchel_label.text = ""
 	if GameState.is_bag_full():
 		gold_label.text += "  - FULL! Take the gold portal home"
 	if death_timer > 0.0:
