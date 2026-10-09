@@ -94,8 +94,13 @@ func _build_book():
 	save_pet.text = "Name pet"
 	save_pet.pressed.connect(_save_pet_name)
 	head.add_child(save_pet)
+	var write = Button.new()
+	write.text = "Write a line"
+	write.tooltip_text = "Add your own line to the Chronicle: what happened, what you want to remember."
+	write.pressed.connect(open_prompt)
+	head.add_child(write)
 	var hint = Label.new()
-	hint.text = "Written as you play. Your own lines (from rests) are in gold.   J or Esc closes."
+	hint.text = "Written as you play. Your own lines are in gold.   J or Esc closes."
 	hint.add_theme_color_override("font_color", DIM)
 	box.add_child(hint)
 	var scroll = ScrollContainer.new()
@@ -180,10 +185,15 @@ func _build_prompt():
 	prompt.visible = false
 
 
+## Coming Home no longer pops the "write a line" box (it got in the way). Write one any time
+## from the Chronicle (J): "Write a line".
 func _on_break(_blocks):
-	if _last_flow < MIN_FLOW_FOR_LINE or panel.visible:
-		return
 	_last_flow = 0.0
+
+
+func open_prompt():
+	if panel.visible:
+		toggle()
 	prompt_edit.text = ""
 	prompt.visible = true
 	GameState.ui_open = true
