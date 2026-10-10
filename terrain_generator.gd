@@ -108,8 +108,41 @@ func is_free(pos: Vector3, pad := 0.0) -> bool:
 
 
 ## Deep water (island maps). Nothing walks or spawns here.
+## Landmarks (strongholds, towns...) always stand on dry land: on island maps each gets its own
+## patch of ground plus a land bridge to the island.
 func is_water(pos: Vector3) -> bool:
-	return template == "island" and MAPS.is_island_water(pos, _half, _gates)
+	if template != "island" or not MAPS.is_island_water(pos, _half, _gates):
+		return false
+	return not _landmark_land(pos)
+
+
+var _lm_cache = null
+
+func _landmarks() -> Array:
+	if _lm_cache == null:
+		var path = Zones.path_of(self) if Zones.zone_of(self) else (owner.scene_file_path if owner else "")
+		_lm_cache = Landmarks.for_zone(path) if path != "" else []
+	return _lm_cache
+
+
+func _landmark_land(pos: Vector3) -> bool:
+	var p = Vector2(pos.x, pos.z)
+	for l in _landmarks():
+		var c = Vector2(l.pos.x, l.pos.z)
+		if p.distance_to(c) < l.size + 8.0:
+			return true
+		if p.distance_to(Geometry2D.get_closest_point_to_segment(p, c, Vector2.ZERO)) < 6.0:	# its land bridge
+			return true
+	return false
+
+
+## Water and mud never go inside a landmark (river crossings stop at its walls).
+func _hits_landmark(t: Dictionary) -> bool:
+	var reach = max(t.get("sx", 0.0), t.get("sz", 0.0)) / 2.0
+	for l in _landmarks():
+		if Vector2(t.p.x - l.pos.x, t.p.z - l.pos.z).length() < l.size + reach + 2.0:
+			return true
+	return false
 
 
 ## Closest dry spot (searching outward in rings). Used if someone would start in deep water.
@@ -509,6 +542,8 @@ func _make_wall(t: Dictionary):
 
 ## Slow patch: mud (w = false) or water (w = true).
 func _make_ditch(t: Dictionary):
+	if _hits_landmark(t):
+		return
 	var piece = DITCH_SCENE.instantiate()
 	piece.size = Vector2(t.sx, t.sz)
 	piece.water = t.w
@@ -521,6 +556,8 @@ func _make_ditch(t: Dictionary):
 
 ## Deep water: can't be walked through.
 func _make_water(t: Dictionary):
+	if _hits_landmark(t) and t.get("sx", 0.0) < 60.0:	# long island strips are already cut around landmarks (is_water)
+		return
 	var body = StaticBody3D.new()
 	body.set_meta("kind", "water")
 	body.set_meta("data", {sx = t.sx, sz = t.sz})
