@@ -51,6 +51,11 @@ func _ready():
 	fb.tooltip_text = "Shares one herb from your satchel. You need to be close to your pet."
 	fb.pressed.connect(_feed)
 	row.add_child(fb)
+	var tb = Button.new()
+	tb.text = "Give a tonic"
+	tb.tooltip_text = "A refined herb (made at the Chemist). Much better than a raw one:\nfully fed and calm, a big Bond boost, less skittish, healed,\nand WELL FED for a while: 25% faster, gathers quicker, +20% health.\nBetter tonics last longer. You need to be close to your pet."
+	tb.pressed.connect(_feed.bind(true))
+	row.add_child(tb)
 	var close = Button.new()
 	close.text = "Close (K)"
 	close.pressed.connect(toggle)
@@ -99,7 +104,7 @@ func _rename():
 		_rebuild()
 
 
-func _feed():
+func _feed(tonic := false):
 	var pet = _pet()
 	if pet == null:
 		return
@@ -107,6 +112,8 @@ func _feed():
 		GameState.notify("%s is knocked out. It'll be back soon." % pet.pet_name())
 	elif pet._flat(pet.global_position - Zones.player.global_position).length() > pet.FEED_RANGE:
 		GameState.notify("Get closer to %s to feed it." % pet.pet_name())
+	elif tonic:
+		pet.feed_tonic()
 	else:
 		pet.feed()
 	_rebuild()
@@ -151,7 +158,7 @@ func _update():
 	if pet == null or _bars.is_empty():
 		return
 	_lines.title.text = pet.full_name()
-	_lines.mood.text = "Mood: %s" % pet.mood() + ("   (knocked out: back in %ds)" % ceili(pet.knocked_out) if not pet.alive() else "")
+	_lines.mood.text = "Mood: %s" % pet.mood() + ("   WELL FED %d:%02d" % [int(pet.well_fed) / 60, int(pet.well_fed) % 60] if pet.well_fed > 0.0 else "") + ("   (knocked out: back in %ds)" % ceili(pet.knocked_out) if not pet.alive() else "")
 	_set_bar("Health", 0.0 if not pet.alive() else 100.0 * pet.health / pet.MAX_HEALTH)
 	_set_bar("Food", pet.food())
 	_set_bar("Stress", pet.stress)

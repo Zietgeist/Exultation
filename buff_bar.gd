@@ -97,6 +97,9 @@ func _active() -> Dictionary:
 			add.call("parley", "parley", Color(0.5, 0.95, 0.5), "Disguised", "Enemies take you for one of their own. Auto-attack is off.\nPress V next to a Trash or Thug to talk (about half join).\nRecruiting for %s: %d / %d.\nAttacking, or being hit, drops the disguise." % [j.name, j.have, j.need], -1.0, "%d/%d" % [j.have, j.need])
 		else:
 			add.call("parley", "parley", Color(1.0, 0.55, 0.4), "Found out", "Fight back, then press V to put your disguise back on (once nothing is chasing you).\nRecruiting for %s: %d / %d." % [j.name, j.have, j.need], -1.0, "V")
+	# Your pet after a tonic
+	if p.pet and is_instance_valid(p.pet) and p.pet.well_fed > 0.0:
+		add.call("petfed", "meal", Color(0.55, 0.9, 1.0), "%s is well fed" % p.pet.pet_name(), "From a tonic: 25% faster, gathers quicker, +20% health.", p.pet.well_fed)
 	# Patient / Driven (pomodoro)
 	if Traits.patient_stacks > 0:
 		add.call("patient", "patient", Color(0.7, 0.95, 0.7), "Patient", "+%d%% damage and max health (1%% per rest you took on time, up to 10)." % Traits.patient_stacks, -1.0, "", Traits.patient_stacks)

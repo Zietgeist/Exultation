@@ -15,6 +15,8 @@ extends Node3D
 ##   Bond       feeding it (T near it: one herb from your satchel), resting at Home together and
 ##              protecting it. A secure pet explores farther: high Bond = faster, gathers from
 ##              farther and quicker, and at 80+ gathers TWO nodes at once.
+##   Tonics     refined herbs (from the Chemist) are a real treat: fully fed and calm, a big Bond boost,
+##              less skittish, healed, and WELL FED for a while (faster, gathers quicker, +20% health).
 ##   Name       give it one in the Chronicle (J) or the pet window (K). Its milestones go in the Chronicle.
 ##
 ## Safety: it won't go for a node if an enemy you can see is close enough to notice it there,
@@ -63,6 +65,7 @@ var target2 = null				# high Bond: a second node gathered at the same time
 var gather_left := 0.0
 var _since_hit := 99.0
 var _since_fed := 999.0
+var well_fed := 0.0			# seconds left of a tonic's boost
 var _peak_stress := 0.0		# for "got through it with you"
 var _look_timer := 0.0
 var _save_t := 0.0
@@ -123,15 +126,15 @@ func alive() -> bool:
 ## Health, speed and gathering follow Sturdy and Bond.
 func _refresh_stats():
 	var old = MAX_HEALTH
-	MAX_HEALTH = BASE_HEALTH * (1.0 + sturdy / 100.0)	# up to double
+	MAX_HEALTH = BASE_HEALTH * (1.0 + sturdy / 100.0) * (1.2 if well_fed > 0.0 else 1.0)	# up to double; tonics +20%
 	health = clamp(health + (MAX_HEALTH - old), 0.0, MAX_HEALTH)
 
 
 func speed() -> float:
-	return BASE_SPEED * (1.0 - 0.25 * sturdy / 100.0) * (1.0 + 0.35 * bond / 100.0)
+	return BASE_SPEED * (1.0 - 0.25 * sturdy / 100.0) * (1.0 + 0.35 * bond / 100.0) * (1.25 if well_fed > 0.0 else 1.0)
 
 func gather_time() -> float:
-	return GATHER_TIME * (1.0 + 0.2 * sturdy / 100.0) * (1.0 - 0.3 * bond / 100.0)
+	return GATHER_TIME * (1.0 + 0.2 * sturdy / 100.0) * (1.0 - 0.3 * bond / 100.0) * (0.75 if well_fed > 0.0 else 1.0)
 
 func gather_radius() -> float:
 	return GATHER_RADIUS * (1.0 + 0.3 * bond / 100.0) * Traits.sight_mult()	# Wanderer: spots nodes farther out
@@ -226,6 +229,11 @@ func _process(delta):
 		_save_t = 0.0
 		_save()
 	_since_fed += delta
+	if well_fed > 0.0:
+		well_fed -= delta
+		if well_fed <= 0.0:
+			well_fed = 0.0
+			_refresh_stats()
 	_hint_t -= delta
 	if _hint_t <= 0.0:
 		_hint_t = 20.0
@@ -367,7 +375,10 @@ func feed():
 			key = k
 			break
 	if key == "":
-		_say("no herbs to share", Color(0.9, 0.8, 0.6))
+		if best_tonic() >= 0:	# no raw herbs: a tonic will do
+			feed_tonic()
+		else:
+			_say("no herbs or tonics to share", Color(0.9, 0.8, 0.6))
 		return
 	GameState.satchel[key] -= 1
 	if GameState.satchel[key] <= 0:
@@ -384,6 +395,43 @@ func feed():
 	if record.fed == 1:
 		_milestone("fed", "Shared a %s with %s for the first time." % [GameState.resource_name("herb", int(key.get_slice(":", 1))), full_name()])
 	_save()
+
+
+## Your best tonic's quality (-1 = none).
+func best_tonic() -> int:
+	var best = -1
+	for k in Crafting.stash:
+		if k.begins_with("tonic:") and Crafting.stash[k] > 0:
+			best = max(best, int(k.get_slice(":", 1)))
+	return best
+
+
+## A refined herb: much better than a raw one. Better tonics keep it well fed longer.
+func feed_tonic() -> bool:
+	var q = best_tonic()
+	if q < 0:
+		_say("no tonics (refine herbs at the Chemist)", Color(0.9, 0.8, 0.6))
+		return false
+	Crafting._take("tonic", q, 1)
+	Crafting.save()
+	record.fed += 1
+	hunger = 0.0
+	stress = 0.0
+	if overwhelmed:
+		overwhelmed = false
+	skittish = max(0.0, skittish - 5.0)
+	well_fed = 180.0 + 60.0 * q	# 3 minutes, +1 per quality
+	_refresh_stats()
+	health = MAX_HEALTH
+	_update_bar()
+	if _since_fed >= FEED_COOLDOWN:
+		_since_fed = 0.0
+		_grow_bond(8.0, "delicious! (well fed)")
+	else:
+		_grow_bond(2.0, "a tasty treat! (well fed)")
+	_milestone("tonic", "Gave %s a %s. It's never been happier." % [full_name(), Crafting.material_name("tonic", q)])
+	_save()
+	return true
 
 
 # ---------------- Gathering ----------------
