@@ -177,7 +177,7 @@ func _process(delta):
 	if _state_t <= 0.0 and key != "" and not travelling:
 		_state_t = STATE_RATE
 		var me = Zones.player
-		_player_state.rpc(key, Zones.local_path(), me.global_position, me.rotation.y, me.health, me.MAX_HEALTH, me.player_class)
+		_player_state.rpc(key, Zones.local_path(), me.global_position, me.rotation.y, me.health, me.MAX_HEALTH, me.player_class, me.disguised)
 		if me.pet and is_instance_valid(me.pet) and me.pet.is_inside_tree():
 			_pet_state.rpc(key, me.pet.global_position, me.pet.alive(), me.pet.draws_aggro())
 	if not is_host():
@@ -331,7 +331,7 @@ func _puppet_for(id: int, class_id: String):
 
 
 @rpc("any_peer", "call_remote", "unreliable_ordered")
-func _player_state(key: String, path: String, pos: Vector3, rot: float, hp: float, max_hp: float, class_id: String):
+func _player_state(key: String, path: String, pos: Vector3, rot: float, hp: float, max_hp: float, class_id: String, disguised := false):
 	var id = multiplayer.get_remote_sender_id()
 	if is_host():
 		var p = _puppet_for(id, class_id)
@@ -339,6 +339,7 @@ func _player_state(key: String, path: String, pos: Vector3, rot: float, hp: floa
 		if z == null or z.key != key:	# (normally placed already when they asked for the zone)
 			Zones.place_puppet(p, path, key, pos)
 		p.net_state(pos, rot, hp, max_hp)
+		p.set_disguise(disguised)	# the host's enemies leave a disguised player alone
 		return
 	# Joined player: only show people who are in my zone
 	var p = puppets.get(id)
@@ -352,6 +353,7 @@ func _player_state(key: String, path: String, pos: Vector3, rot: float, hp: floa
 		Zones.local_root().add_child(p)
 		p.global_position = pos
 	p.net_state(pos, rot, hp, max_hp)
+	p.set_disguise(disguised)
 
 
 ## Host: who's where (for the party list and P to rejoin).

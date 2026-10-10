@@ -58,7 +58,7 @@ func _rebuild():
 	if job.is_empty():
 		_text(("We took the place back, but there's nobody left to hold it. Some of them out there are sick of fighting. Talk them into guarding these walls?" if guards == 0
 			else "%d guards keep watch now. A few more wouldn't hurt." % guards), SOFT, 16)
-		_text("Press V (Parley) next to a Trash or Thug enemy. About half will agree and come here. The rest get angry, so be ready to fight.", Color(0.7, 0.85, 1.0), 14)
+		_text("Wear this disguise: they'll take you for one of their own (no fighting, auto-attack off). Press V (Parley) next to a Trash or Thug. About half will agree and come here. The rest see through it and attack. Fight them off, then press V to put the disguise back on.", Color(0.7, 0.85, 1.0), 14)
 		_button("Take the job: recruit %d" % Landmarks.RECRUIT_NEED, func():
 			Landmarks.start_recruit(path, id, lm.info.name)
 			close())

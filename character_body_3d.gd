@@ -11,6 +11,7 @@ var player_class := "dps"
 var class_def := {}
 var skills = null		# this player's SkillRunner
 var auto = null			# auto-attack and target choice (auto_fight.gd): Tab / R
+var disguised := false	# recruiting guards: enemies take you for one of their own (Landmarks)
 var auto_sweep = 3		# auto-attack sweeps when this many enemies fit one sweep (weapon; 0 = never)
 
 # Energy
@@ -151,6 +152,36 @@ func _input(event):
 			speed_level = max(speed_level - 1, -MAX_SPEED_LEVELS)
 			update_attack_speed()
 
+## Disguise look: a greenish cloak over you (and a tag), so you know enemies won't notice you.
+var _disguise_tag: Label3D = null
+
+func set_disguise(on: bool):
+	if on == disguised:
+		return
+	disguised = on
+	var overlay = null
+	if on:
+		overlay = StandardMaterial3D.new()
+		overlay.albedo_color = Color(0.25, 0.75, 0.25, 0.55)
+		overlay.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	for c in get_children():
+		if c is MeshInstance3D:
+			c.material_overlay = overlay
+	if on and _disguise_tag == null:
+		_disguise_tag = Label3D.new()
+		_disguise_tag.text = "(disguised)"
+		_disguise_tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		_disguise_tag.no_depth_test = true
+		_disguise_tag.pixel_size = 0.01
+		_disguise_tag.font_size = 32
+		_disguise_tag.outline_size = 8
+		_disguise_tag.modulate = Color(0.6, 1.0, 0.6)
+		_disguise_tag.position.y = 2.9
+		add_child(_disguise_tag)
+	if _disguise_tag:
+		_disguise_tag.visible = on
+
+
 func update_attack_speed():
 	_refresh_damage()
 	print("Speed level: ", speed_level, " ST damage: ", roundi(st_damage), " Cooldown: ", snapped(st_cooldown_time, 0.01))
@@ -232,7 +263,9 @@ func _physics_process(delta):
 	if _click_talking and not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 		_click_talking = false	# let go (maybe while a window was open)
 	var clicking = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
-	if auto and not GameState.ui_open and not clicking:	# your own clicks always win
+	if disguised and clicking and not GameState.ui_open and not _click_talking:	# attacking gives you away
+		Landmarks.set_disguise(false, "You attacked: your disguise is off!")
+	if auto and not GameState.ui_open and not clicking and not disguised:	# your own clicks always win; no fighting in disguise
 		auto.tick()
 	if not GameState.ui_open and not _click_talking and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 		if st_cooldown <= 0:
@@ -331,6 +364,8 @@ func take_damage(amount, source = null):
 		return
 	if invulnerable_time > 0.0 or warded:
 		return
+	if disguised:	# something hit you: they know what you are now
+		Landmarks.set_disguise(false, "Found out! Fight back, then press V to put your disguise back on.")
 	if gather_node != null:
 		_stop_gathering("Interrupted!")
 	if source and "tier" in source:

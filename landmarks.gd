@@ -358,20 +358,42 @@ func _finish(q: Dictionary):
 
 
 # ---------------- Recruiting guards (the survivor at a taken stronghold) ----------------
-## While the job is on, V = Parley: talk to the Trash or Thug enemy nearest you (close by).
-## About half agree and head off to the stronghold; the rest get angry (and won't listen again).
+## While the job is on you go out DISGUISED: enemies don't notice you and auto-attack is off.
+##   V = Parley: talk to the Trash or Thug nearest you. About half agree and head to the stronghold.
+##   The rest see through it: they attack, your disguise drops and you're back in combat.
+##   Out of disguise, V puts it back on (once nothing is chasing you). Attacking also drops it.
 
 const RECRUIT_NEED = 10
 const RECRUIT_CHANCE = 0.5
 const PARLEY_RANGE = 8.0
 const PARLEY_WAIT = 1.2
 var _parley_wait := 0.0
+var disguised := false	# (this play session) on while the job is on, until you're found out
+
+
+## Disguise on/off for the local player. why = the message to show.
+func set_disguise(on: bool, why := ""):
+	disguised = on
+	var p = Zones.player
+	if p and is_instance_valid(p):
+		p.set_disguise(on)
+	if why != "":
+		GameState.notify(why)
+
+
+## V while out of disguise: put it back on, if nothing is after you right now.
+func _redisguise(p):
+	for e in Zones.all(p, "enemy"):
+		if is_instance_valid(e) and e.aggroed and e.player == p and e.global_position.distance_to(p.global_position) < 20.0:
+			p._float_text("Not while they're after you!", Color(1.0, 0.6, 0.4))
+			return
+	set_disguise(true, "Disguise on. Walk up to one and press V to talk.")
 
 
 func start_recruit(path: String, id: String, lm_name: String):
 	recruit = {path = path, id = id, name = lm_name, have = 0, need = RECRUIT_NEED}
 	_save()
-	GameState.notify("Job: recruit %d guards for %s. Press V near a Trash or Thug enemy to talk." % [RECRUIT_NEED, lm_name])
+	set_disguise(true, "Job: recruit %d guards. You're disguised: press V near a Trash or Thug to talk." % RECRUIT_NEED)
 
 
 func parley(p) -> void:
@@ -381,6 +403,9 @@ func parley(p) -> void:
 		GameState.notify("You have enough guards. Take them back to %s." % recruit.name)
 		return
 	if _parley_wait > 0.0:
+		return
+	if not disguised:
+		_redisguise(p)
 		return
 	var best = null
 	var best_d = PARLEY_RANGE
@@ -411,8 +436,10 @@ func parley(p) -> void:
 	else:
 		_say_over(best, "Never!", Color(1.0, 0.5, 0.4))
 		best.set_meta("refused", true)
+		set_disguise(false, "Found out! Fight back, then press V to put your disguise back on.")
 		if not best.mirror:
 			best.aggroed = true
+			best.player = p
 
 
 func _say_over(e, text: String, c: Color):
@@ -441,6 +468,7 @@ func finish_recruit() -> int:
 	var id = recruit.id
 	var lm_name = recruit.name
 	recruit = {}
+	set_disguise(false)
 	var guards = int(state(path, id).get("guards", 0)) + n
 	set_state(path, id, {guards = guards})
 	var gold = 10 * max(1, zone_number(path))

@@ -95,7 +95,7 @@ func _physics_process(delta):
 			hunter = false
 			return
 		var notice = AGGRO_RANGE * (Traits.aggro_mult() if player == Zones.player else 1.0)	# Wary: notice you later
-		if distance <= notice and not aggroed:
+		if distance <= notice and not aggroed and not player.get("disguised"):	# a disguised player looks like one of us
 			aggroed = true
 			call_friends(notice * FRIEND_SHARE)
 

@@ -173,7 +173,10 @@ func _process(delta):
 		speed_label.text = "Attack Speed: %d" % player.speed_level
 		_update_pet()
 		if player.auto:
-			speed_label.text += ("   AUTO - target: %s (R)" % player.auto.mode_name()) if player.auto.on else "   Tab: auto-attack"
+			if player.disguised:
+				speed_label.text += "   Disguised: no fighting (V: talk)"
+			else:
+				speed_label.text += ("   AUTO - target: %s (R)" % player.auto.mode_name()) if player.auto.on else "   Tab: auto-attack"
 	# Active skill effects (boost, shield, auras, vow...)
 	var active = []
 	if player and player.dps_boost_stacks > 0:

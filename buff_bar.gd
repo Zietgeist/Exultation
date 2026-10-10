@@ -93,7 +93,10 @@ func _active() -> Dictionary:
 	# The Survivor's job: Parley (V)
 	if not Landmarks.recruit.is_empty():
 		var j = Landmarks.recruit
-		add.call("parley", "parley", Color(0.75, 0.9, 0.6), "Parley (V)", "Recruiting guards for %s: %d / %d.\nPress V next to a Trash or Thug enemy. About half say yes." % [j.name, j.have, j.need], -1.0, "%d/%d" % [j.have, j.need])
+		if Landmarks.disguised:
+			add.call("parley", "parley", Color(0.5, 0.95, 0.5), "Disguised", "Enemies take you for one of their own. Auto-attack is off.\nPress V next to a Trash or Thug to talk (about half join).\nRecruiting for %s: %d / %d.\nAttacking, or being hit, drops the disguise." % [j.name, j.have, j.need], -1.0, "%d/%d" % [j.have, j.need])
+		else:
+			add.call("parley", "parley", Color(1.0, 0.55, 0.4), "Found out", "Fight back, then press V to put your disguise back on (once nothing is chasing you).\nRecruiting for %s: %d / %d." % [j.name, j.have, j.need], -1.0, "V")
 	# Patient / Driven (pomodoro)
 	if Traits.patient_stacks > 0:
 		add.call("patient", "patient", Color(0.7, 0.95, 0.7), "Patient", "+%d%% damage and max health (1%% per rest you took on time, up to 10)." % Traits.patient_stacks, -1.0, "", Traits.patient_stacks)
