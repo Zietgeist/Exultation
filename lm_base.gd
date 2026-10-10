@@ -229,6 +229,9 @@ func bank_spot(pos: Vector3, text: String):
 		if body != Zones.player:
 			return
 		var amount = GameState.deposit_gold()
+		var stored = GameState.store_satchel()	# the satchel empties into the storehouse at Home too
+		if stored > 0:
+			GameState.notify("Stored %d resources (sent Home)" % stored)
 		if amount > 0:
 			GameState.notify("Banked %d gold at %s. Rest a moment." % [amount, info.name])
 			SessionManager.rest_here()

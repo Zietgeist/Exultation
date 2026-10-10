@@ -79,7 +79,7 @@ func _process(delta):
 var _last_sig := ""
 
 func _signature() -> String:
-	return str([GameState.gold_carried, GameState.gold_banked, GameState.satchel, Crafting.stash, Crafting.items.size(), Crafting.equipped, GameState.buffs.keys()])
+	return str([GameState.gold_carried, GameState.gold_banked, GameState.satchel, GameState.storehouse, Crafting.stash, Crafting.items.size(), Crafting.equipped, GameState.buffs.keys()])
 
 
 func _rebuild():
@@ -149,6 +149,19 @@ func _at_home():
 	right.add_child(bank)
 	bank.add_child(TILE.make("gold", GOLD, 7, 0, "Banked gold: spend it on crafting and at the Inn.", 44))
 	bank.add_child(_small("Banked gold: %d" % GameState.gold_banked, GOLD))
+	_title(right, "Storehouse (raw resources)", 20)
+	var sg = _grid(right)
+	var skeys = GameState.storehouse.keys()
+	skeys.sort()
+	for k in skeys:
+		var bits = k.split(":")
+		var type = bits[0]
+		var q = int(bits[1])
+		sg.add_child(TILE.make(type, GameState.RESOURCE_INFO[type].color, q, GameState.storehouse[k],
+			"%s  x%d (stored)\nRefines into %s at the %s." % [GameState.resource_name(type, q), GameState.storehouse[k],
+			Crafting.MATERIAL_LABELS.get(Crafting.REFINE[type].to, ""), Crafting.REFINE[type].shop.capitalize()]))
+	if sg.get_child_count() == 0:
+		_text(right, "Empty. Step into the bank (the Deposit Shrine at Home, or a camp bank) to empty your satchel here.", DIM)
 	_title(right, "Materials", 20)
 	var mg = _grid(right)
 	for e in Crafting.stash_list():

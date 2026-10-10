@@ -329,13 +329,18 @@ func stash_list() -> Array:
 ## Raw resources this shop can refine right now: [{raw, q, have, cost, to, name, result}]
 func refine_options(shop: String) -> Array:
 	var out = []
-	for key in GameState.satchel:
+	var keys = GameState.satchel.keys()
+	for k in GameState.storehouse:	# banked raw resources refine too
+		if not k in keys:
+			keys.append(k)
+	keys.sort()
+	for key in keys:
 		var bits = key.split(":")
 		var raw = bits[0]
 		var q = int(bits[1])
 		if not REFINE.has(raw) or REFINE[raw].shop != shop:
 			continue
-		var have = GameState.satchel[key]
+		var have = GameState.raw_count(key)
 		out.append({raw = raw, q = q, have = have, cost = REFINE[raw].cost, to = REFINE[raw].to,
 			name = GameState.resource_name(raw, q), result = material_name(REFINE[raw].to, q)})
 	return out
@@ -344,12 +349,8 @@ func refine_options(shop: String) -> Array:
 func refine(raw: String, q: int) -> bool:
 	var key = "%s:%d" % [raw, q]
 	var cost = REFINE[raw].cost
-	if GameState.satchel.get(key, 0) < cost:
+	if not GameState.take_raw(key, cost):
 		return false
-	GameState.satchel[key] -= cost
-	if GameState.satchel[key] <= 0:
-		GameState.satchel.erase(key)
-	GameState.save_progress()
 	var out_key = "%s:%d" % [REFINE[raw].to, q]
 	stash[out_key] = stash.get(out_key, 0) + 1
 	save()

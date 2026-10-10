@@ -66,6 +66,9 @@ func _on_shrine_entered(body: Node):
 	if body.name != "Player":
 		return
 	var amount = GameState.deposit_gold()
+	var stored = GameState.store_satchel()	# the satchel empties into the storehouse too
+	if stored > 0:
+		GameState.notify("Stored %d resources (refine them at the Smith or Chemist)" % stored)
 	if amount > 0:
 		SessionManager.start_rest(REST_SECONDS)
 		print("Deposited ", amount, " gold. Rest for 5 minutes.")
@@ -73,8 +76,8 @@ func _on_shrine_entered(body: Node):
 
 func _process(_delta):
 	shrine_label.text = "Deposit Shrine\nBanked: %d gold" % GameState.gold_banked
-	if GameState.gold_carried > 0:
-		shrine_label.text += "\n(step in to deposit %d)" % GameState.gold_carried
+	if GameState.gold_carried > 0 or GameState.satchel_count() > 0:
+		shrine_label.text += "\n(step in to bank %d gold, %d resources)" % [GameState.gold_carried, GameState.satchel_count()]
 	if portal:
 		var zone_name = GameState.ZONE_NAMES.get(portal.target_scene, "your zone")
 		if SessionManager.is_resting():

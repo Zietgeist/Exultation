@@ -119,6 +119,7 @@ func load_character():
 	gold_carried = 0
 	gold_banked = 0
 	satchel = {}
+	storehouse = {}
 	satchel_upgrades = 0
 	buffs = {}
 	deaths = 0
@@ -136,6 +137,7 @@ func load_character():
 		gold_carried = cfg.get_value("gold", "carried", 0)
 		gold_banked = cfg.get_value("gold", "banked", 0)
 		satchel = cfg.get_value("resources", "satchel", {})
+		storehouse = cfg.get_value("resources", "storehouse", {})
 		satchel_upgrades = cfg.get_value("resources", "satchel_upgrades", 0)
 		buffs = cfg.get_value("inn", "buffs", {})
 
@@ -146,6 +148,7 @@ func save_progress():
 	cfg.set_value("gold", "carried", gold_carried)
 	cfg.set_value("gold", "banked", gold_banked)
 	cfg.set_value("resources", "satchel", satchel)
+	cfg.set_value("resources", "storehouse", storehouse)
 	cfg.set_value("resources", "satchel_upgrades", satchel_upgrades)
 	cfg.set_value("inn", "buffs", buffs)
 	if cfg.save(PROGRESS_PATH) != OK:
@@ -438,6 +441,44 @@ const RESOURCE_INFO = {
 }
 
 var satchel = {}	# "type:quality" -> count (saved between plays)
+var storehouse = {}	# raw resources banked at Home (no limit): "type:quality" -> count
+
+
+## The bank empties your satchel too: everything raw goes to the storehouse at Home.
+## The Smith and Chemist refine straight from it. Returns how many were stored.
+func store_satchel() -> int:
+	var n = 0
+	for k in satchel:
+		if satchel[k] > 0:
+			storehouse[k] = storehouse.get(k, 0) + satchel[k]
+			n += satchel[k]
+	satchel.clear()
+	if n > 0:
+		save_progress()
+	return n
+
+
+## Raw resources of one kind you can refine: satchel + storehouse.
+func raw_count(key: String) -> int:
+	return satchel.get(key, 0) + storehouse.get(key, 0)
+
+
+## Use up raw resources: the satchel first (frees space), then the storehouse.
+func take_raw(key: String, n: int) -> bool:
+	if raw_count(key) < n:
+		return false
+	var from_satchel = mini(n, satchel.get(key, 0))
+	if from_satchel > 0:
+		satchel[key] -= from_satchel
+		if satchel[key] <= 0:
+			satchel.erase(key)
+	var rest = n - from_satchel
+	if rest > 0:
+		storehouse[key] -= rest
+		if storehouse[key] <= 0:
+			storehouse.erase(key)
+	save_progress()
+	return true
 
 
 ## Resource quality for a zone: 0 means no resources there (Zone 1).
