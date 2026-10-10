@@ -2,9 +2,9 @@ extends Control
 ## The map (press M).
 ## - At Home: first the town map (shops, gates, the rest shrine, fast travel). Press M again for the
 ##   whole spiral, showing what you've explored in each zone. Once more closes it.
-## - In a zone you've cleared (both bosses down): that zone, with you, the gates,
-##   enemies still left, where you fell (red X) and where bosses fell (gold ring).
-## - Anywhere else: no map. You learn the zone by walking it.
+## - In a zone: the ground you've explored (the rest stays dark), with you, gates, landmarks you've
+##   found, fast-travel stops, shrines, where you fell (red X) and where bosses fell (gold ring).
+##   Once you've cleared it (both bosses down), it also shows every enemy left.
 ## Zoom: left click zooms in on that spot, right click zooms out, mouse wheel too.
 ## While the map is open, clicks go to the map (no attacks). You can still walk.
 
@@ -113,10 +113,10 @@ func _draw():
 		_draw_town(font)
 		_hint(font, "M: the whole spiral")
 		return
-	elif GameState.is_zone_cleared(path):
-		_draw_zone(path, font)
+	elif path.begins_with("res://Zone"):
+		_draw_zone(path, font, GameState.is_zone_cleared(path))
 	else:
-		var msg = "No map yet.\nDefeat both bosses in this zone to draw its map.\nThe map at Home shows everywhere you've been."
+		var msg = "No map here."
 		draw_multiline_string(font, Vector2(0, size.y / 2.0 - 40), msg, HORIZONTAL_ALIGNMENT_CENTER, size.x, 24, -1, GOLD)
 	_hint(font, "M to close")
 
@@ -217,7 +217,10 @@ func _map_mark(fit: Dictionary, pos: Vector3, c: Color, text: String, font):
 
 
 # ---------- Zone map (cleared zone) ----------
-func _draw_zone(path: String, font):
+## A zone's map. Only ground you've explored is drawn (the rest stays dark), and only things on it:
+## gates, landmarks you've found, fast-travel stops, shrines, where you fell.
+## Cleared zones (both bosses down) also show every enemy left.
+func _draw_zone(path: String, font, cleared := true):
 	var floor_node = Zones.local_first("map_floor")
 	if floor_node == null:
 		return
@@ -228,17 +231,40 @@ func _draw_zone(path: String, font):
 	var fog = Zones.local_first("zone_fog")
 	_draw_fog_cells(screen, half, fog.revealed if fog else null, fog.CELL if fog else 4.0)
 	draw_rect(screen, GOLD, false, 2.0)
-	draw_string(font, Vector2(0, 50), GameState.ZONE_NAMES.get(path, path) + "  - cleared", HORIZONTAL_ALIGNMENT_CENTER, size.x, 30, GOLD)
+	var seen = func(pos: Vector3) -> bool: return cleared or fog == null or fog.is_revealed(pos)
+	var title = GameState.ZONE_NAMES.get(path, path) + ("  - cleared" if cleared else "  - %d%% explored" % roundi(100.0 * (fog.explored_fraction() if fog else 0.0)))
+	draw_string(font, Vector2(0, 50), title, HORIZONTAL_ALIGNMENT_CENTER, size.x, 30, GOLD)
 
-	# Enemies still left (awake and sleeping)
-	var sp = Zones.local_first("zone_spawner")
-	for e in Zones.local_all("enemy"):
-		draw_circle(_to_screen(fit, e.global_position), 2.0, TIER_COLORS[e.tier])
-	if sp:
-		for d in sp.dormant:
-			draw_circle(_to_screen(fit, d.p), 2.0, TIER_COLORS[d.t])
+	if cleared:	# enemies still left (awake and sleeping)
+		var sp = Zones.local_first("zone_spawner")
+		for e in Zones.local_all("enemy"):
+			draw_circle(_to_screen(fit, e.global_position), 2.0, TIER_COLORS[e.tier])
+		if sp:
+			for d in sp.dormant:
+				draw_circle(_to_screen(fit, d.p), 2.0, TIER_COLORS[d.t])
+	# Landmarks you've found
+	for l in Zones.local_all("landmark"):
+		if not (cleared or l._found or Landmarks.state(path, l.info.id).has("found")):
+			continue
+		var c = _to_screen(fit, l.global_position)
+		var r = max(6.0, l.info.size * fit.scale)
+		var col = Color(0.7, 1.0, 0.7) if Landmarks.state(path, l.info.id).has("taken") else Color(0.95, 0.75, 0.45)
+		draw_arc(c, r, 0, TAU, 32, col, 2.0)
+		draw_string(font, c + Vector2(-80, -r - 6), l.info.name, HORIZONTAL_ALIGNMENT_CENTER, 160, 14, col)
+	# Fast-travel stops you've found
+	for w in Zones.local_all("waystation"):
+		if Travel.is_found(path, w.station_id):
+			var c = _to_screen(fit, w.global_position)
+			draw_colored_polygon(PackedVector2Array([c + Vector2(0, -7), c + Vector2(6, 0), c + Vector2(0, 7), c + Vector2(-6, 0)]), Color(0.5, 0.8, 1.0))
+	# Shrines you've seen
+	for sh in Zones.local_all("shrine"):
+		if seen.call(sh.global_position):
+			var c = _to_screen(fit, sh.global_position)
+			draw_colored_polygon(PackedVector2Array([c + Vector2(0, -7), c + Vector2(5, 4), c + Vector2(-5, 4)]), Trials.TYPES[sh.ability].color)
 	# Gates
 	for door in Zones.local_all("door"):
+		if not seen.call(door.global_position):
+			continue
 		var c = _to_screen(fit, door.global_position)
 		draw_rect(Rect2(c - Vector2(5, 5), Vector2(10, 10)), Color(0, 1, 1) if GameState.is_unlocked(door.target_scene) else Color(0.9, 0.1, 0.1))
 	# Where you fell / where bosses fell
@@ -280,7 +306,12 @@ func _draw_fog_cells(screen: Rect2, half: Vector2, revealed, cell := 4.0):
 		return
 	var cw = screen.size.x / cols
 	var ch = screen.size.y / rows
-	for r in range(rows):
-		for c in range(cols):
-			if revealed[r * cols + c]:
-				draw_rect(Rect2(screen.position + Vector2(c * cw, r * ch), Vector2(cw + 0.5, ch + 0.5)), EXPLORED)
+	for r in range(rows):	# one rectangle per run of explored squares (huge zones have 90,000 squares)
+		var start = -1
+		for c in range(cols + 1):
+			var on = c < cols and revealed[r * cols + c]
+			if on and start == -1:
+				start = c
+			elif not on and start != -1:
+				draw_rect(Rect2(screen.position + Vector2(start * cw, r * ch), Vector2((c - start) * cw + 0.5, ch + 0.5)), EXPLORED)
+				start = -1

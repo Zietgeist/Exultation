@@ -34,7 +34,9 @@ const ENEMY_REST_HEIGHT = 1.2	# standing on the floor
 const WAKE_RADIUS = 45.0		# dormant enemies closer than this become real
 const SLEEP_RADIUS = 60.0		# real, calm enemies farther than this go dormant
 const STREAM_EVERY = 0.1		# seconds between wake/sleep checks
-const MAX_WAKES_PER_CHECK = 40	# spread the work so there are no hitches
+const MAX_WAKES_PER_CHECK = 12	# spread the work so there are no hitches
+var MAX_AWAKE = 60			# at most this many real enemies at once (big zones pack 150-200 into
+								# the wake circle, which lags). Nearest wake first; more wake as you kill.
 
 ## Sleeping enemies, sorted into 50 x 50 squares so waking only looks near the party
 ## (huge zones hold tens of thousands). `dormant` gives them all as one list.
@@ -194,7 +196,7 @@ func _process(delta):
 
 func _spawn_near_player():
 	var left = reserve[0] + reserve[1] + reserve[2]
-	if left <= 0 or in_safe_spot(player.global_position) or Landmarks.in_safe(player):
+	if left <= 0 or in_safe_spot(player.global_position) or Landmarks.in_safe(player) or Zones.all(self, "enemy").size() >= MAX_AWAKE:
 		return
 	var angle = randf() * TAU
 	var center = player.global_position + Vector3(cos(angle), 0, sin(angle)) * randf_range(NEAR_MIN, NEAR_MAX)
@@ -368,23 +370,43 @@ func _stream():
 	for m in GameState.party(self):
 		if is_instance_valid(m) and m.is_inside_tree():
 			spots.append(m.global_position)
-	var woke = 0
-	for s in spots:
-		for kx in range(floori((s.x - WAKE_RADIUS) / BUCKET), floori((s.x + WAKE_RADIUS) / BUCKET) + 1):
-			for kz in range(floori((s.z - WAKE_RADIUS) / BUCKET), floori((s.z + WAKE_RADIUS) / BUCKET) + 1):
-				var b = _buckets.get(Vector2i(kx, kz))
-				if b == null:
-					continue
-				var i = b.size() - 1
-				while i >= 0 and woke < MAX_WAKES_PER_CHECK:
-					var d = b[i]
-					if _nearest(spots, d.p) < WAKE_RADIUS:
-						_instantiate(d.t, d.p, d.h, d.get("e", "physical"))
-						b.remove_at(i)
-						woke += 1
-					i -= 1
-	for enemy in Zones.all(self, "enemy"):
-		if enemy.aggroed or enemy.is_queued_for_deletion() or not enemy.has_meta("from_spawner"):
+	var awake = Zones.all(self, "enemy")
+	var room = MAX_AWAKE - awake.size()
+	# Too many awake (e.g. after a party spread out): calm ones farthest from everyone go back to sleep
+	if room < 0:
+		var calm = awake.filter(func(e): return not e.aggroed and not e.is_queued_for_deletion() and e.has_meta("from_spawner"))
+		calm.sort_custom(func(a, b): return _nearest(spots, a.global_position) > _nearest(spots, b.global_position))
+		for e in calm.slice(0, -room):
+			_sleep({t = e.tier, p = e.global_position, h = e.health, e = e.damage_type})
+			e.queue_free()
+		room = 0
+	# Wake the NEAREST sleeping ones, up to the cap
+	if room > 0:
+		var near = []	# [distance, bucket, entry]
+		for sp in spots:
+			for kx in range(floori((sp.x - WAKE_RADIUS) / BUCKET), floori((sp.x + WAKE_RADIUS) / BUCKET) + 1):
+				for kz in range(floori((sp.z - WAKE_RADIUS) / BUCKET), floori((sp.z + WAKE_RADIUS) / BUCKET) + 1):
+					var b = _buckets.get(Vector2i(kx, kz))
+					if b == null:
+						continue
+					for d in b:
+						var dist = _nearest(spots, d.p)
+						if dist < WAKE_RADIUS:
+							near.append([dist, b, d])
+		near.sort_custom(func(a, b): return a[0] < b[0])
+		var woke = 0
+		for n in near:
+			if woke >= mini(room, MAX_WAKES_PER_CHECK):
+				break
+			var d = n[2]
+			var i = n[1].find(d)
+			if i == -1:
+				continue
+			n[1].remove_at(i)
+			_instantiate(d.t, d.p, d.h, d.get("e", "physical"))
+			woke += 1
+	for enemy in awake:
+		if not is_instance_valid(enemy) or enemy.aggroed or enemy.is_queued_for_deletion() or not enemy.has_meta("from_spawner"):
 			continue
 		var ep = enemy.global_position
 		if _nearest(spots, ep) > SLEEP_RADIUS:

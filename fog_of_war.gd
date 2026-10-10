@@ -1,12 +1,14 @@
 extends Node3D
-## Fog of war: a dark layer over the ground in parts of the zone you haven't been near yet.
-## Enemies stand above it, so you can still see them coming.
+## Fog of war: a dark ceiling over the parts of the zone you haven't been near yet.
+## It sits above head height, so NOTHING under it shows (ground, enemies, trees, walls).
+## Only the very tallest things (stronghold towers) poke out: a hint of what's out there.
+## The map (M) shows the ground you've explored.
 ## It lifts as you explore and stays lifted for the rest of the play session.
 
 var CELL = 4.0		# size of one fog square (bigger in huge zones: world_layout.fog_cell)
-const REVEAL_RADIUS = 16.0	# how far around you the fog lifts. Smaller than the view, so the outer ~15% of the screen stays fogged
-const HEIGHT = 0.35		# just above the floor: hides the ground, but enemies and tall things stand out of it
-const FOG_COLOR = Color(0.06, 0.07, 0.1, 0.93)
+const REVEAL_RADIUS = 22.0	# how far around you the fog lifts. Smaller than the view, so the outer ~15% of the screen stays fogged
+const HEIGHT = 6.5		# above enemies, trees and walls: everything under it is hidden
+const FOG_COLOR = Color(0.06, 0.07, 0.1, 1.0)
 const CHECK_EVERY = 0.15
 
 var saved = null		# revealed squares from an earlier visit this session
@@ -97,6 +99,17 @@ func _reveal_around_player():
 				fresh += 1
 	if fresh > 0:
 		Traits.nudge("roam", -0.004 * fresh * (CELL / 4.0) * (CELL / 4.0))	# exploring new ground: Wanderer
+
+
+## Has the fog lifted at this spot?
+func is_revealed(pos: Vector3) -> bool:
+	if cols == 0:
+		return true
+	var c = floori((pos.x + half.x) / CELL)
+	var r = floori((pos.z + half.y) / CELL)
+	if c < 0 or r < 0 or c >= cols or r >= rows:
+		return false
+	return revealed[r * cols + c] == 1
 
 
 ## How much of the zone has been explored (0.0 to 1.0)
