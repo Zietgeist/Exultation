@@ -808,8 +808,8 @@ func apply_gear():
 		lifesteal = e.lifesteal
 	else:	# bare hands
 		weapon_name = "Fists"
-		weapon_st_base = 100.0
-		weapon_aoe_base = 50.0
+		weapon_st_base = 100.0 * Crafting.ST_MULT
+		weapon_aoe_base = 50.0 * Crafting.AOE_MULT
 		aoe_cone = 0.3
 		aoe_max_targets = 4
 		ST_RANGE = 10.0 * REACH_MULT

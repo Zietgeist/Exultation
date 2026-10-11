@@ -58,6 +58,10 @@ const MATERIAL_LABELS = {"gem": "Gem", "ingot": "Ingot", "silverbar": "Treesilve
 const HERB_ELEMENTS = ["radiant", "shadow", "nature", "storm"]
 const ORCHID_ELEMENTS = ["nature", "storm", "radiant", "shadow"]
 
+# Single strikes hit much harder than sweeps (Oct 2026): strikes for big foes, sweeps for crowds.
+const ST_MULT = 1.5
+const AOE_MULT = 0.75
+
 # ---------- Base recipes ----------
 # need: {material: count}  The quality you pick applies to the main material.
 const BASES = {
@@ -630,8 +634,8 @@ func effects(item: Dictionary) -> Dictionary:
 	match item.slot:
 		"weapon":
 			var hard = a.get("hardness", 0.0)
-			e.st = s.st + hard * 6.0 + a.get("physical", 0.0) * 5.0
-			e.aoe = s.aoe + hard * 3.0 + a.get("physical", 0.0) * 2.5
+			e.st = (s.st + hard * 6.0 + a.get("physical", 0.0) * 5.0) * ST_MULT
+			e.aoe = (s.aoe + hard * 3.0 + a.get("physical", 0.0) * 2.5) * AOE_MULT
 			e.cone = s.cone
 			e.targets = s.targets
 			e.reach = s.reach
