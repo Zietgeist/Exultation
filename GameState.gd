@@ -395,7 +395,7 @@ func party(node = null) -> Array:
 
 ## Feedback: the Send feedback buttons open this Discord invite (to the play-test feedback channel).
 ## Players @mention the bot there. While it is "", the buttons say "not set up yet".
-const FEEDBACK_URL = ""
+const FEEDBACK_URL = "https://discord.gg/t7upqEdbx"
 
 func open_feedback():
 	if FEEDBACK_URL == "":
