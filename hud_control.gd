@@ -170,13 +170,13 @@ func _process(delta):
 	if player:
 		health_bar.value = (player.health / player.MAX_HEALTH) * 100
 		energy_bar.value = (player.energy / player.MAX_ENERGY) * 100
-		speed_label.text = "Attack Speed: %d" % player.speed_level
+		speed_label.text = "Attack speed: %+d (C)" % player.speed_level
 		_update_pet()
 		if player.auto:
 			if player.disguised:
 				speed_label.text += "   Disguised: no fighting (V: talk)"
 			else:
-				speed_label.text += ("   AUTO - target: %s (R)" % player.auto.mode_name()) if player.auto.on else "   Tab: auto-attack"
+				speed_label.text += ("   AUTO: %s (wheel) - target: %s (R)" % [player.auto.stance_name(), player.auto.mode_name()]) if player.auto.on else "   Tab: auto-attack"
 	# Active skill effects (boost, shield, auras, vow...)
 	var active = []
 	if player and player.dps_boost_stacks > 0:

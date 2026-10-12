@@ -4,7 +4,7 @@ extends Node
 ## (up to about 12%), so neither side is "wrong". The character screen (C) shows the sliders.
 ##
 ##   Swift <-> Steadfast    skip vs. clear 99% of a map and avenge rivals
-##   Fury <-> Precision     right-click sweeps (fast wheel) vs. left-click strikes (heavy wheel)
+##   Fury <-> Precision     sweeps and fast attack speed vs. single strikes and heavy attack speed
 ##   Bold <-> Wary          fight hurt and pull big groups vs. heal early and take one group at a time
 ##   Self <-> Kin           solo and keep everything vs. play with friends, heal them, give gear, guard your pet
 ##   Wanderer <-> Keeper    explore, find new places vs. refine, craft, rest on time
@@ -25,7 +25,7 @@ const TENSIONS = {
 		left_tip = "You move faster (up to +12% move speed).\nGrows when you skip enemies, leave zones early, or walk past your Rivals.",
 		right_tip = "You're tougher (up to +12% max health, 6% less damage taken).\nGrows when you clear 99% of a map or go back and beat a Rival that killed you."},
 	"style": {left = "Fury", right = "Precision",
-		left_tip = "Wider sweeps (right click), and from halfway on, +1 enemy hit.\nGrows when you use sweeps and a fast attack setting (mouse wheel).",
+		left_tip = "Wider sweeps (right click), and from halfway on, +1 enemy hit.\nGrows when you use sweeps and a fast attack speed (character window, C).",
 		right_tip = "Harder single strikes (left click, up to +12%) and a chance to crit for double.\nGrows when you use single strikes and a heavy attack setting."},
 	"nerve": {left = "Bold", right = "Wary",
 		left_tip = "More damage while you're under half health (up to +12%).\nGrows when you fight at low health or take on 5+ enemies at once.",
@@ -258,7 +258,7 @@ func _process(delta):
 		nudge("bond", 0.06)
 	elif not Net.is_online():
 		nudge("bond", -0.03)
-	# Fury or Precision: the attack-speed wheel
+	# Fury or Precision: the attack speed setting
 	if p.speed_level > 0:
 		nudge("style", -0.05)
 	elif p.speed_level < 0:

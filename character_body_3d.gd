@@ -10,9 +10,9 @@ const BASE_MAX_HEALTH = 100.0
 var player_class := "dps"
 var class_def := {}
 var skills = null		# this player's SkillRunner
-var auto = null			# auto-attack and target choice (auto_fight.gd): Tab / R
+var auto = null			# auto-attack, its style and target choice (auto_fight.gd): Tab / wheel / R
 var disguised := false	# recruiting guards: enemies take you for one of their own (Landmarks)
-var auto_sweep = 3		# auto-attack sweeps when this many enemies fit one sweep (weapon; 0 = never)
+var auto_sweep = 3		# old weapon stat, no longer used: the mouse wheel picks the auto-attack style now
 
 # Energy
 const MAX_ENERGY = 10.0
@@ -145,12 +145,14 @@ func _input(event):
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			_click_talking = event.pressed and _click_talk()
+		# Mouse wheel: auto-attack style. Up = single target (Strike), down = multi target (Sweep).
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
-			speed_level = min(speed_level + 1, MAX_SPEED_LEVELS)
-			update_attack_speed()
+			auto.set_stance("single")
 		if event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
-			speed_level = max(speed_level - 1, -MAX_SPEED_LEVELS)
-			update_attack_speed()
+			auto.set_stance("multi")
+		# Side mouse buttons: the big ability, same as F
+		if (event.button_index == MOUSE_BUTTON_XBUTTON1 or event.button_index == MOUSE_BUTTON_XBUTTON2) and event.pressed:
+			skills.use("F")
 
 ## Disguise look: a greenish cloak over you (and a tag), so you know enemies won't notice you.
 var _disguise_tag: Label3D = null
@@ -182,9 +184,15 @@ func set_disguise(on: bool):
 		_disguise_tag.visible = on
 
 
+## Attack speed setting (character window, C): + = faster and lighter, - = slower and harder.
+func change_attack_speed(step: int):
+	speed_level = clampi(speed_level + step, -MAX_SPEED_LEVELS, MAX_SPEED_LEVELS)
+	update_attack_speed()
+	auto.save()	# remembered with the other controls
+
+
 func update_attack_speed():
 	_refresh_damage()
-	print("Speed level: ", speed_level, " ST damage: ", roundi(st_damage), " Cooldown: ", snapped(st_cooldown_time, 0.01))
 
 func _physics_process(delta):
 	if is_puppet:
@@ -828,7 +836,7 @@ func apply_gear():
 	_refresh_damage()
 
 
-## Damage and attack times = weapon x attack-speed wheel x DPS boost.
+## Damage and attack times = weapon x attack-speed setting x DPS boost.
 func _refresh_damage():
 	var modifier = speed_level * SPEED_DAMAGE_MODIFIER
 	var boost = pow(boost_base, dps_boost_stacks) * (1.15 if GameState.has_buff("meal") else 1.0)

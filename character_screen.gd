@@ -134,7 +134,6 @@ func _gear(page, p):
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cols.add_child(right)
 	right.add_child(_label("Weapon: %s" % p.weapon_name, SOFT, 16))
-	right.add_child(_label(Crafting.auto_text(p.auto_sweep), DIM, 13, 460.0))
 	right.add_child(_label("Potions (press 1)", GOLD, 18))
 	var pots = Crafting.potions()
 	var prow = _grid(right, 7)
@@ -202,17 +201,18 @@ func _stats(page, p):
 		"Single strike on one enemy (the one nearest your mouse, or your main target)."))
 	cards.add_child(_card("Sweep", "%d" % p.aoe_damage, "right click · up to %d · %d°" % [p.aoe_max_targets, roundi(rad_to_deg(acos(clamp(p.aoe_cone, -1.0, 1.0))) * 2)],
 		"Hits enemies in a cone in front of you."))
-	cards.add_child(_card("Attack time", "%.1fs / %.1fs" % [p.st_cooldown_time, p.aoe_cooldown_time], "hit / sweep · wheel %+d" % p.speed_level,
-		"Mouse wheel: faster attacks for less damage each, or slower and harder."))
+	cards.add_child(_card("Attack time", "%.1fs / %.1fs" % [p.st_cooldown_time, p.aoe_cooldown_time], "hit / sweep · speed %+d" % p.speed_level,
+		"Faster attacks for less damage each, or slower and harder.\nChange it with the Faster / Harder buttons below."))
 	cards.add_child(_card("Move", "%.1f" % (p.SPEED * (1.0 + p.haste)), "hasted" if p.haste > 0.0 else "speed", "How fast you run."))
 	if p.auto:
 		cards.add_child(_card("Auto (Tab)", "ON" if p.auto.on else "off", "target: %s (R)" % p.auto.mode_name(),
-			"Auto-attack fights enemies that are already after you. It never starts a fight.\n%s with your %s.\nYour own clicks always win.\n\nMain target: %s\n%s" % [
-			Crafting.auto_text(p.auto_sweep), p.weapon_name, p.auto.mode_name(), p.auto.MODE_TIPS[p.auto.mode]]))
+			"Auto-attack fights enemies that are already after you. It never starts a fight.\nStyle: %s (mouse wheel: up = single target, down = multi target).\nYour own clicks always win.\n\nMain target: %s\n%s" % [
+			p.auto.stance_name(), p.auto.mode_name(), p.auto.MODE_TIPS[p.auto.mode]]))
 	if p.lifesteal > 0.0:
 		cards.add_child(_card("Lifesteal", "%.1f" % p.lifesteal, "heals per hit", "Each hit heals you a little."))
 	if p.dps_boost_stacks > 0:
 		cards.add_child(_card("Boost", "x%d" % pow(p.boost_base, p.dps_boost_stacks), "%d stacks" % p.dps_boost_stacks, "Your damage boost right now."))
+	_speed_row(left, p)
 	for el in p.element_bonus:
 		left.add_child(_label("  +%d %s damage per hit" % [p.element_bonus[el], SkinManager.element_label(el)], Crafting.ELEMENT_COLORS[el], 14))
 
@@ -314,6 +314,27 @@ func _journey(page):
 
 
 # ---------------- helpers ----------------
+
+## Attack speed setting: Harder (slower, bigger hits) <-> Faster (quicker, lighter hits).
+func _speed_row(box, p):
+	var row = HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	box.add_child(row)
+	row.add_child(_label("Attack speed:", SOFT, 15))
+	var harder = Button.new()
+	harder.text = "< Harder"
+	harder.tooltip_text = "Slower attacks, more damage each."
+	harder.disabled = p.speed_level <= -p.MAX_SPEED_LEVELS
+	harder.pressed.connect(func(): p.change_attack_speed(-1); _rebuild())
+	row.add_child(harder)
+	row.add_child(_label("%+d" % p.speed_level, GOLD, 16))
+	var faster = Button.new()
+	faster.text = "Faster >"
+	faster.tooltip_text = "Quicker attacks, less damage each."
+	faster.disabled = p.speed_level >= p.MAX_SPEED_LEVELS
+	faster.pressed.connect(func(): p.change_attack_speed(1); _rebuild())
+	row.add_child(faster)
+
 
 func _label(t: String, color: Color, size := 16, wrap_width := 0.0) -> Label:
 	var l = Label.new()

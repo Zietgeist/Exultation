@@ -158,8 +158,6 @@ func recipe(id: String) -> Dictionary:
 	b.slots = mini(b.slots + 1 + int(level / 2.0), 6)
 	b.label = "%s %s" % [fam.label, ROMAN[level]]
 	b.about = "Level %d recipe (from %s trials): power x%.1f, %d creative slots." % [level, ability.capitalize(), m, b.slots]
-	if st.has("auto_sweep"):
-		b.about += " " + auto_text(int(st.auto_sweep)) + "."
 	b.advanced = true
 	b.ability = ability
 	b.level = level
@@ -667,13 +665,6 @@ func effects(item: Dictionary) -> Dictionary:
 	return e
 
 
-## How auto-attack (Tab) fights with this weapon.
-static func auto_text(n: int) -> String:
-	if n <= 0:
-		return "Auto-attack: never sweeps, only strikes"
-	return "Auto-attack: sweeps at %d+ enemies, strikes when fewer" % n
-
-
 ## Plain-English summary of an item, for the shop screens.
 func describe(item: Dictionary) -> String:
 	var e = effects(item)
@@ -682,7 +673,6 @@ func describe(item: Dictionary) -> String:
 		"weapon":
 			lines.append("Hit %d / Sweep %d   (reach %d, sweep up to %d)" % [e.st, e.aoe, e.reach * 2, e.targets])	# strikes reach 2x (player REACH_MULT)
 			lines.append("Attack time %.1fs / %.1fs" % [e.st_cd, e.aoe_cd])
-			lines.append(auto_text(e.auto_sweep))
 			for el in e.element_bonus:
 				lines.append("+%d %s damage per hit" % [e.element_bonus[el], SkinManager.element_label(el)])
 			if e.lifesteal > 0.0:

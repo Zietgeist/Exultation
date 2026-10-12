@@ -1,12 +1,14 @@
 extends Node
 ## Auto-attack, so fights are about where you stand and when you use E / Q / F, not clicking.
 ##   Tab: auto-attack on / off.   R: change which enemy is your main target.
+##   Mouse wheel: the style (you choose, auto never switches on its own).
+##     Up   = Single target: strikes on your main target. For the leader / the tough one.
+##     Down = Multi target: sweeps, aimed where they catch the most. For a crowd of small ones.
+##            (If nobody is close enough to sweep, it strikes instead.)
 ##   - Only fights enemies that are already after you. Auto never starts a fight.
-##   - Few enemies close by: single strikes on your main target.
-##   - Enough enemies in one sweep: a sweep, aimed where it catches the most.
-##     How many is "enough" depends on your weapon (Cleaver 2, Blade 3, Spear 5).
 ##   - Your own clicks always win; auto waits while you hold a mouse button.
 ## The main target choice also applies to your own left clicks when the mouse isn't on an enemy.
+## Also saves the attack speed setting (character window), so all controls live in one file.
 
 const MODES = ["mouse", "closest", "strongest", "weakest", "most_health", "least_health"]
 const MODE_NAMES = {
@@ -21,10 +23,13 @@ const MODE_TIPS = {
 	most_health = "The enemy with the most health left: wear down the tanky one.",
 	least_health = "The enemy with the least health left: finish them off.",
 }
+const STANCES = ["single", "multi"]
+const STANCE_NAMES = {single = "Single target", multi = "Multi target"}
 const SAVE_PATH = "user://controls.cfg"
 
 var on := false
 var mode := "mouse"
+var stance := "single"
 var target = null		# the main target right now (shown with a ring)
 var p					# the player
 var _ring: MeshInstance3D
@@ -36,8 +41,14 @@ func _ready():
 	if cfg.load(SAVE_PATH) == OK:
 		on = cfg.get_value("auto", "on", false)
 		mode = cfg.get_value("auto", "mode", "mouse")
+		stance = cfg.get_value("auto", "stance", "single")
+		p.speed_level = clampi(cfg.get_value("attack", "speed_level", 0), -p.MAX_SPEED_LEVELS, p.MAX_SPEED_LEVELS)
 	if not mode in MODES:
+		ErrorLog.warn("AutoFight: unknown target mode '%s' in %s, using 'mouse'" % [mode, SAVE_PATH])
 		mode = "mouse"
+	if not stance in STANCES:
+		ErrorLog.warn("AutoFight: unknown style '%s' in %s, using 'single'" % [stance, SAVE_PATH])
+		stance = "single"
 	_ring = MeshInstance3D.new()
 	var t = TorusMesh.new()
 	t.inner_radius = 0.9
@@ -53,17 +64,19 @@ func _ready():
 	add_child(_ring)
 
 
-func _save():
+func save():
 	var cfg = ConfigFile.new()
 	cfg.set_value("auto", "on", on)
 	cfg.set_value("auto", "mode", mode)
+	cfg.set_value("auto", "stance", stance)
+	cfg.set_value("attack", "speed_level", p.speed_level)
 	if cfg.save(SAVE_PATH) != OK:
 		ErrorLog.fail("AutoFight: couldn't save " + SAVE_PATH)
 
 
 func toggle():
 	on = not on
-	_save()
+	save()
 	p._float_text("Auto-attack ON" if on else "Auto-attack off", Color(1.0, 0.8, 0.4))
 	if not on:
 		_ring.visible = false
@@ -71,8 +84,24 @@ func toggle():
 
 func next_mode():
 	mode = MODES[(MODES.find(mode) + 1) % MODES.size()]
-	_save()
+	save()
 	p._float_text("Target: " + MODE_NAMES[mode], Color(1.0, 0.8, 0.4))
+
+
+## Mouse wheel: pick the auto-attack style.
+func set_stance(s: String):
+	if not s in STANCES:
+		ErrorLog.fail("AutoFight.set_stance: unknown style '%s'" % s)
+		return
+	if s == stance:
+		return
+	stance = s
+	save()
+	p._float_text(STANCE_NAMES[stance], Color(1.0, 0.8, 0.4))
+
+
+func stance_name() -> String:
+	return STANCE_NAMES[stance]
 
 
 func mode_name() -> String:
@@ -154,13 +183,11 @@ func tick():
 		_ring.global_position = Vector3(target.global_position.x, target.global_position.y - 1.0, target.global_position.z)
 	if foes.is_empty():
 		return
-	var need = p.auto_sweep
-	if need > 0:
+	if stance == "multi":
 		var close = foes.filter(func(e): return p.global_position.distance_to(e.global_position) <= p.AOE_RANGE)
-		var sweep = best_sweep(close)
-		if sweep[1] >= need:	# enough of them in one sweep: sweep (no single strikes meanwhile)
+		if not close.is_empty():	# someone in sweep range: sweep (no single strikes meanwhile)
 			if p.aoe_cooldown <= 0:
-				p.aoe_attack(sweep[0])
+				p.aoe_attack(best_sweep(close)[0])
 				p.aoe_cooldown = p.aoe_cooldown_time
 			return
 	if target and p.st_cooldown <= 0:
