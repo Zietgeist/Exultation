@@ -22,6 +22,8 @@ That keeps Exultation from becoming "skill rotation" heavy.
 | Running | Moving | always: where you stand matters most |
 
 A good fight looks like: run into a group, sweep the trash, strike the leader, drop the big ability on a big pack.
+Enemies come in packs built for this: one leader (Thug or Master) with 8-20 Trash, at camps, valleys and hills.
+DPS Boost caps at x2, so no class one-shots everything and leaders still need strikes.
 
 Rules:
 - No rotations or "press A, then B, then C" orders. Each button has one clear "when".
