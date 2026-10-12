@@ -180,7 +180,7 @@ func _process(delta):
 	# Active skill effects (boost, shield, auras, vow...)
 	var active = []
 	if player and player.dps_boost_stacks > 0:
-		active.append("DMG BOOST x%.0f (%d stacks)" % [pow(player.boost_base, player.dps_boost_stacks), player.dps_boost_stacks])
+		active.append("DMG BOOST x%.1f (%d stacks)" % [player.boost_mult, player.dps_boost_stacks])
 	if player and player.skills:
 		active.append_array(player.skills.status_lines())
 	if active.size() > 0:

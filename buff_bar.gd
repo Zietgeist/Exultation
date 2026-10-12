@@ -76,7 +76,7 @@ func _active() -> Dictionary:
 		var longest = 0.0
 		for t in sk.boost_timers:
 			longest = max(longest, t)
-		add.call("boost", "boost", Color(1.0, 0.45, 0.25), "Damage boost", "x%d damage (%d stacks). Each stack runs out on its own." % [pow(p.boost_base, p.dps_boost_stacks), p.dps_boost_stacks], longest, "", p.dps_boost_stacks)
+		add.call("boost", "boost", Color(1.0, 0.45, 0.25), "Damage boost", "x%.1f damage (%d stacks). Each stack runs out on its own." % [p.boost_mult, p.dps_boost_stacks], longest, "", p.dps_boost_stacks)
 	if sk:
 		if sk.shield_hp > 0.0:
 			add.call("shield", "shield", Color(0.5, 0.8, 1.0), "Shield", "Soaks %d more damage." % sk.shield_hp, sk.shield_time)

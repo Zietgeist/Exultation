@@ -18,7 +18,7 @@ var auto_sweep = 3		# old weapon stat, no longer used: the mouse wheel picks the
 const MAX_ENERGY = 10.0
 var energy = 5.0
 var dps_boost_stacks = 0	# damage boost stacks (any class with a damage_boost skill)
-var boost_base = 2.0		# each stack multiplies damage by this
+var boost_mult = 1.0		# total damage boost right now (stacks add up to the skill's cap, e.g. x2)
 var skill_haste = 0.0		# extra move speed from skills (whirlwind)
 var _last_pos = Vector3.ZERO
 
@@ -839,7 +839,7 @@ func apply_gear():
 ## Damage and attack times = weapon x attack-speed setting x DPS boost.
 func _refresh_damage():
 	var modifier = speed_level * SPEED_DAMAGE_MODIFIER
-	var boost = pow(boost_base, dps_boost_stacks) * (1.15 if GameState.has_buff("meal") else 1.0)
+	var boost = boost_mult * (1.15 if GameState.has_buff("meal") else 1.0)
 	st_damage = weapon_st_base * (1.0 - modifier) * boost
 	aoe_damage = weapon_aoe_base * (1.0 - modifier) * boost
 	st_cooldown_time = gear_st_cd * (1.0 - modifier)

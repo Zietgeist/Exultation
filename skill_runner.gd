@@ -75,7 +75,9 @@ func _run(key: String, s: Dictionary, p: Dictionary) -> bool:
 				player._float_text("Boost at max", Color(1, 0.6, 0.3))
 				return false
 			boost_timers.append(float(p.duration))
-			_set_boost(p.multiplier)
+			_boost_cap = float(p.multiplier)
+			_boost_max_stacks = int(p.max_stacks)
+			_set_boost()
 			return true
 		"shield":
 			shield_hp = p.absorb
@@ -213,7 +215,7 @@ func _physics_process(delta):
 			boost_timers[i] -= delta
 		boost_timers = boost_timers.filter(func(t): return t > 0.0)
 		if boost_timers.size() != before:
-			_set_boost(player.boost_base)
+			_set_boost()
 
 	if shield_time > 0.0:
 		shield_time -= delta
@@ -273,9 +275,13 @@ func _physics_process(delta):
 
 # ---------------- Effects ----------------
 
-func _set_boost(multiplier: float):
-	player.boost_base = multiplier
+## Boost stacks ADD up: "multiplier" is the most it can reach with every stack (x2 = 5 stacks of +20%).
+var _boost_cap := 1.0
+var _boost_max_stacks := 1
+
+func _set_boost():
 	player.dps_boost_stacks = boost_timers.size()
+	player.boost_mult = 1.0 + (_boost_cap - 1.0) * float(player.dps_boost_stacks) / float(max(_boost_max_stacks, 1))
 	player._refresh_damage()
 
 

@@ -216,7 +216,7 @@ func _stats(page, p):
 	if p.lifesteal > 0.0:
 		cards.add_child(_card("Lifesteal", "%.1f" % p.lifesteal, "heals per hit", "Each hit heals you a little."))
 	if p.dps_boost_stacks > 0:
-		cards.add_child(_card("Boost", "x%d" % pow(p.boost_base, p.dps_boost_stacks), "%d stacks" % p.dps_boost_stacks, "Your damage boost right now."))
+		cards.add_child(_card("Boost", "x%.1f" % p.boost_mult, "%d stacks" % p.dps_boost_stacks, "Your damage boost right now."))
 	_speed_row(left, p)
 	for el in p.element_bonus:
 		left.add_child(_label("  +%d %s damage per hit" % [p.element_bonus[el], SkinManager.element_label(el)], Crafting.ELEMENT_COLORS[el], 14))

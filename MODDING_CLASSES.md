@@ -37,7 +37,7 @@ Every class is one `.json` file. No code needed for most ideas.
 | effect | params |
 |---|---|
 | heal_self | amount |
-| damage_boost | multiplier, duration, max_stacks |
+| damage_boost | multiplier (the cap with every stack; stacks add up evenly), duration, max_stacks |
 | shield | absorb, duration |
 | blast | damage, screen_share |
 | thorns_aura | duration, damage_per_second, reflect, screen_share |
