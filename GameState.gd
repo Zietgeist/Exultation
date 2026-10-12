@@ -393,6 +393,20 @@ func party(node = null) -> Array:
 	return Zones.all(node, "party") if node else get_tree().get_nodes_in_group("party")
 
 
+## Feedback: the Send feedback buttons open this Discord invite (to the play-test feedback channel).
+## Players @mention the bot there. While it is "", the buttons say "not set up yet".
+const FEEDBACK_URL = ""
+
+func open_feedback():
+	if FEEDBACK_URL == "":
+		ErrorLog.warn("Feedback link isn't set: put the Discord invite in GameState.FEEDBACK_URL")
+		notify("The feedback link isn't set up yet.")
+		return
+	var err = OS.shell_open(FEEDBACK_URL)
+	if err != OK:
+		ErrorLog.fail("Couldn't open the feedback link (error %d): %s" % [err, FEEDBACK_URL])
+
+
 func notify(text: String):
 	print(text)
 	notice.emit(text)

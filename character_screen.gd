@@ -109,6 +109,11 @@ func _header(page, p):
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(t)
 	row.add_child(_label("Day %d  ·  %s  ·  %s" % [Story.day(), GameState.current_zone, SkinManager.skin_name()], DIM, 14))
+	var feedback = Button.new()
+	feedback.text = "Send feedback"
+	feedback.tooltip_text = "Opens the Discord feedback channel. @mention the bot with ideas or bugs."
+	feedback.pressed.connect(GameState.open_feedback)
+	row.add_child(feedback)
 	var close = Button.new()
 	close.text = "Close (C)"
 	close.pressed.connect(toggle)

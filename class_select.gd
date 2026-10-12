@@ -73,6 +73,12 @@ func _ready():
 	scroll.add_child(_char_list)
 	_confirm = ConfirmationDialog.new()
 	add_child(_confirm)
+	var feedback = Button.new()
+	feedback.text = "Send feedback (Discord)"
+	feedback.tooltip_text = "Ideas or bugs? Opens the feedback channel. @mention the bot there."
+	feedback.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	feedback.pressed.connect(GameState.open_feedback)
+	left.add_child(feedback)
 
 	# Right: a new character
 	_title(box, "New character", 26)
