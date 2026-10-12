@@ -8,11 +8,13 @@ const TIER_IDS = {Tier.TRASH: "enemy_trash", Tier.THUG: "enemy_thug", Tier.MASTE
 
 # Base stats per tier (aggro raised 1.2x in Oct 2026: 8/12/15/20 -> 9.6/14.4/18/24)
 # Health raised Oct 2026 so single strikes matter on big foes: Thug 400 -> 600, Master 1200 -> 2400, Boss 5000 -> 10000
+# Then lowered (DPS Boost now caps at x2, not x32) so every class kills in fair time: Master 1500, Boss 6000.
+# With a basic weapon's strikes (~75 damage a second): Thug ~8s, Master ~20s, Boss ~80s.
 const TIER_STATS = {
 	Tier.TRASH:  {health = 100,  damage = 5,  speed = 4.0, aggro = 9.6,  color = Color(0.15, 0.9, 0.13)},
 	Tier.THUG:   {health = 600,  damage = 15, speed = 3.0, aggro = 14.4, color = Color(0.2,  0.4, 1.0)},
-	Tier.MASTER: {health = 2400, damage = 35, speed = 2.5, aggro = 18.0, color = Color(0.6,  0.0, 0.9)},
-	Tier.BOSS:   {health = 10000, damage = 60, speed = 2.0, aggro = 24.0, color = Color(1.0,  0.8, 0.0)},
+	Tier.MASTER: {health = 1500, damage = 35, speed = 2.5, aggro = 18.0, color = Color(0.6,  0.0, 0.9)},
+	Tier.BOSS:   {health = 6000, damage = 60, speed = 2.0, aggro = 24.0, color = Color(1.0,  0.8, 0.0)},
 }
 
 # Energy in the blue orb each tier drops (halved in Oct 2026: was 1/2/4/8)
