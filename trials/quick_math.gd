@@ -32,6 +32,7 @@ func build():
 	box.custom_minimum_size = Vector2(220, 48)
 	box.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_theme_font_size_override("font_size", 30)
+	box.keep_editing_on_text_submit = true	# Godot 4.4+: Enter would end typing; keep it in the box
 	box.text_submitted.connect(_on_submit)
 	var c = CenterContainer.new()
 	c.add_child(box)
@@ -48,6 +49,7 @@ func _next():
 	question_label.text = q[0] + " = ?"
 	answer = q[1]
 	box.text = ""
+	box.grab_focus.call_deferred()	# ready for the next answer, no click needed
 	progress.text = "%d of %d" % [asked + 1, QUESTIONS]
 
 
