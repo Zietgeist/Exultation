@@ -1,7 +1,9 @@
 extends Node3D
 ## Fills a zone with enemies.
-## - 90% of the zone's enemies are placed across the map when you first arrive
-##   (tougher ones farther from the entrance, the 1st Boss in the far corner).
+## - 90% of the zone's enemies are placed across the map when you first arrive, in PACKS:
+##   one leader (a Thug, or a Master deeper in) with 8-20 Trash around it, gathered at the
+##   terrain's camps, valleys and hills (terrain_generator.gd pack_sites). Sweep the small ones,
+##   strike the leader. Packs that don't fit at a site roam in the open. The 1st Boss is in the far corner.
 ## - The other 10% show up near the player a few at a time.
 ## - The 2nd Boss appears near the player once the minimum number of kills is reached.
 ## - Leaving and coming back (same play session) restores everything, including live enemies.
@@ -21,9 +23,13 @@ const CLEAR_KNEE = 12.0
 ## Zone 4 ~3,000, Zone 6 ~4,500, Zone 8 ~6,700, Zone 10 ~10,000. Clearing Zone 10 is a big deal.
 static func clear_scale(scale: float) -> float:
 	return scale if scale <= CLEAR_KNEE else CLEAR_KNEE * pow(scale / CLEAR_KNEE, 0.35)
-const BASE_THUGS = 20
 const BASE_MASTERS = 5
 const MAX_BOSSES = 2		# always 2: beating both unlocks the next zone
+const DENSITY = 1.33		# Oct 2026: 33% more enemies than before
+const PACK_MIN = 8			# small ones per leader
+const PACK_MAX = 20
+const PACK_AVG = 14
+const SITE_PACKS = {camp = 3, valley = 3, hill = 1}	# how many packs gather at each kind of site
 
 const UPFRONT_SHARE = 0.9	# placed on the map at the start
 const SAFE_START_RADIUS = 40.0	# nothing is placed this close to where you walk in (or any way in)
@@ -59,7 +65,7 @@ var zone_scale = 1.0
 var min_clear = BASE_MIN_CLEAR
 var target_total = BASE_MAX_CLEAR
 var MAX_TRASH = 200
-var MAX_THUGS = BASE_THUGS
+var MAX_THUGS = 20
 var MAX_MASTERS = BASE_MASTERS
 var targets_ready = false
 
@@ -123,9 +129,11 @@ func _setup_zone_targets():
 
 	zone_scale = GameState.zone_area_scale(self)
 	min_clear = roundi(BASE_MIN_CLEAR * clear_scale(zone_scale))
-	target_total = mini(randi_range(roundi(BASE_MIN_CLEAR * zone_scale), roundi(BASE_MAX_CLEAR * zone_scale)), MAX_ENEMIES)
-	MAX_MASTERS = maxi(1, roundi(BASE_MASTERS * zone_scale))
-	MAX_THUGS = maxi(1, roundi(BASE_THUGS * zone_scale))
+	target_total = mini(roundi(randi_range(roundi(BASE_MIN_CLEAR * zone_scale), roundi(BASE_MAX_CLEAR * zone_scale)) * DENSITY), MAX_ENEMIES)
+	MAX_MASTERS = maxi(1, roundi(BASE_MASTERS * zone_scale * DENSITY))
+	# One leader per pack: Masters lead some, Thugs the rest
+	var packs = maxi(MAX_MASTERS + 1, roundi(float(target_total - MAX_MASTERS - MAX_BOSSES) / (PACK_AVG + 1)))
+	MAX_THUGS = packs - MAX_MASTERS
 	MAX_TRASH = target_total - MAX_THUGS - MAX_MASTERS - MAX_BOSSES
 	print("Zone size x%.1f: %d enemies this visit (2nd boss after %d kills). Trash %d, Thugs %d, Masters %d, Bosses %d" % [
 		zone_scale, target_total, min_clear, MAX_TRASH, MAX_THUGS, MAX_MASTERS, MAX_BOSSES])
@@ -144,23 +152,31 @@ func _initial_spawn():
 	var up_masters = roundi(MAX_MASTERS * UPFRONT_SHARE)
 	reserve = [MAX_TRASH - up_trash, MAX_THUGS - up_thugs, MAX_MASTERS - up_masters]
 
-	# Trash in clumps of 3-6, anywhere past the safe start area
-	var placed = 0
-	while placed < up_trash:
-		var center = _random_spot(entry, SAFE_START_RADIUS)
-		for i in range(mini(randi_range(3, 6), up_trash - placed)):
-			_place_dormant(0, center + Vector3(randf_range(-3, 3), 0, randf_range(-3, 3)))
-			placed += 1
-	# Thugs in pairs, a bit farther in
-	placed = 0
-	while placed < up_thugs:
-		var center = _random_spot(entry, max(SAFE_START_RADIUS, far * 0.35))
-		for i in range(mini(randi_range(1, 2), up_thugs - placed)):
-			_place_dormant(1, center + Vector3(randf_range(-2, 2), 0, randf_range(-2, 2)))
-			placed += 1
-	# Masters alone, deep in the zone
+	# Packs: a leader + 8-20 Trash, at camps, valleys and hills (Masters take the far ones)
+	var leaders = []
 	for i in range(up_masters):
-		_place_dormant(2, _random_spot(entry, max(SAFE_START_RADIUS, far * 0.55)))
+		leaders.append(2)
+	for i in range(up_thugs):
+		leaders.append(1)
+	var sizes = _pack_sizes(leaders.size(), up_trash)
+	var slots = _site_slots(entry)
+	var far_slots = slots.filter(func(sl): return sl.site.p.distance_to(entry) > far * 0.5)
+	var at_sites = 0
+	for i in range(leaders.size()):
+		var slot = null
+		if leaders[i] == 2 and not far_slots.is_empty():
+			slot = far_slots.pop_back()
+			slots.erase(slot)
+		elif not slots.is_empty():
+			slot = slots.pop_back()
+			far_slots.erase(slot)
+		var spot = _pack_spot(slot) if slot else [
+			_random_spot(entry, SAFE_START_RADIUS if leaders[i] == 1 else max(SAFE_START_RADIUS, far * 0.55)),
+			2.5 + sizes[i] * 0.2]
+		if slot:
+			at_sites += 1
+		_place_pack(leaders[i], sizes[i], spot[0], spot[1])
+	print("Packs: %d (%d at camps/valleys/hills, %d roaming)" % [leaders.size(), at_sites, leaders.size() - at_sites])
 	# 1st Boss: the farthest of several random spots
 	var best = Vector3.ZERO
 	for i in range(20):
@@ -168,6 +184,75 @@ func _initial_spawn():
 		if p.distance_to(entry) > best.distance_to(entry):
 			best = p
 	_place_dormant(3, best)
+
+
+## How many Trash in each of n packs: 8-20 each, adding up to total.
+func _pack_sizes(n: int, total: int) -> Array:
+	if n <= 0:
+		if total > 0:
+			ErrorLog.fail("Spawner: %d Trash but no pack leaders" % total)
+		return []
+	var sizes = []
+	var sum = 0
+	for i in range(n):
+		sizes.append(randi_range(PACK_MIN, PACK_MAX))
+		sum += sizes[-1]
+	var diff = total - sum
+	var tries = 0
+	while diff != 0:
+		tries += 1
+		var step = 1 if diff > 0 else -1
+		var j = randi() % n
+		var size = sizes[j] + step
+		var relaxed = tries > n * 40	# can't fit in 8-20: go past the limits rather than lose enemies
+		if size >= 1 and (relaxed or (size >= PACK_MIN and size <= PACK_MAX)):
+			sizes[j] = size
+			diff -= step
+	return sizes
+
+
+## Every place a pack can gather: [{site, k = which pack of the site, of = how many it holds}].
+func _site_slots(entry: Vector3) -> Array:
+	var terrain = Zones.first(self, "zone_terrain")
+	if terrain == null or not terrain.has_method("pack_sites"):
+		ErrorLog.warn("Spawner: no terrain with pack sites here, so every pack roams in the open")
+		return []
+	var slots = []
+	for site in terrain.pack_sites():
+		if Vector2(site.p.x - entry.x, site.p.z - entry.z).length() < SAFE_START_RADIUS + site.r:
+			continue	# not right where you walk in
+		if not SITE_PACKS.has(site.kind):
+			ErrorLog.fail("Spawner: unknown pack site kind '%s'" % site.kind)
+			continue
+		var cap = SITE_PACKS[site.kind]
+		for k in range(cap):
+			slots.append({site = site, k = k, of = cap})
+	slots.shuffle()
+	return slots
+
+
+## [center, spread] for one pack at a site: between the huts and the fire, inside the valley,
+## or at the foot of a hill. Several packs at one site face different ways.
+func _pack_spot(slot: Dictionary) -> Array:
+	var site = slot.site
+	var a = TAU * slot.k / slot.of + randf_range(-0.4, 0.4)
+	var dir = Vector3(cos(a), 0, sin(a))
+	match site.kind:
+		"camp":
+			return [site.p + dir * site.r * 0.35, site.r * 0.45]
+		"valley":	# mountains fill the outer ~40% of the ring: stay in the middle
+			return [site.p + dir * site.r * 0.25, site.r * 0.3]
+		_:
+			return [site.p + dir * (site.r + 4.0), 5.0]
+
+
+## A leader in the middle, its Trash around it.
+func _place_pack(leader: int, size: int, center: Vector3, spread: float):
+	_place_dormant(leader, center)
+	for j in range(size):
+		var a = randf() * TAU
+		var d = 1.5 + spread * sqrt(randf())
+		_place_dormant(0, center + Vector3(cos(a), 0, sin(a)) * d)
 
 
 func _process(delta):
