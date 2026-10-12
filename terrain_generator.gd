@@ -4,6 +4,8 @@ extends Node3D
 ## Every piece is saved as data, so the layout is remembered for the whole play session.
 ## Hills: ore gathers around them (and rare Cliff Orchids on top).
 ## Trees grow in groves: herbs gather around them, and ancient trees can hold Treesilver.
+## Pack sites: camps (a ring of huts around a fire) and valleys (a ring of mountains with 1-2 ways in).
+## The spawner puts packs of enemies (a leader + 8-20 small ones) around them (group "pack_site").
 
 const DITCH_SCENE = preload("res://Ditch.tscn")
 const LOW_WALL_SCENE = preload("res://LowWall.tscn")
@@ -60,6 +62,7 @@ func _ready():
 		"rooms": _layout_rooms(roundi(6 * m))
 		"lanes": _layout_lanes()
 		"fences": _layout_fences(roundi(4 * m))
+	spawn_sites(mini(roundi(SITES_PER_SCALE * GameState.zone_area_scale(self)), MAX_SITES))
 	spawn_hills(roundi(def.hills * m))
 	spawn_groves(roundi(def.groves * m), Vector2i(6, 12) if template == "forest" else Vector2i(4, 9))
 	if _quality > 0:
@@ -384,6 +387,124 @@ func _make_hill(pos: Vector3, data: Dictionary):
 	body.position = Vector3(pos.x, 0, pos.z)
 
 
+# ---------------- Pack sites: camps and valleys ----------------
+const SITES_PER_SCALE = 6.0	# Zone 1: 6 sites; Zone 6 (scale ~49): ~290
+const MAX_SITES = 400		# huge zones stop here (the spawner puts the rest of the packs in the open)
+const VALLEY_SHARE = 0.4	# the rest are camps
+const SITE_SEEN_FROM = 180.0	# farther than this, site meshes aren't drawn (keeps big zones fast)
+
+func spawn_sites(count: int):
+	var made = 0
+	for i in range(count):
+		var valley = randf() < VALLEY_SHARE
+		var r = randf_range(14.0, 20.0) if valley else randf_range(9.0, 13.0)
+		var pad = r + (8.0 if valley else 4.0)
+		var center = get_clear_pos(pad)
+		if not _site_fits(center, pad):
+			continue
+		var data = {style = "valley" if valley else "camp", r = r, seed = randi(),
+			n = randi_range(7, 10) if valley else randi_range(3, 5)}
+		_make_site(center, data)
+		_keep_out.append(Rect2(center.x - pad, center.z - pad, pad * 2.0, pad * 2.0))
+		made += 1
+	if made < count * 0.5:
+		ErrorLog.warn("Terrain: only %d of %d camps/valleys fit in this zone" % [made, count])
+
+
+## Room for a whole site: not on a gate, not in water, not in another site, landmark or layout.
+func _site_fits(center: Vector3, pad: float) -> bool:
+	if not is_free(center, pad):
+		return false
+	for g in _gates:
+		if Vector2(center.x - g.x, center.z - g.z).length() < pad + GATE_CLEAR_RADIUS:
+			return false
+	var half = map_half_size(0.0)
+	if abs(center.x) + pad > half.x or abs(center.z) + pad > half.y:
+		return false
+	for k in range(8):	# island maps: the whole ring on land
+		var a = TAU * k / 8.0
+		if is_water(center + Vector3(cos(a), 0, sin(a)) * pad):
+			return false
+	return true
+
+
+## One site = one StaticBody with all its huts or mountains (rebuilt the same from its seed).
+func _make_site(pos: Vector3, data: Dictionary):
+	var body = StaticBody3D.new()
+	body.set_meta("kind", "site")
+	body.set_meta("data", {style = data.style, r = data.r, seed = data.seed, n = data.n})
+	body.add_to_group("pack_site")
+	var rng = RandomNumberGenerator.new()
+	rng.seed = int(data.seed)
+	var look = SkinManager.props_style()
+	var n = int(data.n)
+	if data.style == "camp":
+		for i in range(n):
+			var a = TAU * i / n + rng.randf_range(-0.3, 0.3)
+			var hp = Vector3(cos(a), 0, sin(a)) * data.r * rng.randf_range(0.6, 0.85)
+			var face = atan2(-hp.x, -hp.z)	# door toward the fire
+			var hut = PROPS.hut(look, {v = rng.randi() % 100})
+			hut.position = hp
+			hut.rotation.y = face
+			body.add_child(hut)
+			var box = BoxShape3D.new()
+			box.size = Vector3(3.0, 2.4, 3.0)
+			var col = CollisionShape3D.new()
+			col.shape = box
+			col.position = hp + Vector3(0, 1.2, 0)
+			col.rotation.y = face
+			body.add_child(col)
+		body.add_child(PROPS.campfire(look))
+	elif data.style == "valley":
+		var gap = rng.randi() % n
+		var gap2 = (gap + int(n * 0.5)) % n if rng.randf() < 0.5 else -1	# sometimes a second way in, across
+		var m = TAU * data.r / n * 0.62	# neighbours overlap a little: a solid wall
+		for i in range(n):
+			if i == gap or i == gap2:
+				continue
+			var a = TAU * i / n
+			var mp = Vector3(cos(a), 0, sin(a)) * data.r
+			var md = {m = m * rng.randf_range(0.9, 1.15), h = rng.randf_range(6.0, 10.0), v = rng.randi() % 100}
+			var mtn = PROPS.mountain(look, md)
+			mtn.position = mp
+			body.add_child(mtn)
+			var cyl = CylinderShape3D.new()
+			cyl.radius = md.m * 0.75
+			cyl.height = md.h
+			var col = CollisionShape3D.new()
+			col.shape = cyl
+			col.position = mp + Vector3(0, md.h / 2.0, 0)
+			body.add_child(col)
+	else:
+		ErrorLog.fail("Terrain: unknown site style '%s'" % data.style)
+	for mi in body.find_children("*", "MeshInstance3D", true, false):
+		mi.visibility_range_end = SITE_SEEN_FROM
+	add_child(body)
+	body.position = Vector3(pos.x, 0, pos.z)
+
+
+## Where the spawner can put packs: [{p = center, r = radius, kind = "camp" / "valley" / "hill"}]
+func pack_sites() -> Array:
+	var out = []
+	for b in get_children():
+		if not b.has_meta("kind") or b.is_queued_for_deletion():
+			continue
+		match b.get_meta("kind"):
+			"site":
+				var d = b.get_meta("data")
+				out.append({p = b.position, r = d.r, kind = d.style})
+			"hill":
+				var hp = b.position
+				var dup = false
+				for o in out:	# a lumpy hill is 1-3 mounds: count it once
+					if o.kind == "hill" and Vector2(o.p.x - hp.x, o.p.z - hp.z).length() < 10.0:
+						dup = true
+						break
+				if not dup:
+					out.append({p = hp, r = b.get_meta("data").r, kind = "hill"})
+	return out
+
+
 # ---------------- Trees ----------------
 
 func spawn_groves(count: int, trees := Vector2i(4, 9)):
@@ -464,6 +585,7 @@ func _rebuild(t: Dictionary):
 		"deco": _make_deco(t)
 		"shrine": _make_shrine(t)
 		"gate": _make_gate(t)
+		"site": _make_site(t.p, t)
 
 
 # ---------------- Resources ----------------

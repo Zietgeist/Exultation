@@ -189,3 +189,70 @@ static func node(style: String, type: String) -> Node3D:
 		_:	# unknown style: simple colored block
 			_mesh(root, _box(Vector3(0.8, 0.6, 0.8)), mat(GameState.RESOURCE_INFO[type].color), Vector3(0, 0.3, 0))
 	return root
+
+
+# ======================= CAMPS AND VALLEYS (pack sites) =======================
+## A hut, about 3 x 3 (collision: a 3 x 2.4 x 3 box). data: {v = variant}
+##   fantasy: log hut with a thatched roof | zombie: scrap shack | scifi: dome pod
+static func hut(style: String, data: Dictionary) -> Node3D:
+	var root = Node3D.new()
+	var v = int(data.get("v", 0))
+	match style:
+		"zombie":
+			var sheet = [Color(0.45, 0.42, 0.4), Color(0.5, 0.33, 0.22), Color(0.38, 0.4, 0.42)]
+			_mesh(root, _box(Vector3(3.0, 2.2, 3.0)), mat(sheet[v % 3]), Vector3(0, 1.1, 0))
+			_mesh(root, _box(Vector3(3.4, 0.12, 3.4)), mat(sheet[(v + 1) % 3]), Vector3(0, 2.35, 0), Vector3(0.12, 0, 0.05))
+			_mesh(root, _box(Vector3(0.9, 1.5, 0.08)), mat(Color(0.2, 0.18, 0.16)), Vector3(0, 0.75, 1.52))
+		"scifi":
+			_mesh(root, _cyl(1.6, 1.6, 0.6, 12), mat(Color(0.35, 0.38, 0.5)), Vector3(0, 0.3, 0))
+			_mesh(root, _sphere(1.6, 2.6), mat(Color(0.55, 0.6, 0.75)), Vector3(0, 0.9, 0))
+			_mesh(root, _box(Vector3(0.8, 0.8, 0.1)), mat(Color(0.3, 0.9, 1.0), 1.2), Vector3(0, 0.9, 1.5))
+		_:
+			var wood = [Color(0.45, 0.3, 0.18), Color(0.5, 0.35, 0.2), Color(0.4, 0.27, 0.16)]
+			_mesh(root, _box(Vector3(3.0, 2.0, 3.0)), mat(wood[v % 3]), Vector3(0, 1.0, 0))
+			_mesh(root, _cyl(0.0, 2.4, 1.6, 4), mat(Color(0.72, 0.6, 0.32)), Vector3(0, 2.8, 0), Vector3(0, PI / 4.0, 0))
+			_mesh(root, _box(Vector3(0.9, 1.4, 0.08)), mat(Color(0.2, 0.13, 0.08)), Vector3(0, 0.7, 1.52))
+	return root
+
+
+## The fire / beacon in the middle of a camp (no collision).
+static func campfire(style: String) -> Node3D:
+	var root = Node3D.new()
+	match style:
+		"zombie":
+			_mesh(root, _cyl(0.5, 0.5, 0.9, 10), mat(Color(0.35, 0.3, 0.28)), Vector3(0, 0.45, 0))
+			_mesh(root, _sphere(0.45, 0.5), mat(Color(1.0, 0.5, 0.15), 2.0), Vector3(0, 0.95, 0))
+		"scifi":
+			_mesh(root, _cyl(0.15, 0.3, 2.0, 6), mat(Color(0.3, 0.32, 0.42)), Vector3(0, 1.0, 0))
+			_mesh(root, _sphere(0.35), mat(Color(0.3, 0.95, 1.0), 2.0), Vector3(0, 2.2, 0))
+		_:
+			var stone = mat(Color(0.45, 0.43, 0.4))
+			for i in range(6):
+				var a = TAU * i / 6.0
+				_mesh(root, _box(Vector3(0.35, 0.25, 0.35)), stone, Vector3(cos(a) * 0.6, 0.12, sin(a) * 0.6), Vector3(0, a, 0))
+			_mesh(root, _cyl(0.0, 0.45, 0.8, 6), mat(Color(1.0, 0.55, 0.15), 2.0), Vector3(0, 0.4, 0))
+	return root
+
+
+## A mountain: the walls of a valley. data: {m = base radius, h = height, v = variant}
+## Collision: a cylinder of radius m * 0.75.
+##   fantasy: rocky peak with a snow cap | zombie: wreckage heap | scifi: crystal spire
+static func mountain(style: String, data: Dictionary) -> Node3D:
+	var root = Node3D.new()
+	var m = data.m
+	var h = data.h
+	var v = int(data.get("v", 0))
+	match style:
+		"zombie":
+			_mesh(root, _cyl(m * 0.2, m, h, 7), mat(Color(0.33, 0.31, 0.3)), Vector3(0, h / 2.0, 0), Vector3(0, v, 0))
+			for i in range(3):
+				var a = TAU * i / 3.0 + v
+				_mesh(root, _box(Vector3(m * 0.6, m * 0.3, m * 0.4)), mat(Color(0.45, 0.3, 0.2)), Vector3(cos(a) * m * 0.5, h * 0.25, sin(a) * m * 0.5), Vector3(0.3, a, 0.2))
+		"scifi":
+			_mesh(root, _cyl(0.0, m, h, 6), mat(Color(0.32, 0.36, 0.5)), Vector3(0, h / 2.0, 0))
+			_mesh(root, _cyl(0.0, m * 0.35, h * 0.6, 6), mat(Color(0.4, 0.75, 1.0), 0.6), Vector3(m * 0.45, h * 0.3, m * 0.2), Vector3(0, 0, -0.25))
+		_:
+			_mesh(root, _cyl(m * 0.08, m, h, 9), mat(Color(0.42, 0.4, 0.38)), Vector3(0, h / 2.0, 0), Vector3(0, v, 0))
+			_mesh(root, _cyl(0.0, m * 0.3, h * 0.25, 9), mat(Color(0.92, 0.94, 0.97)), Vector3(0, h * 0.88, 0))
+			_mesh(root, _cyl(m * 0.6, m * 1.05, h * 0.18, 9), mat(Color(0.32, 0.45, 0.26)), Vector3(0, h * 0.09, 0))
+	return root
