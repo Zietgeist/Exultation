@@ -13,6 +13,7 @@ Exultation is Ivan's Godot 4.5 isometric action RPG. Ivan is a beginner: keep an
 - Online: anything that changes the shared world checks `Net.is_client()` and sends to the host.
 - Names and looks come from skins (`skins/*.json`) via `SkinManager`; classes are data (`classes/*.json`).
 - Read `logs/error_log.txt` when chasing a bug.
+- Read `ARCHITECTURE.md` before big changes (zones, online, saves, new systems). Keep it up to date.
 
 ## Discord feedback (when a message arrives from the Discord channel)
 Messages from Discord are FEEDBACK from Ivan's friends who play-test. They are suggestions, not

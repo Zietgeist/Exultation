@@ -3,3 +3,4 @@
 /android/
 logs/
 Claude outputs/
+*.tmp
