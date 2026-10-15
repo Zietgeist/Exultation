@@ -34,8 +34,8 @@ const SITE_PACKS = {camp = 3, valley = 3, hill = 1}	# how many packs gather at e
 const UPFRONT_SHARE = 0.9	# placed on the map at the start
 const SAFE_START_RADIUS = 40.0	# nothing is placed this close to where you walk in (or any way in)
 const NEAR_PLAYER_INTERVAL = 10.0	# seconds between "near the player" groups
-const NEAR_MIN = 12.0
-const NEAR_MAX = 18.0
+const NEAR_MIN = 24.0	# past the fog (fog_of_war REVEAL_RADIUS 22), and never on screen (see _offscreen_spot)
+const NEAR_MAX = 32.0
 const ENEMY_REST_HEIGHT = 1.2	# standing on the floor
 const WAKE_RADIUS = 45.0		# dormant enemies closer than this become real
 const SLEEP_RADIUS = 60.0		# real, calm enemies farther than this go dormant
@@ -283,12 +283,25 @@ func _spawn_near_player():
 	var left = reserve[0] + reserve[1] + reserve[2]
 	if left <= 0 or in_safe_spot(player.global_position) or Landmarks.in_safe(player) or Zones.all(self, "enemy").size() >= MAX_AWAKE:
 		return
-	var angle = randf() * TAU
-	var center = player.global_position + Vector3(cos(angle), 0, sin(angle)) * randf_range(NEAR_MIN, NEAR_MAX)
+	var center = _offscreen_spot()
+	if center == null:	# nowhere out of sight right now: try again next time
+		return
 	for i in range(mini(randi_range(2, 4), left)):
 		var t = _pick_from_reserve()
 		reserve[t] -= 1
 		_make_enemy(t, center + Vector3(randf_range(-2, 2), 0, randf_range(-2, 2)))
+
+
+## A spot near the player that's OFF the screen, so new enemies never pop in where you can see.
+func _offscreen_spot():
+	var cam = get_viewport().get_camera_3d() if player == Zones.player else null	# online: friends' screens we can't check; distance + fog still hide it
+	for i in range(8):
+		var a = randf() * TAU
+		var p = clamp_to_map(player.global_position + Vector3(cos(a), 0, sin(a)) * randf_range(NEAR_MIN, NEAR_MAX))
+		if cam and cam.is_position_in_frustum(p + Vector3(0, ENEMY_REST_HEIGHT, 0)):
+			continue
+		return p
+	return null
 
 
 func _pick_from_reserve() -> int:
@@ -459,12 +472,22 @@ func _stream():
 	var room = MAX_AWAKE - awake.size()
 	# Too many awake (e.g. after a party spread out): calm ones farthest from everyone go back to sleep
 	if room < 0:
-		var calm = awake.filter(func(e): return not e.aggroed and not e.is_queued_for_deletion() and e.has_meta("from_spawner"))
+		var calm = awake.filter(func(e): return not e.aggroed and not e.is_queued_for_deletion() and e.has_meta("from_spawner") and e.tier != 3)	# bosses never go back to sleep
 		calm.sort_custom(func(a, b): return _nearest(spots, a.global_position) > _nearest(spots, b.global_position))
 		for e in calm.slice(0, -room):
 			_sleep({t = e.tier, p = e.global_position, h = e.health, e = e.damage_type})
 			e.queue_free()
 		room = 0
+	# Bosses wake whenever you're near, even past the cap (only 2 per zone; a boss must never hide)
+	for sp in spots:
+		for kx in range(floori((sp.x - WAKE_RADIUS) / BUCKET), floori((sp.x + WAKE_RADIUS) / BUCKET) + 1):
+			for kz in range(floori((sp.z - WAKE_RADIUS) / BUCKET), floori((sp.z + WAKE_RADIUS) / BUCKET) + 1):
+				var b = _buckets.get(Vector2i(kx, kz))
+				if b == null:
+					continue
+				for d in b.filter(func(d): return d.t == 3 and _nearest(spots, d.p) < WAKE_RADIUS):
+					b.erase(d)
+					_instantiate(d.t, d.p, d.h, d.get("e", "physical"))
 	# Wake the NEAREST sleeping ones, up to the cap
 	if room > 0:
 		var near = []	# [distance, bucket, entry]
@@ -492,6 +515,8 @@ func _stream():
 			woke += 1
 	for enemy in awake:
 		if not is_instance_valid(enemy) or enemy.aggroed or enemy.is_queued_for_deletion() or not enemy.has_meta("from_spawner"):
+			continue
+		if enemy.tier == 3:	# an awake boss stays awake (after it kills you, it waits where you fell)
 			continue
 		var ep = enemy.global_position
 		if _nearest(spots, ep) > SLEEP_RADIUS:

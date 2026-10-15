@@ -26,6 +26,7 @@ var _menu_actions := []
 
 func _ready():
 	layer = 45
+	add_to_group("character_window")
 	panel = PanelContainer.new()
 	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	panel.custom_minimum_size = Vector2(1000, 620)
@@ -61,7 +62,7 @@ func _ready():
 func _unhandled_input(event):
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
-	if event.keycode == KEY_C and (visible or not GameState.ui_open):
+	if event.keycode == KEY_C and (visible or not GameState.ui_open or _open_shop() != null):	# C works with a shop open too
 		toggle()
 		get_viewport().set_input_as_handled()
 	elif event.keycode == KEY_ESCAPE and visible:
@@ -71,10 +72,48 @@ func _unhandled_input(event):
 
 func toggle():
 	visible = not visible
-	GameState.ui_open = visible	# the game keeps running (multiplayer-friendly); only your attack keys are paused
+	GameState.ui_open = visible or _open_shop() != null	# the game keeps running (multiplayer-friendly); only your attack keys are paused
+	arrange()
 	if visible:
 		tabs.current_tab = _tab
 		_rebuild()
+
+
+## The shop window that's open right now (Smithy, Chemist, Inn), or null.
+func _open_shop():
+	for s in get_tree().get_nodes_in_group("shop_window"):
+		if s.visible:
+			return s
+	return null
+
+
+## Shop and character window both open: side by side (shop left, character right).
+## Otherwise each one sits in the middle of the screen. Shops call this when they open or close.
+func arrange():
+	var vw = get_viewport().get_visible_rect().size.x
+	var shop = _open_shop()
+	var cw = maxf(panel.size.x, panel.custom_minimum_size.x)
+	if visible and shop:
+		var sw = maxf(shop.panel.size.x, shop.panel.custom_minimum_size.x)
+		var gap = 10.0
+		var left = (vw - sw - cw - gap) / 2.0
+		if left < 10.0:	# small window: pin them to the edges (they overlap in the middle; this one on top)
+			_place(shop.panel, 10.0, vw)
+			_place(panel, vw - cw - 10.0, vw)
+		else:
+			_place(shop.panel, left, vw)
+			_place(panel, left + sw + gap, vw)
+	else:
+		_place(panel, (vw - cw) / 2.0, vw)
+		if shop:
+			_place(shop.panel, (vw - maxf(shop.panel.size.x, shop.panel.custom_minimum_size.x)) / 2.0, vw)
+
+
+## Move a center-anchored panel so its left edge is at x (screen pixels).
+static func _place(p: Control, x: float, vw: float):
+	var w = maxf(p.size.x, p.custom_minimum_size.x)
+	p.offset_left = x - vw / 2.0
+	p.offset_right = p.offset_left + w
 
 
 ## Stats change while you play (health, energy, wards): refresh that tab.

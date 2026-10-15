@@ -38,7 +38,7 @@ func _build(skills: Array):
 		panel.add_child(box)
 
 		var key_label = Label.new()
-		key_label.text = s.key
+		key_label.text = "F / Space" if s.key == "F" else s.key
 		key_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		key_label.add_theme_font_size_override("font_size", 22)
 		key_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))

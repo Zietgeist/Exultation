@@ -56,3 +56,9 @@ Trials, Zones, Story, Rivals, Traits, Travel (fast_travel.gd), Party, Landmarks.
 - `.uid` files MUST stay in git (Godot 4.4+ uses them to keep links between files working).
 - `addons/godotsteam/` holds large Steam libraries (~94 MB). Fine for now; don't add more binaries
   without a reason.
+
+## Physics layers
+- Layer 1: walls, props, players. Layer 3: enemies (set in `enemy.gd` `_ready`). Enemies collide with 1 and 3.
+- The player always hits layer 1; it hits layer 3 unless worn gear has `phase_mobs` (Windrunner Boots, the shrine boots), then it walks through enemies.
+- Enemy pathing (`pathing.gd`): Trash walks straight. Thug/Master/Boss check every ~0.5 s if a wall is in the way; if so, A* on a 2 m grid (StaticBody3D = solid, remembered 20 s) gives waypoints. Too far apart (>96 m box) = walk straight.
+- Hills (rubble piles in Zombie) are sloped convex mounds, not walls: anyone can climb over at 25% speed (`GameState.HILL_SPEED`, checked after move_and_slide via `GameState.on_hill`). Pathing ignores them.

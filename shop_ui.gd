@@ -24,6 +24,7 @@ var sel_slots = []	# per slot: index into stash list, or -1 for empty
 
 func _ready():
 	layer = 40
+	add_to_group("shop_window")
 	panel = PanelContainer.new()
 	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	panel.custom_minimum_size = Vector2(820, 600)
@@ -55,11 +56,21 @@ func open(shop_id: String, who):
 	visible = true
 	GameState.ui_open = true
 	_rebuild()
+	_arrange()
 
 
 func close():
 	visible = false
-	GameState.ui_open = false
+	var ch = get_tree().get_first_node_in_group("character_window")
+	GameState.ui_open = ch != null and ch.visible	# the character window may still be open
+	_arrange()
+
+
+## Let the character window decide where we both go (side by side if both are open).
+func _arrange():
+	var ch = get_tree().get_first_node_in_group("character_window")
+	if ch:
+		ch.arrange()
 
 
 func _unhandled_input(event):

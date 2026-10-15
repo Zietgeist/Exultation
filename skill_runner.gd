@@ -12,7 +12,7 @@ var class_id := "dps"
 var cooldowns := {}		# key -> seconds left
 
 # Ongoing effects
-var boost_timers := []	# damage_boost: seconds left for each stack
+var boost_timers := []	# damage_boost: seconds left for each stack (pressing again refreshes them all)
 var shield_hp := 0.0
 var shield_time := 0.0
 var thorns := {}		# thorns_aura: time, dps, reflect, share
@@ -70,14 +70,8 @@ func _run(key: String, s: Dictionary, p: Dictionary) -> bool:
 				Traits.on_early_heal()	# Wary
 			player.heal(p.amount)
 			return true
-		"damage_boost":
-			if boost_timers.size() >= int(p.max_stacks):
-				player._float_text("Boost at max", Color(1, 0.6, 0.3))
-				return false
-			boost_timers.append(float(p.duration))
-			_boost_cap = float(p.multiplier)
-			_boost_max_stacks = int(p.max_stacks)
-			_set_boost()
+		"damage_boost":	# every press refreshes ALL stacks to full time, and adds one if not at max
+			_add_boost(float(p.multiplier), float(p.duration), int(p.max_stacks))
 			return true
 		"shield":
 			shield_hp = p.absorb
@@ -95,6 +89,10 @@ func _run(key: String, s: Dictionary, p: Dictionary) -> bool:
 			_tick = 0.0
 			return true
 		"mending":
+			# Solo at full health there's nobody to heal: the vow stacks damage instead (like Boost).
+			if p.has("solo_boost_multiplier") and GameState.party(player).size() <= 1 and player.health >= player.MAX_HEALTH:
+				_add_boost(float(p.solo_boost_multiplier), float(p.solo_boost_duration), int(p.solo_boost_max_stacks))
+				return true
 			var target = _party_member_near(player.mouse_world_point)
 			_runner_of(target).receive_vow({heal = p.heal, jumps = int(p.jumps), time = float(p.duration), wait = 0.0})
 			if target != player:
@@ -279,6 +277,19 @@ func _physics_process(delta):
 var _boost_cap := 1.0
 var _boost_max_stacks := 1
 
+## Add a damage stack (or refresh them all when full).
+func _add_boost(multiplier: float, duration: float, max_stacks: int):
+	for i in range(boost_timers.size()):
+		boost_timers[i] = duration
+	if boost_timers.size() < max_stacks:
+		boost_timers.append(duration)
+	else:
+		player._float_text("Boost refreshed", Color(1, 0.6, 0.3))
+	_boost_cap = multiplier
+	_boost_max_stacks = max_stacks
+	_set_boost()
+
+
 func _set_boost():
 	player.dps_boost_stacks = boost_timers.size()
 	player.boost_mult = 1.0 + (_boost_cap - 1.0) * float(player.dps_boost_stacks) / float(max(_boost_max_stacks, 1))
@@ -296,15 +307,23 @@ func _blast(center: Vector3, p: Dictionary):
 	_flash_disc(center, radius, Color(1.0, 0.45, 0.1, 0.45), 0.35)
 
 
-## Life drain: the more total life around you, the bigger the drain.
-## Each enemy loses a share of its CURRENT life (big for a boss) but at least a little (so trash melts too).
+## Life drain: the bigger the crowd, the faster it drains.
+## Every enemy in range loses 1% of its MAX life per second for EACH enemy in range
+## (10 enemies = 10% a second each), up to max_share_per_second, but at least a little (so trash melts too).
 ## A part of everything drained heals every party member.
+## Gear: Swiftness drains faster (+4% per point, like weapon swings), Vitality heals more (+0.5% share per point).
+const DRAIN_SWIFT = 0.04
+const DRAIN_VITAL = 0.005
+
 func _drain_tick():
+	var faster = 1.0 + Crafting.gear_attr("swiftness") * DRAIN_SWIFT
 	var radius = player.special_radius(drain.screen_share)
 	var total = 0.0
 	var shown = 0
-	for e in _enemies_near(player.global_position, radius):
-		var amount = max(e.health * drain.share_per_second, drain.min_per_second) * TICK
+	var near = _enemies_near(player.global_position, radius)
+	var share = min(drain.share_per_enemy * near.size(), drain.max_share_per_second)
+	for e in near:
+		var amount = max(e.MAX_HEALTH * share, drain.min_per_second) * TICK * faster
 		amount = min(amount, e.health)
 		total += amount
 		e.aggroed = true
@@ -314,7 +333,7 @@ func _drain_tick():
 			shown += 1
 	if total <= 0.0:
 		return
-	var heal = total * drain.heal_share
+	var heal = total * (drain.heal_share + Crafting.gear_attr("vitality") * DRAIN_VITAL)
 	for m in GameState.party(player):
 		m.heal(heal)
 
@@ -357,14 +376,19 @@ func _plant_totem(at: Vector3, p: Dictionary):
 	node.material_override = player._fx_material(Color(0.4, 1.0, 0.6, 0.9))
 	Zones.root_of(player).add_child(node)
 	node.global_position = Vector3(at.x, 1.25, at.z)
-	totems.append({node = node, time = float(p.duration), dps = p.damage_per_second, radius = p.radius, tick = 0.0})
+	totems.append({node = node, time = float(p.duration), dps = p.get("damage_per_second", 0.0), radius = p.radius, tick = 0.0, cd = 0.0, p = p})
 
 
 func _tick_totems(delta):
 	for t in totems:
 		t.time -= delta
 		t.tick -= delta
-		if t.tick <= 0.0 and is_instance_valid(t.node):
+		if t.p.has("strike_power"):	# fights with YOUR weapon: Strike or Sweep, its own choice
+			t.cd -= delta
+			if t.cd <= 0.0 and is_instance_valid(t.node):
+				t.cd = _totem_attack(t)
+			continue
+		if t.tick <= 0.0 and is_instance_valid(t.node):	# old style: zaps the 3 closest ("damage_per_second")
 			t.tick = TICK
 			var near = _enemies_near(t.node.global_position, t.radius)
 			near.sort_custom(func(a, b): return a.global_position.distance_to(t.node.global_position) < b.global_position.distance_to(t.node.global_position))
@@ -375,6 +399,28 @@ func _tick_totems(delta):
 		if is_instance_valid(t.node):
 			t.node.queue_free()
 	totems = totems.filter(func(t): return t.time > 0.0)
+
+
+## One totem attack, copying the player's weapon. Returns seconds until its next attack.
+##   Several enemies close (sweep_when or more): a Sweep on all of them (as many as your Sweep hits).
+##   Otherwise: a Strike on the toughest one in reach (bosses first), so big fights end sooner.
+func _totem_attack(t: Dictionary) -> float:
+	var at = t.node.global_position
+	var near = _enemies_near(at, t.radius)
+	if near.is_empty():
+		return 0.2	# nothing to hit: look again soon
+	var mult = player.get_damage_multiplier()
+	if near.size() >= int(t.p.get("sweep_when", 3)):
+		near.sort_custom(func(a, b): return a.global_position.distance_to(at) < b.global_position.distance_to(at))
+		for e in near.slice(0, player.aoe_max_targets):
+			e.take_damage(player.aoe_damage * mult * float(t.p.get("sweep_power", 0.75)))
+			_line(at, e.global_position, Color(0.4, 1.0, 0.6, 0.8), 0.2)
+		return player.aoe_cooldown_time
+	near.sort_custom(func(a, b): return a.tier > b.tier or (a.tier == b.tier and a.health > b.health))
+	var target = near[0]
+	target.take_damage(player.st_damage * mult * float(t.p.strike_power))
+	_line(at + Vector3(0, 0.8, 0), target.global_position, Color(0.7, 1.0, 0.8, 1.0), 0.3)
+	return player.st_cooldown_time
 
 
 func _root_field(center: Vector3, p: Dictionary):

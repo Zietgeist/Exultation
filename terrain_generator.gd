@@ -13,6 +13,7 @@ const SOLID_WALL_SCENE = preload("res://SolidWall.tscn")
 const MAPS = preload("res://map_templates.gd")
 const CLEAR_RADIUS = 10.0
 const GATE_CLEAR_RADIUS = 9.0	# keep gates free so you can always get in and out
+const ROAD_HALF_WIDTH = 4.0		# a clear lane (8 wide) from every gate to the middle of the zone
 const ANCIENT_TREE_CHANCE = 0.15
 
 # Resources (only in zones with quality 1+, i.e. Zone 2 onward)
@@ -26,6 +27,7 @@ var _quality = 0
 
 var template := "open_field"
 var _gates = []		# gate positions, read before anything is placed
+var _roads = []		# [[a, b], ...] clear lanes: gate -> middle (bending around landmarks)
 var _keep_out = []	# Rect2s (x, z) that layouts claimed: rivers, rooms, rail lanes
 var _half := Vector2(45, 45)
 
@@ -49,6 +51,7 @@ func _ready():
 			elif t.has("kind"):
 				_rebuild(t)
 		_announce.call_deferred()
+		_check_roads.call_deferred()
 		return
 
 	var path = owner.scene_file_path if owner else ""
@@ -77,6 +80,7 @@ func _ready():
 			_make_shrine({p = get_clear_pos(5.0), ability = Trials.due_abilities().pick_random()})
 	print("Terrain: %s (%d pieces)" % [template, get_child_count()])
 	_announce.call_deferred()
+	_check_roads.call_deferred()
 
 
 func _announce():
@@ -100,8 +104,10 @@ func save_state() -> Array:
 
 ## Can things stand here? (not water, not a gate, not inside a layout's claimed area)
 ## pad: extra room needed around the spot (a hill needs more than a tree).
-func is_free(pos: Vector3, pad := 0.0) -> bool:
-	if _near_gate(pos) or is_water(pos):
+## road_pad: how far from a gate road it must stay (default: pad). Camps use less: only their
+## huts/mountains must stay off the road, not their whole claimed area.
+func is_free(pos: Vector3, pad := 0.0, road_pad := -1.0) -> bool:
+	if _near_gate(pos, pad if road_pad < 0.0 else road_pad) or is_water(pos):
 		return false
 	var p = Vector2(pos.x, pos.z)
 	for r in _keep_out:
@@ -115,6 +121,8 @@ func is_free(pos: Vector3, pad := 0.0) -> bool:
 ## patch of ground plus a land bridge to the island.
 func is_water(pos: Vector3) -> bool:
 	if template != "island" or not MAPS.is_island_water(pos, _half, _gates):
+		return false
+	if _on_road(pos, 1.0):	# gate roads are always dry: a causeway, even where it bends around a landmark
 		return false
 	return not _landmark_land(pos)
 
@@ -168,12 +176,12 @@ func nearest_land(pos: Vector3) -> Vector3:
 	return pos
 
 
-func get_clear_pos(pad := 0.0) -> Vector3:
+func get_clear_pos(pad := 0.0, road_pad := -1.0) -> Vector3:
 	var pos = Vector3.ZERO
 	var half = map_half_size(8.0)  # extra margin: clusters scatter up to 4 units
 	for attempt in range(40):
 		pos = Vector3(randf_range(-half.x, half.x), 0, randf_range(-half.y, half.y))
-		if pos.length() >= CLEAR_RADIUS and is_free(pos, pad):
+		if pos.length() >= CLEAR_RADIUS and is_free(pos, pad, road_pad):
 			return pos
 	return pos
 
@@ -183,13 +191,88 @@ func _find_gates():
 	for n in get_parent().find_children("*", "Area3D", true, false):	# doors live under the floor (spiral_floor.gd)
 		if "target_scene" in n:
 			_gates.append(get_parent().to_local(n.global_position) if n.is_inside_tree() else n.position)
+	_plan_roads()
 
 
-func _near_gate(pos: Vector3) -> bool:
+## Near a gate, or on a gate's road? pad = how big the thing is (a hill needs more room than a tree).
+func _near_gate(pos: Vector3, pad := 0.0) -> bool:
 	for g in _gates:
-		if Vector2(pos.x - g.x, pos.z - g.z).length() < GATE_CLEAR_RADIUS:
+		if Vector2(pos.x - g.x, pos.z - g.z).length() < GATE_CLEAR_RADIUS + pad:
+			return true
+	return _on_road(pos, pad)
+
+
+# ---------------- Gate roads (guard rail: you can always walk from any gate to any other) ----------------
+
+## Every gate gets a straight lane to the middle of the zone. All lanes meet in the middle,
+## so every gate connects to every other. A lane bends around a landmark in its way.
+func _plan_roads():
+	_roads.clear()
+	for g in _gates:
+		var pts = [Vector3(g.x, 0, g.z), Vector3.ZERO]
+		for l in _landmarks():
+			var c = Vector3(l.pos.x, 0, l.pos.z)
+			var room = l.size + 8.0 + ROAD_HALF_WIDTH + 2.0
+			var a = pts[pts.size() - 2]
+			var b = pts[pts.size() - 1]
+			var close = Geometry3D.get_closest_point_to_segment(c, a, b)
+			if close.distance_to(c) >= room:
+				continue
+			var along = (b - a).normalized()
+			var side = Vector3(-along.z, 0, along.x)
+			if (close - c).dot(side) < 0.0:
+				side = -side
+			pts.insert(pts.size() - 1, c + side * room)	# go around on the near side
+		for i in range(pts.size() - 1):
+			_roads.append([pts[i], pts[i + 1]])
+
+
+func _on_road(pos: Vector3, pad := 0.0) -> bool:
+	var p = Vector3(pos.x, 0, pos.z)
+	for r in _roads:
+		if p.distance_to(Geometry3D.get_closest_point_to_segment(p, r[0], r[1])) < ROAD_HALF_WIDTH + pad:
 			return true
 	return false
+
+
+## Safety net, after everything is built: walk each road. Any terrain piece standing on it is
+## removed, and it's logged loudly so we can fix whatever put it there.
+func _check_roads():
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	if not is_inside_tree():
+		return
+	var space = get_world_3d().direct_space_state
+	var probe = SphereShape3D.new()
+	probe.radius = 1.2	# a little wider than the player
+	var q = PhysicsShapeQueryParameters3D.new()
+	q.shape = probe
+	q.collide_with_areas = false
+	var removed = 0
+	for r in _roads:
+		var a = to_global(r[0])
+		var b = to_global(r[1])
+		var steps = maxi(1, int(a.distance_to(b) / 2.0))
+		for i in range(steps + 1):
+			var p = a.lerp(b, float(i) / steps)
+			if a.distance_to(p) < 2.5:
+				continue	# the gate's own frame
+			q.transform = Transform3D(Basis(), p + Vector3(0, 1.2, 0))
+			for hit in space.intersect_shape(q, 16):
+				var body = hit.collider
+				if body == null or not is_ancestor_of(body) or body.is_queued_for_deletion():
+					continue	# floor, zone walls, landmarks, enemies, you: not terrain
+				var piece = body
+				while piece.get_parent() != self:
+					piece = piece.get_parent()
+				if piece.get_meta("kind", "") == "water":	# island seas: never punch holes, just say so
+					ErrorLog.warn("Terrain: deep water crosses a gate road at %s" % piece.position.snapped(Vector3.ONE))
+					continue
+				ErrorLog.warn("Terrain: a %s was blocking a gate road at %s, removed it" % [piece.get_meta("kind", piece.name), piece.position.snapped(Vector3.ONE)])
+				piece.queue_free()
+				removed += 1
+	if removed > 0:
+		ErrorLog.warn("Terrain: cleared %d piece(s) off the gate roads in %s" % [removed, Zones.path_of(self)])
 
 
 # ---------------- Layouts (the shape of each template) ----------------
@@ -376,11 +459,16 @@ func _make_hill(pos: Vector3, data: Dictionary):
 	body.set_meta("data", data)
 	body.add_to_group("hill")
 	body.add_child(PROPS.hill(SkinManager.props_style(), data))	# looks come from the world skin
-	var shape = CylinderShape3D.new()
-	shape.radius = data.r * 0.8
-	shape.height = data.h
+	# A sloped mound (not a wall): you can climb over it, slowly (HILL_SPEED in GameState).
+	# Sides are kept under ~42 degrees so players and enemies can walk up them.
+	var cone = CylinderMesh.new()
+	cone.bottom_radius = data.r * 0.9
+	cone.top_radius = maxf(0.3, data.r * 0.9 - data.h * 1.3)
+	cone.height = data.h
+	cone.radial_segments = 12
+	cone.rings = 1
 	var col = CollisionShape3D.new()
-	col.shape = shape
+	col.shape = cone.create_convex_shape()
 	col.position.y = data.h / 2.0
 	body.add_child(col)
 	add_child(body)
@@ -399,8 +487,9 @@ func spawn_sites(count: int):
 		var valley = randf() < VALLEY_SHARE
 		var r = randf_range(14.0, 20.0) if valley else randf_range(9.0, 13.0)
 		var pad = r + (8.0 if valley else 4.0)
-		var center = get_clear_pos(pad)
-		if not _site_fits(center, pad):
+		var reach = 0.0	# a road may run THROUGH a camp or valley: huts/mountains on it are left out
+		var center = get_clear_pos(pad, reach)
+		if not _site_fits(center, pad, reach):
 			continue
 		var data = {style = "valley" if valley else "camp", r = r, seed = randi(),
 			n = randi_range(7, 10) if valley else randi_range(3, 5)}
@@ -412,8 +501,8 @@ func spawn_sites(count: int):
 
 
 ## Room for a whole site: not on a gate, not in water, not in another site, landmark or layout.
-func _site_fits(center: Vector3, pad: float) -> bool:
-	if not is_free(center, pad):
+func _site_fits(center: Vector3, pad: float, reach := -1.0) -> bool:
+	if not is_free(center, pad, reach):
 		return false
 	for g in _gates:
 		if Vector2(center.x - g.x, center.z - g.z).length() < pad + GATE_CLEAR_RADIUS:
@@ -443,6 +532,8 @@ func _make_site(pos: Vector3, data: Dictionary):
 			var a = TAU * i / n + rng.randf_range(-0.3, 0.3)
 			var hp = Vector3(cos(a), 0, sin(a)) * data.r * rng.randf_range(0.6, 0.85)
 			var face = atan2(-hp.x, -hp.z)	# door toward the fire
+			if _on_road(pos + hp, 2.2):	# a gate road runs through the camp: leave this hut out
+				continue
 			var hut = PROPS.hut(look, {v = rng.randi() % 100})
 			hut.position = hp
 			hut.rotation.y = face
@@ -465,6 +556,8 @@ func _make_site(pos: Vector3, data: Dictionary):
 			var a = TAU * i / n
 			var mp = Vector3(cos(a), 0, sin(a)) * data.r
 			var md = {m = m * rng.randf_range(0.9, 1.15), h = rng.randf_range(6.0, 10.0), v = rng.randi() % 100}
+			if _on_road(pos + mp, md.m * 0.75 + 0.5):	# a gate road runs through the valley: an extra way in
+				continue
 			var mtn = PROPS.mountain(look, md)
 			mtn.position = mp
 			body.add_child(mtn)
@@ -641,12 +734,15 @@ func spawn_clusters(type: String, cluster_count: int):
 			_place_wall(type, p - dir * half_len, p + dir * half_len)
 
 
-## A wall from a to b, unless it would block a gate or stand in water.
+## A wall from a to b, unless it would block a gate or a gate road, or stand in water.
+## Checked every meter along the wall, not just its ends (a long wall can cross a road).
 func _place_wall(type: String, a: Vector3, b: Vector3):
 	if a.distance_to(b) < 1.0:
 		return
-	for p in [a, b, (a + b) / 2.0]:
-		if _near_gate(p) or is_water(p):
+	var steps = maxi(2, ceili(a.distance_to(b)))
+	for i in range(steps + 1):
+		var p = a.lerp(b, float(i) / steps)
+		if _near_gate(p, 0.8) or is_water(p):
 			return
 	var dir = b - a
 	_make_wall({type = type, l = dir.length(), r = -atan2(dir.z, dir.x), p = (a + b) / 2.0})

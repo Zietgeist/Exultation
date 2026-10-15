@@ -43,8 +43,8 @@ func _build_floor():
 	plane.mesh = mesh
 	var mat = ShaderMaterial.new()
 	mat.shader = _checker_shader()
-	mat.set_shader_parameter("color_a", color_a)
-	mat.set_shader_parameter("color_b", color_b)
+	mat.set_shader_parameter("color_a", SkinManager.color("floor_a", color_a))	# a skin can recolor every floor
+	mat.set_shader_parameter("color_b", SkinManager.color("floor_b", color_b))
 	mat.set_shader_parameter("tile", TILE)
 	mat.set_shader_parameter("half", half)
 	plane.material_override = mat

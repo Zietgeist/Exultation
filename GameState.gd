@@ -363,6 +363,18 @@ func saved_zone_part(node: Node, part: String):
 
 
 ## Speed multiplier at a spot: 1.0 normally, lower inside a slow patch (ditch).
+const HILL_SPEED = 0.25	# climbing over a hill / rubble pile: a quarter speed (player and enemies)
+
+
+## Is this body standing on (or climbing) a hill? Call after its move_and_slide().
+func on_hill(body: CharacterBody3D) -> bool:
+	for i in range(body.get_slide_collision_count()):
+		var c = body.get_slide_collision(i).get_collider()
+		if c and c.is_in_group("hill"):
+			return true
+	return false
+
+
 func slow_factor_at(world_pos: Vector3, node = null) -> float:
 	var d = ditch_at(world_pos, node)
 	return d.get_slow_factor() if d else 1.0
@@ -417,16 +429,17 @@ func notify(text: String):
 ## Where each zone sits on the world map (x, z, width, depth): see world_layout.gd.
 const ZONE_LAYOUT = preload("res://world_layout.gd").ZONES
 
-var zone_marks = {}	# scene path -> [{kind = "death"/"boss", p = position}] (this play session)
+var zone_marks = {}	# scene path -> [{kind = "death"/"boss", p = position, info = who}] (this play session)
 
 
-func add_mark(kind: String, pos: Vector3, node = null):
+## info: who killed you (death) or which boss fell (boss). Shown when you hover the mark on the map.
+func add_mark(kind: String, pos: Vector3, node = null, info := ""):
 	var path = Zones.path_of(node) if node else Zones.local_path()
 	if path == "":
 		return
 	if not zone_marks.has(path):
 		zone_marks[path] = []
-	zone_marks[path].append({kind = kind, p = pos})
+	zone_marks[path].append({kind = kind, p = pos, info = info})
 
 
 ## A zone is cleared once both of its bosses are down (or the next zone was unlocked earlier).

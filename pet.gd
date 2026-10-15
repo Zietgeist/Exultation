@@ -19,7 +19,7 @@ extends Node3D
 ##              less skittish, healed, and WELL FED for a while (faster, gathers quicker, +20% health).
 ##   Name       give it one in the Chronicle (J) or the pet window (K). Its milestones go in the Chronicle.
 ##
-## Safety: it won't go for a node if an enemy you can see is close enough to notice it there,
+## Safety: it won't go for a node if an enemy is close by (half that enemy's notice range: a bit brave),
 ## and it drops the job and comes back if one wanders close. (Enemies that pop up out of nowhere
 ## can still surprise it.)
 ##
@@ -36,13 +36,13 @@ const BASE_SPEED = 9.0			# a bit faster than you, so it keeps up
 const FOLLOW_DIST = 2.2			# hangs back this far when idle
 const GATHER_RADIUS = 9.0		# gathers nodes this close to YOU
 const LEASH = 14.0				# you walked this far away: drop the job and come back
-const GATHER_TIME = 3.0			# slower than gathering yourself (1.5 s)
+const GATHER_TIME = 0.3			# 10x faster than it was (3.0 s); much quicker than gathering yourself (1.5 s)
 const REGEN_DELAY = 5.0			# heals after this long without being hit
 const REGEN_RATE = 6.0			# health per second
 const NEAR_YOU = 5.0			# "you're close": it calms down much faster
 const FEED_RANGE = 4.0
 const FEED_COOLDOWN = 120.0		# a proper meal every 2 minutes; more is just a snack
-const DANGER_MARGIN = 1.15		# keeps a little more than an enemy's aggro range away from it
+const DANGER_SHARE = 0.5		# fear radius = half an enemy's aggro range (+1 m): Trash ~6 m, Thug ~8, Master ~10, Boss ~13
 
 # Grows over time (saved)
 var pet_name_given := ""
@@ -367,23 +367,30 @@ func _unhandled_input(event):
 			get_viewport().set_input_as_handled()
 
 
-## One herb from your satchel.
+## One herb: from your satchel, or from the storehouse when you're in town.
 func feed():
 	var key = ""
 	for k in GameState.satchel:
 		if k.begins_with("herb:") and GameState.satchel[k] > 0:
 			key = k
 			break
+	var in_town = _in_town()
+	if key == "" and in_town:	# banking empties the satchel, so look in storage too
+		for k in GameState.storehouse:
+			if k.begins_with("herb:") and GameState.storehouse[k] > 0:
+				key = k
+				break
 	if key == "":
 		if best_tonic() >= 0:	# no raw herbs: a tonic will do
 			feed_tonic()
+		elif in_town:
+			_say("no herbs or tonics (none in storage either)", Color(0.9, 0.8, 0.6))
 		else:
 			_say("no herbs or tonics to share", Color(0.9, 0.8, 0.6))
 		return
-	GameState.satchel[key] -= 1
-	if GameState.satchel[key] <= 0:
-		GameState.satchel.erase(key)
-	GameState.save_progress()
+	if not GameState.take_raw(key, 1):	# satchel first, then storage
+		ErrorLog.fail("pet.feed: could not take %s" % key)
+		return
 	record.fed += 1
 	hunger = max(0.0, hunger - 60.0)
 	stress = max(0.0, stress - 30.0)
@@ -395,6 +402,13 @@ func feed():
 	if record.fed == 1:
 		_milestone("fed", "Shared a %s with %s for the first time." % [GameState.resource_name("herb", int(key.get_slice(":", 1))), full_name()])
 	_save()
+
+
+## Home, or inside a neutral town's walls: you can reach the storehouse.
+func _in_town() -> bool:
+	if not _owner_ok():
+		return false
+	return Zones.path_of(owner_player) == "res://Home.tscn" or Landmarks.in_safe(owner_player)
 
 
 ## Your best tonic's quality (-1 = none).
@@ -471,7 +485,7 @@ func _danger_near(spot: Vector3) -> bool:
 	for e in Zones.all(owner_player, "enemy"):
 		if not is_instance_valid(e) or e.health <= 0:
 			continue
-		if _flat(e.global_position - spot).length() <= e.AGGRO_RANGE * DANGER_MARGIN + 1.0:
+		if _flat(e.global_position - spot).length() <= e.AGGRO_RANGE * DANGER_SHARE + 1.0:
 			return true
 	return false
 

@@ -3,6 +3,7 @@ extends "res://trials/trial_base.gd"
 ## sometimes shades of one color from light to dark.
 
 var order: Array = []		# the right order (colors)
+var names: Array = []		# the name of each color in order, for the instructions
 var next_index := 0
 var shades := false
 var picked_row: HBoxContainer
@@ -15,7 +16,8 @@ func title() -> String:
 func instructions() -> String:
 	if shades:
 		return "Click from LIGHTEST to DARKEST."
-	return "Click in rainbow order: red, orange, yellow, green, blue, violet." + ("\nIn-between shades go in between." if order.size() > 6 else "")
+	# Name every color shown (harder trials add cyan / yellow-green), so nothing looks like a surprise.
+	return "Click in rainbow order: %s." % ", ".join(names)
 
 func time_limit() -> float:
 	return lerp(22.0, 15.0, difficulty)
@@ -34,11 +36,13 @@ func build():
 		# Always the six named colors (red, orange, yellow, green, blue, violet), so the
 		# instructions are true; harder trials add in-between shades (yellow-green, cyan).
 		var hues = [0.0, 0.075, 0.15, 0.33, 0.62, 0.78]
+		var hue_names = {0.0: "red", 0.075: "orange", 0.15: "yellow", 0.24: "yellow-green", 0.33: "green", 0.5: "cyan", 0.62: "blue", 0.78: "violet"}
 		var extras = [0.5, 0.24]
 		for k in range(roundi(difficulty * 2)):
 			hues.append(extras[k])
 		hues.sort()
 		for h in hues:	# a small wobble so it's not a ruler
+			names.append(hue_names[h])
 			order.append(Color.from_hsv(clamp(h + rng.randf_range(-0.006, 0.006), 0.0, 0.8), lerp(0.9, 0.7, difficulty), 0.95))
 	var v = VBoxContainer.new()
 	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)

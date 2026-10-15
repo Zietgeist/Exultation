@@ -127,7 +127,7 @@ func skin_about(id := "") -> String:
 	return skins.get(id if id != "" else current_id, {}).get("about", "")
 
 
-## "fantasy", "zombie" or "scifi": which look trees, hills and resource nodes use.
+## "fantasy", "zombie", "scifi" or "darkfantasy": which look trees, hills and resource nodes use.
 func props_style() -> String:
 	var p = section("props")
 	return p if p != null else "fantasy"

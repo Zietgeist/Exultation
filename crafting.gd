@@ -153,6 +153,7 @@ func recipe(id: String) -> Dictionary:
 		st.hardness = 1.0 * level
 	if fam.base == "boots":
 		st.move = 0.03 + 0.015 * level
+		st.phase_mobs = true	# shrine boots (from level I): walk through enemies
 	if fam.has("move"):
 		st.move = fam.move
 	b.slots = mini(b.slots + 1 + int(level / 2.0), 6)
@@ -572,6 +573,15 @@ func equipped_weapon():
 	return null
 
 
+## One attribute (swiftness, vitality...) added up across EVERYTHING worn, weapon included.
+func gear_attr(attr: String) -> float:
+	var total = 0.0
+	for it in equipped_items():
+		if it.slot != "potion":
+			total += it.attrs.get(attr, 0.0)
+	return total
+
+
 func equipped_items() -> Array:
 	var out = []
 	for k in equipped:
@@ -587,12 +597,15 @@ func armor_totals() -> Dictionary:
 	var a = {}
 	var hardness = 0.0
 	var move = 0.0
+	var phase_mobs = false
 	for it in equipped_items():
 		if it.slot == "weapon" or it.slot == "potion":
 			continue
 		var stats = recipe(it.base).stats
 		hardness += stats.hardness
 		move += stats.move
+		if stats.get("phase_mobs", false):
+			phase_mobs = true
 		for k in it.attrs:
 			a[k] = a.get(k, 0.0) + it.attrs[k]
 	var e = {resist = {}}
@@ -604,6 +617,7 @@ func armor_totals() -> Dictionary:
 			e.resist[el] = a[el] / (a[el] + 20.0)
 	e.move = move + a.get("swiftness", 0.0) * 0.02
 	e.max_health = a.get("vitality", 0.0) * 4.0
+	e.phase_mobs = phase_mobs
 	return e
 
 
@@ -682,6 +696,8 @@ func describe(item: Dictionary) -> String:
 				lines.append("Resists %d%% %s" % [roundi(e.resist[el] * 100), SkinManager.element_label(el)])
 			if e.move != 0.0:
 				lines.append("Move speed %+d%%" % roundi(e.move * 100))
+			if recipe(item.base).stats.get("phase_mobs", false):
+				lines.append("Walk through enemies")
 			if e.max_health > 0.0:
 				lines.append("+%d max health" % e.max_health)
 		"potion":

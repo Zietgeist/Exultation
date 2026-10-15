@@ -27,6 +27,10 @@ var ATTACK_DAMAGE = 5.0
 var SPEED = 4.0
 var AGGRO_RANGE = 8.0
 const GRAVITY = -9.8
+const Pathing = preload("res://pathing.gd")
+var _path: Array = []		# waypoints around walls (Thug and up only; Trash walks straight)
+var _on_hill := false		# climbing a hill: slow
+var _path_t := 0.0			# seconds until the next "is my way blocked?" check
 
 var player = null
 var attack_cooldown = 0.0
@@ -65,6 +69,12 @@ func setup(diff, t = Tier.TRASH, element := "physical"):
 		net_id = Net.register_enemy(self)
 
 func _ready():
+	# Enemies live on physics layer 3 (not 1), so gear can let a player walk through them.
+	# They still collide with walls/players (layer 1) and each other (layer 3).
+	collision_layer = 0
+	set_collision_layer_value(3, true)
+	set_collision_mask_value(1, true)
+	set_collision_mask_value(3, true)
 	player = Zones.first(self, "party")
 	SkinManager.skin_changed.connect(apply_skin)
 
@@ -110,10 +120,10 @@ func _physics_process(delta):
 		velocity.y += GRAVITY * delta
 		
 		if aggroed:
-			var direction = (player.global_position - global_position)
+			var direction = (_chase_point(delta) - global_position)
 			direction.y = 0
 			direction = direction.normalized()
-			var speed_now = SPEED * GameState.slow_factor_at(global_position, self)
+			var speed_now = SPEED * GameState.slow_factor_at(global_position, self) * (GameState.HILL_SPEED if _on_hill else 1.0)
 			if rooted_time > 0.0:
 				rooted_time -= delta
 				speed_now = 0.0
@@ -130,6 +140,25 @@ func _physics_process(delta):
 					attack_cooldown = 1.0
 	
 	move_and_slide()
+	_on_hill = GameState.on_hill(self)
+
+## Where to walk next. Trash: straight at the target. Thug, Master, Boss: around walls when blocked.
+func _chase_point(delta: float) -> Vector3:
+	var goal = player.global_position
+	if tier == Tier.TRASH:
+		return goal
+	_path_t -= delta
+	if _path_t <= 0.0:
+		_path_t = randf_range(0.4, 0.6)	# spread the checks out so not every enemy plans on the same frame
+		var space = get_world_3d().direct_space_state
+		if Pathing.clear_line(space, global_position, goal):
+			_path = []
+		else:
+			_path = Pathing.find(space, global_position, goal)
+	while not _path.is_empty() and Vector2(_path[0].x - global_position.x, _path[0].z - global_position.z).length() < 1.0:
+		_path.pop_front()
+	return goal if _path.is_empty() else _path[0]
+
 
 func _closest_party_member():
 	var best = null
@@ -208,7 +237,7 @@ func mirror_died():
 	if Zones.first(self, "player"):
 		Story.on_kill(self)
 	if tier == Tier.BOSS:
-		GameState.add_mark("boss", global_position, self)
+		GameState.add_mark("boss", global_position, self, _mark_name())
 	drop_orb()
 	drop_gold()
 	queue_free()
@@ -220,7 +249,7 @@ func die():
 	if not rival.is_empty():
 		Rivals.rival_died(self)
 	if tier == Tier.BOSS:
-		GameState.add_mark("boss", global_position, self)
+		GameState.add_mark("boss", global_position, self, _mark_name())
 	emit_signal("enemy_died", tier)
 	if Zones.first(self, "player") and not has_meta("recruited"):	# loot is personal: the host only drops its own if it's here (none for a recruit: it's leaving, not dying)
 		Story.on_kill(self)	# my worn gear remembers it
@@ -366,3 +395,12 @@ func _say(text: String):
 	get_tree().create_timer(1.5).timeout.connect(func():
 		if is_instance_valid(self) and _rival_label:
 			_rival_label.text = rival.label)
+
+
+## The name the map shows when you hover this boss's mark (its title, or "Dragon" etc.).
+func _mark_name() -> String:
+	if not rival.is_empty():
+		return str(rival.get("label", SkinManager.name_of("enemy_boss_one")))
+	if _title_label:
+		return _title_label.text
+	return SkinManager.name_of(TIER_IDS[tier] + "_one")

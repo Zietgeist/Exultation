@@ -1,0 +1,205 @@
+{
+	"name": "Dark Fantasy",
+	"about": "A cursed, dying land. Ghouls, blackguards, necromancers and dread wyrms.",
+	"props": "darkfantasy",
+	"colors": {
+		"floor_a": "#221f26",
+		"floor_b": "#302b33",
+		"player": "#e3dccb",
+		"enemy_trash": "#7f8f62",
+		"enemy_thug": "#3e5a8c",
+		"enemy_master": "#7a2aa8",
+		"enemy_boss": "#c08a1e",
+		"enemy_rival": "#a01818",
+		"wall_low": "#4a4450",
+		"wall_solid": "#2a2530",
+		"zone_wall": "#0d0b0f",
+		"water": "#25362e",
+		"deep_water": "#0f1a16",
+		"ditch": "#191513",
+		"bridge": "#3b2e26",
+		"rail_bed": "#2e2a2c",
+		"rail": "#4a3f44",
+		"obstacle": "#3d3940",
+		"pet": "#a98bff",
+		"shrine_stone": "#3a3540",
+		"cave_floor": "#141215",
+		"cave_wall": "#2a2528",
+		"arena_floor_a": "#1e1a22",
+		"arena_floor_b": "#2b2430",
+		"flag_pole": "#5a5560",
+		"lm_town_wall": "#3a3438",
+		"lm_town_roof": "#4a1e22",
+		"lm_event_wall": "#3e3638",
+		"lm_event_roof": "#2f3a2a",
+		"lm_board": "#2e2219",
+		"lm_wall": "#2e2a30",
+		"lm_banner": "#7a1f24",
+		"lm_statue": "#4a4650",
+		"lm_rock": "#2e2a2c",
+		"lm_guard": "#5a6a80"
+	},
+	"names": {
+		"enemy_trash": "Ghouls",
+		"enemy_thug": "Blackguards",
+		"enemy_master": "Necromancers",
+		"enemy_boss": "Dread Wyrms",
+		"enemy_trash_one": "Ghoul",
+		"enemy_thug_one": "Blackguard",
+		"enemy_master_one": "Necromancer",
+		"enemy_boss_one": "Dread Wyrm",
+		"shrine": "Bone Altar",
+		"trial_gate": "Crypt Gate",
+		"trial_arena": "Ossuary",
+		"pet": "Wisp",
+		"waystation": "Blood Stone"
+	},
+	"classes": {
+		"dps": "Reaver",
+		"tank": "Dreadknight",
+		"healer": "Blood Priest",
+		"skirmisher": "Shade",
+		"warden": "Witch"
+	},
+	"skills": {
+		"boost": "Bloodlust",
+		"blast": "Hellfire",
+		"shield": "Bone Wall",
+		"thorns": "Thorned Shroud",
+		"self_heal": "Feast",
+		"mending": "Blood Pact",
+		"life_drain": "Soul Rend",
+		"dash": "Shadowstep",
+		"whirlwind": "Reaping Spin",
+		"totem": "Grave Ward",
+		"root_field": "Grasping Dead"
+	},
+	"elements": {
+		"physical": "Physical",
+		"radiant": "Hellfire",
+		"shadow": "Necrotic",
+		"nature": "Blight",
+		"storm": "Wrath"
+	},
+	"resources": {
+		"ore": [
+			"Blackiron ore",
+			"Bloodstone ore"
+		],
+		"herb": [
+			"Nightshade",
+			"Gravebloom"
+		],
+		"treesilver": [
+			"Bonewood",
+			"Elder Bonewood"
+		],
+		"orchid": [
+			"Ember Orchid",
+			"Blood Orchid"
+		]
+	},
+	"materials": {
+		"ingot": [
+			"Blackiron ingot",
+			"Bloodstone ingot"
+		],
+		"silverbar": [
+			"Bonewood bar",
+			"Elder Bonewood bar"
+		],
+		"tonic": [
+			"Nightshade draught",
+			"Gravebloom draught"
+		],
+		"essence": [
+			"Ember essence",
+			"Blood essence"
+		]
+	},
+	"slot_labels": {
+		"weapon": "Weapon",
+		"head": "Helm",
+		"shoulders": "Pauldrons",
+		"chest": "Cuirass",
+		"hands": "Gauntlets",
+		"feet": "Greaves",
+		"ring": "Sigil"
+	},
+	"races": [
+		{
+			"id": "exile",
+			"body": {"color": "#a89b8c"},
+			"name": "Exile",
+			"about": "Cast out, still human. Wears anything, two sigils.",
+			"slots": [
+				{"slot": "weapon", "count": 1},
+				{"slot": "head", "count": 1},
+				{"slot": "shoulders", "count": 1},
+				{"slot": "chest", "count": 1},
+				{"slot": "hands", "count": 1},
+				{"slot": "feet", "count": 1},
+				{"slot": "ring", "count": 2}
+			]
+		},
+		{
+			"id": "vampire",
+			"body": {"build": 0.85, "height": 1.08, "color": "#cfc8d0"},
+			"name": "Vampire",
+			"about": "Pale and proud. Too vain for a helm, but wears three sigils.",
+			"slots": [
+				{"slot": "weapon", "count": 1},
+				{"slot": "shoulders", "count": 1},
+				{"slot": "chest", "count": 1},
+				{"slot": "hands", "count": 1},
+				{"slot": "feet", "count": 1},
+				{"slot": "ring", "count": 3}
+			]
+		},
+		{
+			"id": "revenant",
+			"body": {"lean": 0.35, "build": 1.1, "color": "#7e8a80"},
+			"name": "Revenant",
+			"about": "Risen from the grave in its old armor. Every slot, but only one sigil.",
+			"slots": [
+				{"slot": "weapon", "count": 1},
+				{"slot": "head", "count": 1},
+				{"slot": "shoulders", "count": 1},
+				{"slot": "chest", "count": 1},
+				{"slot": "hands", "count": 1},
+				{"slot": "feet", "count": 1},
+				{"slot": "ring", "count": 1, "label": "Grave sigil"}
+			]
+		}
+	],
+	"terrain": {
+		"templates": [
+			"open_field",
+			"rolling_hills",
+			"forest",
+			"river",
+			"ruins",
+			"rails",
+			"island"
+		],
+		"names": {
+			"open_field": "Ashen Moor",
+			"rolling_hills": "Barrow Downs",
+			"forest": "Blackwood",
+			"river": "Bloodmire",
+			"ruins": "Shattered Cathedral",
+			"rails": "Gallows Road",
+			"island": "Isle of the Drowned"
+		}
+	},
+	"fast_travel": "portal",
+	"player_model": {
+		"type": "knight",
+		"armor": "#4a4b55",
+		"trim": "#9a7a34",
+		"cloth": "#6a121a",
+		"cape": "#2c0a0e",
+		"plume": "#8a1018",
+		"eyes": "#ff3a1a"
+	}
+}

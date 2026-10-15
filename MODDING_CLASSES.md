@@ -41,11 +41,11 @@ Every class is one `.json` file. No code needed for most ideas.
 | shield | absorb, duration |
 | blast | damage, screen_share |
 | thorns_aura | duration, damage_per_second, reflect, screen_share |
-| drain_aura (toggle) | energy_per_second, share_per_second, min_per_second, heal_share, screen_share |
-| mending | heal, jumps, duration |
+| drain_aura (toggle) | energy_per_second, share_per_enemy (max-life share per enemy in range), max_share_per_second, min_per_second, heal_share, screen_share |
+| mending | heal, jumps, duration; optional solo_boost_multiplier, solo_boost_duration, solo_boost_max_stacks (solo at full health it stacks damage like Boost) |
 | dash | distance, safe_time |
 | whirlwind | duration, damage_per_second, radius, speed_bonus |
-| totem | duration, damage_per_second, radius, max |
+| totem | duration, radius, max, and EITHER strike_power, sweep_power, sweep_when (fights with your weapon: Strike the toughest foe, or Sweep when sweep_when+ are close) OR damage_per_second (zaps the 3 closest) |
 | root_field | duration, screen_share, damage |
 | script | your own: `"script": "res://mods/my_skill.gd"` with `func run(player, params) -> bool` |
 

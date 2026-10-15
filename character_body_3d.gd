@@ -1,8 +1,10 @@
 extends CharacterBody3D
 
 var SPEED = 10.0		# armor can change this
+const ENEMY_LAYER = 3	# enemies live on physics layer 3 (enemy.gd); walls and you are on layer 1
 const BASE_SPEED = 10.0
 const GRAVITY = -9.8
+var _on_hill := false	# climbing a hill: slow (GameState.HILL_SPEED)
 var MAX_HEALTH = 100.0	# armor vitality can raise this
 const BASE_MAX_HEALTH = 100.0
 
@@ -107,6 +109,9 @@ func _ready():
 		var mat = StandardMaterial3D.new()
 		mat.albedo_color = Net.color_of(Net.my_id())
 		$MeshInstance3D.material_override = mat
+	else:
+		_apply_skin()
+		SkinManager.skin_changed.connect(_apply_skin)
 	print("Playing as class: ", Classes.label(player_class))
 	pet = preload("res://pet.gd").new()	# follows you between zones and gathers nearby nodes
 	pet.setup(self)
@@ -138,6 +143,9 @@ func _input(event):
 			KEY_E: skills.use("E")
 			KEY_Q: skills.use("Q")
 			KEY_F: skills.use("F")
+			KEY_SPACE:	# the big ability, same as F
+				skills.use("F")
+				get_viewport().set_input_as_handled()	# so Space doesn't also press a focused menu button
 			KEY_G: start_gathering()
 			KEY_TAB: auto.toggle()
 			KEY_R: auto.next_mode()
@@ -238,6 +246,8 @@ func _physics_process(delta):
 	if ditch:
 		speed_now *= ditch.get_slow_factor()
 		ditch.reveal()	# hidden ones show up once you step in
+	if _on_hill:	# climbing over a hill / rubble pile
+		speed_now *= GameState.HILL_SPEED
 	velocity.x = direction.x * speed_now
 	velocity.z = direction.z * speed_now
 	var dash = skills.dash_velocity()
@@ -285,6 +295,7 @@ func _physics_process(delta):
 			aoe_attack()
 			aoe_cooldown = aoe_cooldown_time
 	move_and_slide()
+	_on_hill = GameState.on_hill(self)
 
 	# Energy: trickle (per class) + energy for distance moved (skirmisher)
 	var e_rules = class_def.get("energy", {})
@@ -462,7 +473,10 @@ func die(cause := ""):
 	var killer = last_attacker_node if is_instance_valid(last_attacker_node) else null
 	Story.on_death(killer.tier if killer and "tier" in killer else null)
 	Rivals.on_player_killed(killer)	# a small enemy that kills you becomes your Rival
-	GameState.add_mark("death", global_position, self)
+	if killer and "tier" in killer and killer.tier == 3 and killer.rival.is_empty():
+		GameState.notify("The %s waits where you fell (%d%% health left). It's on your map (M)." % [
+			SkinManager.name_of("enemy_boss_one"), roundi(100.0 * killer.health / killer.MAX_HEALTH)])
+	GameState.add_mark("death", global_position, self, last_attacker if last_attacker != "" else cause)
 	print("DEFEATED by ", cause, ". Respawning at the entry door. Deaths: ", GameState.deaths)
 	health = MAX_HEALTH
 	velocity = Vector3.ZERO
@@ -833,6 +847,8 @@ func apply_gear():
 	MAX_HEALTH = (BASE_MAX_HEALTH * stats.get("health", 1.0) + t.max_health) * (1.2 if GameState.has_buff("tonic") else 1.0) * Traits.health_mult()
 	health = clamp(health + (MAX_HEALTH - old_max), 1.0, MAX_HEALTH)
 	SPEED = BASE_SPEED * stats.get("speed", 1.0) * (1.0 + t.move) * Traits.move_mult()
+	if not is_puppet:	# Windrunner boots: enemies (physics layer 3) don't block you
+		set_collision_mask_value(ENEMY_LAYER, not t.phase_mobs)
 	_refresh_damage()
 
 
@@ -897,3 +913,28 @@ func _tick_potion(delta):
 		if ward_time <= 0.0:
 			ward = {}
 			haste = 0.0
+
+
+## Your look comes from the world skin: a body model ("player_model", e.g. a knight) or the
+## plain capsule in the skin's "player" color. Online you keep your player color.
+var _capsule_mesh: Mesh = null
+var _model: Node3D = null
+
+func _apply_skin():
+	if Net.is_online():
+		return
+	$MeshInstance3D.material_override = SkinManager.material("player", Color(1, 0.486, 1))
+	if _capsule_mesh == null:
+		_capsule_mesh = $MeshInstance3D.mesh
+	if _model:
+		_model.queue_free()
+		_model = null
+	var look = SkinManager.section("player_model")
+	if look is Dictionary and look.get("type", "") == "knight":
+		_model = preload("res://knight_model.gd").build(look)
+		$MeshInstance3D.add_child(_model)	# a child, so blinking and scaling still work
+		$MeshInstance3D.mesh = null
+	else:
+		if look is Dictionary:
+			ErrorLog.warn("Skin: unknown player_model type '%s', using the capsule" % look.get("type", ""))
+		$MeshInstance3D.mesh = _capsule_mesh
