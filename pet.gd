@@ -35,7 +35,8 @@ const KNOCKOUT_TIME = 20.0		# seconds out after being knocked out
 const BASE_SPEED = 9.0			# a bit faster than you, so it keeps up
 const FOLLOW_DIST = 2.2			# hangs back this far when idle
 const GATHER_RADIUS = 9.0		# gathers nodes this close to YOU
-const LEASH = 14.0				# you walked this far away: drop the job and come back
+const LEASH = 28.0				# you walked this far away: drop the job and come back (Oct 2026: 14 -> 28, so you can keep playing while it gathers)
+const LOST_DIST = 40.0			# farther than this (respawn, portal): pop back next to you. Must stay above LEASH.
 const GATHER_TIME = 0.3			# 10x faster than it was (3.0 s); much quicker than gathering yourself (1.5 s)
 const REGEN_DELAY = 5.0			# heals after this long without being hit
 const REGEN_RATE = 6.0			# health per second
@@ -259,7 +260,7 @@ func _process(delta):
 	_body.position.y = 0.15 * sin(Time.get_ticks_msec() / 300.0)
 	_body.position.x = randf_range(-0.05, 0.05) if overwhelmed else 0.0
 
-	if _flat(global_position - me).length() > 30.0:	# lost (respawn, portal): pop back next to you
+	if _flat(global_position - me).length() > LOST_DIST:	# lost (respawn, portal): pop back next to you
 		_place_next_to_owner()
 		_stop_gathering()
 
