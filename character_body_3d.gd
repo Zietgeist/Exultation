@@ -294,8 +294,10 @@ func _physics_process(delta):
 		if aoe_cooldown <= 0:
 			aoe_attack()
 			aoe_cooldown = aoe_cooldown_time
+	var before_move = global_position
 	move_and_slide()
 	_on_hill = GameState.on_hill(self)
+	_check_stuck(direction, speed_now, delta, before_move)
 
 	# Energy: trickle (per class) + energy for distance moved (skirmisher)
 	var e_rules = class_def.get("energy", {})
@@ -938,3 +940,50 @@ func _apply_skin():
 		if look is Dictionary:
 			ErrorLog.warn("Skin: unknown player_model type '%s', using the capsule" % look.get("type", ""))
 		$MeshInstance3D.mesh = _capsule_mesh
+
+
+# ---------------- Stuck safety net ----------------
+## Holding a move key but not moving at all, wedged inside a hill or prop (seen in Zone 4
+## next to a rubble pile, Oct 2026): after a second, warn loudly with what we're touching
+## and step back to the last spot where walking worked. Pushing into a plain wall is fine:
+## if any direction is open, nothing happens. Crowds of enemies don't count either.
+const STUCK_TIME = 1.0
+var _stuck_for := 0.0
+var _free_pos = null	# last spot where walking worked (refreshed every half second)
+var _free_timer := 0.0
+
+func _check_stuck(direction: Vector3, speed_now: float, delta: float, before: Vector3):
+	if direction == Vector3.ZERO or speed_now <= 0.1 or skills.dash_velocity() != null:
+		_stuck_for = 0.0
+		return
+	var moved = Vector2(global_position.x - before.x, global_position.z - before.z).length()
+	if moved > speed_now * delta * 0.1:
+		_stuck_for = 0.0
+		_free_timer -= delta
+		if _free_timer <= 0.0:
+			_free_timer = 0.5
+			_free_pos = global_position
+		return
+	_stuck_for += delta
+	if _stuck_for < STUCK_TIME:
+		return
+	_stuck_for = 0.0
+	var touching = []
+	var on_static = false
+	for i in range(get_slide_collision_count()):
+		var c = get_slide_collision(i).get_collider()
+		if c == null:
+			continue
+		if c is StaticBody3D:
+			on_static = true
+		touching.append(str(c.get_meta("kind", c.name)))
+	if not on_static:
+		return	# held in by enemies: that's the fight, not a bug
+	var lifted = global_transform.translated(Vector3(0, 0.1, 0))
+	for i in range(8):
+		var a = TAU * i / 8.0
+		if not test_move(lifted, Vector3(cos(a), 0, sin(a)) * 0.3):
+			return	# there's a way out: just pushing into a wall
+	ErrorLog.warn("Player stuck at %s in %s, touching %s. Moved back to the last free spot." % [global_position.round(), GameState.current_zone, touching])
+	global_position = _free_pos if _free_pos != null else spawn_point
+	velocity = Vector3.ZERO
