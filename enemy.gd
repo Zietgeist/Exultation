@@ -17,8 +17,8 @@ const TIER_STATS = {
 	Tier.BOSS:   {health = 6000, damage = 60, speed = 2.0, aggro = 24.0, color = Color(1.0,  0.8, 0.0)},
 }
 
-# Energy in the blue orb each tier drops (halved in Oct 2026: was 1/2/4/8)
-const ORB_ENERGY = {Tier.TRASH: 0.5, Tier.THUG: 1.0, Tier.MASTER: 2.0, Tier.BOSS: 4.0}
+# Energy in the blue orb each tier drops (halved twice in Oct 2026: was 1/2/4/8, then 0.5/1/2/4)
+const ORB_ENERGY = {Tier.TRASH: 0.25, Tier.THUG: 0.5, Tier.MASTER: 1.0, Tier.BOSS: 2.0}
 
 const ATTACK_RANGE = 1.2
 var MAX_HEALTH = 100.0
@@ -169,10 +169,13 @@ func turn_ally(seconds: float, buff := 1.0):
 		return
 	if mirror:	# the host runs enemies: ask it
 		flash()
+		_turn_loot()	# the caster gets the loot now, on their own screen
 		Net.turn_enemy(net_id, seconds, buff)
 		return
 	ally_time = seconds
 	ally_buff = buff
+	if Zones.first(self, "player"):	# loot is personal: drops for the player here (the caster when solo)
+		_turn_loot()
 	aggroed = false
 	hunter = false
 	rooted_time = 0.0
@@ -185,6 +188,15 @@ func turn_ally(seconds: float, buff := 1.0):
 	m.emission = ALLY_COLOR
 	m.emission_energy_multiplier = 0.6
 	$MeshInstance3D.material_override = m
+
+
+## Turned: its blue orb and gold drop right away (not when it dies 20 s later).
+func _turn_loot():
+	if has_meta("looted"):
+		return
+	set_meta("looted", true)
+	drop_orb()
+	drop_gold()
 
 
 ## Turned: chase the closest real enemy and hit it; nothing near -> stay close to the party.
@@ -335,8 +347,9 @@ func mirror_died():
 		Story.on_kill(self)
 	if tier == Tier.BOSS:
 		GameState.add_mark("boss", global_position, self, _mark_name())
-	drop_orb()
-	drop_gold()
+	if not has_meta("looted"):	# a turned enemy already dropped its loot
+		drop_orb()
+		drop_gold()
 	queue_free()
 
 
@@ -353,8 +366,9 @@ func die():
 		if is_instance_valid(player) and player.is_in_group("pet"):	# it was going after my pet
 			Traits.on_guarded_pet()
 			player.guarded()	# it bonds with you a little
-		drop_orb()
-		drop_gold()
+		if not has_meta("looted"):	# a turned enemy already dropped its loot when it was turned
+			drop_orb()
+			drop_gold()
 	queue_free()
 
 func get_damage_multiplier():
