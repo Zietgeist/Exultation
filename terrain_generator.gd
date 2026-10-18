@@ -536,6 +536,7 @@ func spawn_hills(count: int):
 			if not is_free(p, 6.0):
 				continue
 			_make_hill(p, {r = randf_range(4.0, 7.0), h = randf_range(1.5, 3.0), v = randi() % 100})
+		_keep_out.append(Rect2(center.x - 11.0, center.z - 11.0, 22.0, 22.0))	# the whole lump: shrines, fields, barns stay off it
 
 
 func _make_hill(pos: Vector3, data: Dictionary):
@@ -897,7 +898,26 @@ func _make_shrine(t: Dictionary):
 	s.set_meta("kind", "shrine")
 	s.set_meta("data", {ability = t.ability})
 	add_child(s)
-	s.position = Vector3(t.p.x, 0, t.p.z)
+	s.position = _off_hills(Vector3(t.p.x, 0, t.p.z))
+
+
+## A spot pushed out of any hill it's inside (to just past the hill's edge), so nothing gets buried.
+func _off_hills(p: Vector3) -> Vector3:
+	for k in range(4):	# a lumpy hill can take a few pushes
+		var moved = false
+		for h in get_children():
+			if h.get_meta("kind", "") != "hill" or h.is_queued_for_deletion():
+				continue
+			var edge = float(h.get_meta("data").r) * 0.9 + 2.0
+			var away = Vector2(p.x - h.position.x, p.z - h.position.z)
+			if away.length() < edge:
+				var dir = away.normalized() if away.length() > 0.1 else Vector2(1, 0)
+				var q = Vector2(h.position.x, h.position.z) + dir * edge
+				p = Vector3(q.x, p.y, q.y)
+				moved = true
+		if not moved:
+			break
+	return p
 
 
 ## Failed: the shrine shows up somewhere else in the zone (maybe with a different trial).
