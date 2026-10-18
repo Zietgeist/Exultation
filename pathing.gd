@@ -8,10 +8,11 @@ const CELL = 2.0			# meters per grid square
 const MARGIN = 14.0			# how far past you and the enemy the search may wander
 const MAX_SIDE = 48			# biggest search area, in squares (48 x 2 m = 96 m)
 const PROBE_Y = 1.2			# the height enemies stand at (spawner ENEMY_REST_HEIGHT)
-const FORGET_AFTER = 20.0	# seconds before re-checking squares (landmarks can build new walls)
+const FORGET_AFTER = 60.0	# seconds before re-checking squares (landmarks can build new walls)
 
-static var _solid = {}		# Vector2i square -> true/false
-static var _since := 0.0	# Time (seconds) when _solid was last cleared
+static var _worlds = {}		# zone's World3D id -> {solid = {Vector2i square: true/false}, since = seconds}
+							# (one memory PER ZONE: each zone is its own little world)
+static var _solid = {}		# the memory of the zone being planned right now
 static var _probe: BoxShape3D
 
 
@@ -23,11 +24,31 @@ static func clear_line(space: PhysicsDirectSpaceState3D, a: Vector3, b: Vector3)
 
 
 ## Waypoints (world positions) from a to b around walls. Empty = no way found (walk straight).
-static func find(space: PhysicsDirectSpaceState3D, a: Vector3, b: Vector3) -> Array:
+## Is this grid square blocked by a wall/building in this zone? (Real Place director's route map)
+static func blocked(world: World3D, c: Vector2i) -> bool:
+	_use_memory(world)
+	return _is_solid(world.direct_space_state, c)
+
+
+static func cell_of(p: Vector3) -> Vector2i:
+	return _cell(p)
+
+
+static func _use_memory(world: World3D):
 	var now = Time.get_ticks_msec() / 1000.0
-	if now - _since > FORGET_AFTER:
-		_solid.clear()
-		_since = now
+	var mem = _worlds.get(world.get_instance_id())
+	if mem == null or now - mem.since > FORGET_AFTER:
+		mem = {solid = {}, since = now}
+		_worlds[world.get_instance_id()] = mem
+		for id in _worlds.keys():	# forget zones that have closed
+			if not is_instance_id_valid(id):
+				_worlds.erase(id)
+	_solid = mem.solid
+
+
+static func find(world: World3D, a: Vector3, b: Vector3) -> Array:
+	var space = world.direct_space_state
+	_use_memory(world)
 	var ca = _cell(a)
 	var cb = _cell(b)
 	var lo = Vector2i(mini(ca.x, cb.x), mini(ca.y, cb.y)) - Vector2i.ONE * int(MARGIN / CELL)
