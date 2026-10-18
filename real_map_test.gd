@@ -69,6 +69,7 @@ func _physics_process(delta):
 		player.velocity = Vector3.ZERO
 	cam.global_position = player.global_position + CAM_OFFSET * zoom
 	cam.look_at(player.global_position)
+	REAL_MAP.update_see_through(map_root, player, cam)
 
 
 func _unhandled_input(event):

@@ -22,6 +22,7 @@ var alive := 0
 var bosses_left := 0
 var cleared := false
 var _ring = null			# the Return ring (real_return_ring.gd)
+var _map: Node3D = null		# the buildings etc. (see-through around you: real_map.gd)
 var map_mesh: ArrayMesh		# the whole map as one flat drawing (mini-map and M map)
 var _sleep_t := 0.0
 const WAKE_RADIUS = 50.0	# idle enemies farther than SLEEP_RADIUS from you stop thinking (keeps 300+ enemies fast)
@@ -29,6 +30,12 @@ const SLEEP_RADIUS = 60.0
 
 
 ## Far-away idle enemies sleep (no physics) until you come near, like the regular zones' spawner.
+func _process(_delta):	# buildings between the camera and you get a see-through hole
+	var me = Zones.player
+	if me and is_instance_valid(me) and Zones.zone_of(me) == Zones.zone_of(self):
+		REAL_MAP.update_see_through(_map, me, me.camera)
+
+
 func _physics_process(delta):
 	_sleep_t -= delta
 	if _sleep_t > 0.0:
@@ -60,7 +67,8 @@ func _ready():
 		return
 	z.zone_name = "Real Place"
 	var rm = REAL_MAP.new()
-	add_child(rm.build(info.data))
+	_map = rm.build(info.data)
+	add_child(_map)
 	_border()
 	_return_ring(rm)
 	if not Net.is_client():

@@ -346,7 +346,12 @@ func build(data: Dictionary) -> Node3D:
 		for b in data.buildings:
 			_building(bs, b.pts, b.h)
 		var mesh = bs.commit()
-		_add_mesh(root, mesh, Color(0.8, 0.79, 0.76))
+		var mi = MeshInstance3D.new()
+		mi.mesh = mesh
+		var see = see_through_material(Color(0.8, 0.79, 0.76))
+		mi.material_override = see
+		root.add_child(mi)
+		root.set_meta("building_mat", see)	# real_zone.gd / the test scene tell it where you and the camera are
 		var body = StaticBody3D.new()
 		var col = CollisionShape3D.new()
 		var shape = mesh.create_trimesh_shape()
@@ -416,6 +421,60 @@ func _strip(st: SurfaceTool, a: Vector2, b: Vector2, w: float, y: float):
 	for p in [a + s, b + s, b - s, a + s, b - s, a - s]:
 		st.set_normal(Vector3.UP)
 		st.add_vertex(Vector3(p.x, y, p.y))
+
+
+## Buildings: a hole is cut through any wall or roof between the camera and you (CUT_RADIUS m around
+## that line, with a speckled edge), so tall buildings never hide you. Call update_see_through() each frame.
+const CUT_RADIUS = 5.0
+const SEE_THROUGH_SHADER = """
+shader_type spatial;
+render_mode cull_disabled;
+uniform vec4 albedo : source_color = vec4(0.8, 0.79, 0.76, 1.0);
+uniform vec3 player_pos = vec3(0.0, -1000.0, 0.0);
+uniform vec3 cam_pos = vec3(0.0, 1000.0, 0.0);
+uniform float radius = 5.0;
+varying vec3 wpos;
+void vertex() {
+	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+}
+void fragment() {
+	vec3 ab = player_pos - cam_pos;
+	float t = clamp(dot(wpos - cam_pos, ab) / max(dot(ab, ab), 0.001), 0.0, 1.0);
+	float d = length(wpos - (cam_pos + ab * t));
+	if (t < 0.98 && wpos.y > 0.4) {
+		float edge = clamp((d - radius * 0.65) / (radius * 0.35), 0.0, 1.0);	// 0 inside the hole, 1 outside
+		float speckle = fract(sin(dot(floor(FRAGCOORD.xy / 2.0), vec2(12.9898, 78.233))) * 43758.5453);
+		if (edge < speckle) {
+			discard;
+		}
+	}
+	ALBEDO = albedo.rgb;
+	if (!FRONT_FACING) {
+		NORMAL = -NORMAL;
+	}
+}
+"""
+
+static var _see_shader: Shader = null
+
+static func see_through_material(c: Color) -> ShaderMaterial:
+	if _see_shader == null:
+		_see_shader = Shader.new()
+		_see_shader.code = SEE_THROUGH_SHADER
+	var m = ShaderMaterial.new()
+	m.shader = _see_shader
+	m.set_shader_parameter("albedo", c)
+	m.set_shader_parameter("radius", CUT_RADIUS)
+	return m
+
+
+## Where you are and where the camera is (call every frame).
+static func update_see_through(map_root: Node, player: Node3D, cam: Camera3D):
+	if map_root == null or not map_root.has_meta("building_mat") or player == null or cam == null:
+		return
+	var m = map_root.get_meta("building_mat")
+	m.set_shader_parameter("player_pos", player.global_position + Vector3(0, 1.0, 0))
+	m.set_shader_parameter("cam_pos", cam.global_position)
 
 
 func _add_mesh(root: Node3D, mesh: Mesh, c: Color, flat := false):
