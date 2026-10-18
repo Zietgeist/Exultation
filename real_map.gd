@@ -39,11 +39,19 @@ func load_place(query: String) -> Dictionary:
 	var where = await _locate(query.strip_edges())
 	if where.is_empty():
 		return {}
-	status.emit("Checking the area and downloading buildings (can take ~10 s)...")
-	var data = await _overpass(where.lat, where.lon)
+	status.emit("Checking the area...")
+	var safety = await _query(_safety_query(where.lat, where.lon), "off-limits check")
+	if safety.is_empty():
+		return {}
+	var why = _off_limits(where.lat, where.lon, safety)
+	if why != "":
+		status.emit("Sorry, this place can't be used for a map.\nNearby: %s" % why)
+		return {}
+	status.emit("Downloading buildings and streets (can take 10-30 s)...")
+	var data = await _query(_map_query(where.lat, where.lon), "map")
 	if data.is_empty():
 		return {}
-	var why = _off_limits(where.lat, where.lon, data)
+	why = _off_limits(where.lat, where.lon, data)	# the map's own buildings too (a base inside the area)
 	if why != "":
 		status.emit("Sorry, this place can't be used for a map.\nNearby: %s" % why)
 		return {}
@@ -105,10 +113,30 @@ func _key() -> String:
 
 # ---------------- 2. Download the area (and everything off-limits around it) ----------------
 
-func _overpass(lat: float, lon: float) -> Dictionary:
+## Two small downloads instead of one big one (the free servers refused the big one):
+## 1) everything that could make the place off-limits (1 km each way), checked BEFORE
+## 2) the map itself (buildings, roads, parks, water).
+## Name checks ("massacre"...) are done here on your PC, not on the server (much lighter for it).
+func _safety_query(lat: float, lon: float) -> String:
+	var a = "%f,%f,%f,%f" % _bbox(lat, lon, SAFETY_RADIUS)
+	return """[out:json][timeout:40];
+(
+  nwr["landuse"="military"]({A});
+  way["military"]({A});
+  relation["military"]({A});
+  nwr["amenity"="prison_camp"]({A});
+  nwr["abandoned:amenity"="prison_camp"]({A});
+  nwr["prison_camp"]({A});
+  nwr["concentration_camp"]({A});
+  nwr["historic"]({A});
+  nwr["memorial"]({A});
+);
+out tags center;""".replace("{A}", a)
+
+
+func _map_query(lat: float, lon: float) -> String:
 	var b = "%f,%f,%f,%f" % _bbox(lat, lon, HALF_SIZE)
-	var a = "%f,%f,%f,%f" % _bbox(lat, lon, SAFETY_RADIUS)	# safety box: 1 km each way (a box is much faster than "around")
-	var q = """[out:json][timeout:60];
+	return """[out:json][timeout:90];
 (
   way["building"]({B});
   way["highway"]({B});
@@ -116,23 +144,11 @@ func _overpass(lat: float, lon: float) -> Dictionary:
   way["landuse"~"^(grass|forest|meadow|recreation_ground|village_green)$"]({B});
   way["natural"~"^(water|wood)$"]({B});
 );
-out tags geom;
-(
-  nwr["landuse"="military"]({A});
-  way["military"]({A});
-  relation["military"]({A});
-  nwr["amenity"="prison_camp"]({A});
-  nwr["abandoned:amenity"="prison_camp"]({A});
-  nwr["prison_camp"="concentration_camp"]({A});
-  nwr["concentration_camp"]({A});
-  way["historic"="memorial"]({A});
-  relation["historic"="memorial"]({A});
-  nwr["historic"="battlefield"]({A});
-  nwr["historic"]["name"~"{W}",i]({A});
-  nwr["memorial"]["name"~"{W}",i]({A});
-  nwr["tourism"]["name"~"{W}",i]({A});
-);
-out tags center;""".replace("{B}", b).replace("{A}", a).replace("{W}", BAD_NAME_WORDS)
+out tags geom;""".replace("{B}", b)
+
+
+## Send one query, trying each server (and a busy one twice). {} if they all fail.
+func _query(q: String, what: String) -> Dictionary:
 	var r = []
 	var ok = false
 	for i in range(OVERPASS_URLS.size()):
@@ -142,28 +158,37 @@ out tags center;""".replace("{B}", b).replace("{A}", a).replace("{W}", BAD_NAME_
 			var err = _http.request(OVERPASS_URLS[i], ["User-Agent: " + USER_AGENT, "Content-Type: application/x-www-form-urlencoded"],
 				HTTPClient.METHOD_POST, "data=" + q.uri_encode())
 			if err != OK:
-				ErrorLog.fail("Real map: couldn't start the map download (error %d)" % err)
+				ErrorLog.fail("Real map: couldn't start the %s download (error %d)" % [what, err])
 				status.emit("Couldn't start the map download.")
 				return {}
 			r = await _http.request_completed
 			ok = r[0] == HTTPRequest.RESULT_SUCCESS and r[1] == 200
 			if ok:
 				break
-			ErrorLog.warn("Real map: map server %d try %d failed (%s, HTTP %d)" % [i + 1, attempt + 1, _result_name(r[0]), r[1]])
+			ErrorLog.warn("Real map: %s, server %d try %d failed (%s, HTTP %d): %s" % [what, i + 1, attempt + 1, _result_name(r[0]), r[1], _server_says(r[3])])
 			if not (r[1] in [429, 502, 503, 504]):
 				break	# not "busy": this server won't do better on a retry, try the next one
 			await get_tree().create_timer(RETRY_WAIT).timeout
 		if ok:
 			break
-	if r[0] != HTTPRequest.RESULT_SUCCESS or r[1] != 200:
+	if not ok:
 		status.emit("All map servers are busy (%s). Try again in a minute." % _result_name(r[0]))
 		return {}
 	var j = JSON.parse_string(r[3].get_string_from_utf8())
 	if typeof(j) != TYPE_DICTIONARY or not j.has("elements"):
-		ErrorLog.fail("Real map: the map server sent something unreadable")
+		ErrorLog.fail("Real map: the map server sent something unreadable (%s)" % what)
 		status.emit("Map download failed (bad data).")
 		return {}
 	return j
+
+
+## The error line from a map server's reply (they answer errors as a web page).
+func _server_says(body: PackedByteArray) -> String:
+	var text = body.get_string_from_utf8()
+	var m = RegEx.create_from_string("Error</strong>:\\s*([^<]+)").search(text)
+	if m:
+		return m.get_string(1).strip_edges().substr(0, 200)
+	return text.strip_edges().replace("\n", " ").substr(0, 120)
 
 
 # ---------------- 3. Off-limits check ----------------
