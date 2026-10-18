@@ -436,16 +436,17 @@ func _totem_attack(t: Dictionary) -> float:
 	if near.is_empty():
 		return 0.2	# nothing to hit: look again soon
 	var mult = 1.0	# totems hit at full strength, even when you're hurt
+	var held = 1.0 + float(t.p.get("rooted_bonus", 0.0))	# enemies in your Root / Stasis Field take more from totems
 	var speed = maxf(0.1, float(t.p.get("speed", 1.0)))	# attacks this many times faster than you
 	if near.size() >= int(t.p.get("sweep_when", 3)):
 		near.sort_custom(func(a, b): return a.global_position.distance_to(at) < b.global_position.distance_to(at))
 		for e in near.slice(0, player.aoe_max_targets):
-			e.take_damage(player.aoe_damage * mult * float(t.p.get("sweep_power", 0.75)))
+			e.take_damage(player.aoe_damage * mult * float(t.p.get("sweep_power", 0.75)) * (held if e.is_rooted() else 1.0))
 			_line(at, e.global_position, Color(0.4, 1.0, 0.6, 0.8), 0.2)
 		return player.aoe_cooldown_time / speed
 	near.sort_custom(func(a, b): return a.tier > b.tier or (a.tier == b.tier and a.health > b.health))
 	var target = near[0]
-	target.take_damage(player.st_damage * mult * float(t.p.strike_power))
+	target.take_damage(player.st_damage * mult * float(t.p.strike_power) * (held if target.is_rooted() else 1.0))
 	_line(at + Vector3(0, 0.8, 0), target.global_position, Color(0.7, 1.0, 0.8, 1.0), 0.3)
 	return player.st_cooldown_time / speed
 

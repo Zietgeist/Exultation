@@ -311,11 +311,19 @@ func call_friends(radius: float):
 
 
 func root(seconds: float):
+	_rooted_until = maxf(_rooted_until, Time.get_ticks_msec() / 1000.0 + seconds)	# (a joined player's copy knows too)
 	if mirror:
 		Net.root_enemy(net_id, seconds)
 		return
 	rooted_time = max(rooted_time, seconds)
 	aggroed = true
+
+
+## Held in a Root Field / Stasis Field right now? (totems hit these harder)
+func is_rooted() -> bool:
+	return rooted_time > 0.0 or Time.get_ticks_msec() / 1000.0 < _rooted_until
+
+var _rooted_until := 0.0
 
 
 func take_damage(amount):

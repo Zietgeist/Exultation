@@ -45,7 +45,7 @@ Every class is one `.json` file. No code needed for most ideas.
 | mending | heal, jumps, duration; optional solo_boost_multiplier, solo_boost_duration, solo_boost_max_stacks (solo at full health it stacks damage like Boost) |
 | dash | distance, safe_time |
 | whirlwind | duration, damage_per_second, radius, speed_bonus |
-| totem | duration, radius, max, and EITHER strike_power, sweep_power, sweep_when, speed (fights with your weapon, speed x as fast: Strike the toughest foe, or Sweep when sweep_when+ are close) OR damage_per_second (zaps the 3 closest) |
+| totem | duration, radius, max, and EITHER strike_power, sweep_power, sweep_when, speed, rooted_bonus (fights with your weapon, speed x as fast: Strike the toughest foe, or Sweep when sweep_when+ are close; rooted enemies take +rooted_bonus) OR damage_per_second (zaps the 3 closest) |
 | root_field | duration, screen_share, damage |
 | turn_chain | per_bounce, grow, jumps, delay_min, delay_max, duration, group_radius, jump_range, aim_radius (turns enemies near the mouse to your side, then jumps; each jump turns `grow` more; recasting cuts the chain) |
 | feast | heal_per_enemy, max_enemies, screen_share (heals the party per enemy around you) |
