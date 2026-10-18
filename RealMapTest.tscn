@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://real_map_test.gd" id="1_rmt"]
+
+[node name="RealMapTest" type="Node"]
+script = ExtResource("1_rmt")

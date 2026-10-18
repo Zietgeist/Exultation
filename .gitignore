@@ -4,3 +4,6 @@
 logs/
 Claude outputs/
 *.tmp
+
+# Map service key (private, never commit)
+geo_key.txt

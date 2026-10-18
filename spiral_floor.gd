@@ -29,6 +29,10 @@ func _ready():
 	_place_stations.call_deferred()	# after the terrain is up (so stations stay out of deep water)
 	if path == "res://Home.tscn":
 		_build_hall()
+		var rp = load("res://real_place_gate.gd").new()	# Real Place: play in a real neighborhood
+		rp.position = REAL_PLACE_SPOT
+		add_child(rp)
+		Helpers.build_town(self)	# the cook and assistants you've rescued
 
 
 ## Half the floor size (x, z). The spawner and terrain use this to stay on the map.
@@ -168,6 +172,7 @@ func _place_stations():
 		spots.append(p)
 	_build_lines(spots)
 	Landmarks.build(self, path)	# strongholds, towns, caverns... (Zone 4 and up)
+	Helpers.place_captives(self, path)	# a captive to free (cook: Zone 2, assistants: Zones 3-4)
 
 
 ## Rail (Zombie): a track up on pillars. Tube (Sci-Fi): a glass tube. Portal (Fantasy): nothing.
@@ -235,6 +240,7 @@ func _tube(a: Vector3, b: Vector3):
 
 ## Home: the Hall of Legends. Every party (that this PC knows) which cleared the last zone.
 const HALL_SPOT = Vector3(34, 0, 30)
+const REAL_PLACE_SPOT = Vector3(14, 0, -4)	# the Real Place ring at Home
 var _hall_label: Label3D
 
 func _build_hall():

@@ -79,6 +79,7 @@ func _ready():
 	feedback.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	feedback.pressed.connect(GameState.open_feedback)
 	left.add_child(feedback)
+	_real_place_box(left)
 
 	# Right: a new character
 	_title(box, "New character", 26)
@@ -187,6 +188,27 @@ func _ready():
 
 
 ## Test shortcuts: --host, --join or --join=ADDRESS, --class=healer (starts right away)
+## TEST: walk a real place (real_map.gd). Gray boxes only for now; the address is never saved.
+func _real_place_box(parent: VBoxContainer):
+	_title(parent, "Real place (test)", 22)
+	var row = HBoxContainer.new()
+	parent.add_child(row)
+	var where = LineEdit.new()
+	where.placeholder_text = "Address, or latitude, longitude"
+	where.custom_minimum_size = Vector2(360, 0)
+	row.add_child(where)
+	var go = Button.new()
+	go.text = "Explore"
+	row.add_child(go)
+	var start = func(_t = ""):
+		if where.text.strip_edges() == "":
+			return
+		load("res://real_map_test.gd").pending = where.text
+		get_tree().change_scene_to_file("res://RealMapTest.tscn")	# a test screen outside the game world (not a zone yet)
+	where.text_submitted.connect(start)
+	go.pressed.connect(start)
+
+
 func _read_command_line():
 	var class_id = ""
 	for arg in OS.get_cmdline_user_args() + OS.get_cmdline_args():

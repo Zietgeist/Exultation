@@ -1,0 +1,18 @@
+{
+	"note": "Places real maps may never be made of (plus SAFETY_RADIUS around them). Ivan owns this list. Coordinates are approximate (from memory) - verify and add more. radius_m covers the whole site.",
+	"sites": [
+		{"name": "Auschwitz I", "lat": 50.0266, "lon": 19.2036, "radius_m": 2000},
+		{"name": "Auschwitz II-Birkenau", "lat": 50.0343, "lon": 19.1784, "radius_m": 2500},
+		{"name": "Treblinka", "lat": 52.6313, "lon": 22.0525, "radius_m": 3000},
+		{"name": "Sobibor", "lat": 51.4469, "lon": 23.5939, "radius_m": 3000},
+		{"name": "Belzec", "lat": 50.3717, "lon": 23.4573, "radius_m": 2000},
+		{"name": "Majdanek", "lat": 51.2208, "lon": 22.6003, "radius_m": 2000},
+		{"name": "Chelmno", "lat": 52.1497, "lon": 18.7333, "radius_m": 3000},
+		{"name": "Dachau", "lat": 48.2699, "lon": 11.4681, "radius_m": 2000},
+		{"name": "Buchenwald", "lat": 51.0222, "lon": 11.2481, "radius_m": 2500},
+		{"name": "Bergen-Belsen", "lat": 52.7580, "lon": 9.9078, "radius_m": 2500},
+		{"name": "Mauthausen", "lat": 48.2567, "lon": 14.5014, "radius_m": 2000},
+		{"name": "Sachsenhausen", "lat": 52.7656, "lon": 13.2642, "radius_m": 2000},
+		{"name": "Ravensbrueck", "lat": 53.1897, "lon": 13.1694, "radius_m": 2000}
+	]
+}

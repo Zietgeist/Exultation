@@ -124,6 +124,15 @@ func _draw():
 		return
 	elif path.begins_with("res://Zone"):
 		_draw_zone(path, font, GameState.is_zone_cleared(path))
+	elif path == "res://RealZone.tscn":	# a Real Place draws its own streets (real_zone.gd draw_map)
+		var rz = Zones.local_zone().root if Zones.local_zone() else null
+		if rz and rz.has_method("draw_map"):
+			var h = rz.REAL_MAP.HALF_SIZE
+			var fit = _fit(Rect2(-h, -h, h * 2.0, h * 2.0), 0.85)
+			rz.draw_map(self, fit.offset, fit.scale, Rect2(Vector2.ZERO, size))
+			var left = "%d enemies left, %d boss%s" % [rz.alive, rz.bosses_left, "" if rz.bosses_left == 1 else "es"]
+			draw_string(font, Vector2(0, 50), "Real Place  -  " + ("cleared!" if rz.cleared else left), HORIZONTAL_ALIGNMENT_CENTER, size.x, 30, GOLD)
+			draw_string(font, Vector2(12, size.y - 12), "Map data (c) OpenStreetMap contributors", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.8, 0.8, 0.8))
 	else:
 		var msg = "No map here."
 		draw_multiline_string(font, Vector2(0, size.y / 2.0 - 40), msg, HORIZONTAL_ALIGNMENT_CENTER, size.x, 24, -1, GOLD)
@@ -296,6 +305,13 @@ func _draw_zone(path: String, font, cleared := true):
 		draw_arc(c, r, 0, TAU, 32, col, 2.0)
 		_tip(c, l.info.name + "\n" + ("Landmark - done" if Landmarks.state(path, l.info.id).has("taken") else "Landmark - go explore it"), r + 4.0)
 		draw_string(font, c + Vector2(-80, -r - 6), l.info.name, HORIZONTAL_ALIGNMENT_CENTER, 160, 14, col)
+	# A captive to free (helpers.gd): always shown, so you know where to go
+	for n in Zones.local_all("npc"):
+		if str(n.get("shop")).begins_with("captive:"):
+			var c = _to_screen(fit, n.global_position)
+			draw_arc(c, 9.0, 0, TAU, 20, Color(0.3, 0.9, 1.0), 2.5)
+			draw_circle(c, 3.5, Color(0.3, 0.9, 1.0))
+			_tip(c, "%s\nCaptive! Clear the guards, then press G to free them" % n.npc_name, 12.0)
 	# Fast-travel stops you've found
 	for w in Zones.local_all("waystation"):
 		if Travel.is_found(path, w.station_id):

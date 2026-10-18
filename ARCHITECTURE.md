@@ -62,3 +62,18 @@ Trials, Zones, Story, Rivals, Traits, Travel (fast_travel.gd), Party, Landmarks.
 - The player always hits layer 1; it hits layer 3 unless worn gear has `phase_mobs` (Windrunner Boots, the shrine boots), then it walks through enemies.
 - Enemy pathing (`pathing.gd`): Trash walks straight. Thug/Master/Boss check every ~0.5 s if a wall is in the way; if so, A* on a 2 m grid (StaticBody3D = solid, remembered 20 s) gives waypoints. Too far apart (>96 m box) = walk straight.
 - Hills (rubble piles in Zombie) are sloped convex mounds, not walls: anyone can climb over at 25% speed (`GameState.HILL_SPEED`, checked after move_and_slide via `GameState.on_hill`). Pathing ignores them.
+
+## Real-world maps (PROTOTYPE)
+- `real_map.gd`: address/lat,lon -> LocationIQ (key in `geo_key.txt`, git-ignored) -> Overpass (OpenStreetMap) -> gray-box buildings/roads/parks.
+- Off-limits check before building: military areas, camps, memorial sites, battlefields, atrocity names within 1 km, plus `real_map_blocklist.json`. Never log or share the typed address.
+- In the game: the "Real Place" ring at Home (`real_place_gate.gd`) opens `real_place_ui.gd` (address box) -> `Net.go("res://RealZone.tscn", "...#id", spawn, info)`. `real_zone.gd` builds the map, 8 packs, a Return ring; a one-off copy like a Trial Ground (not saved).
+- SOLO ONLY for now (online, friends' games would receive the place). The address is dropped before travel; only meters-around-(0,0) geometry goes into the zone.
+- Preview without enemies: "Real place (test)" on the character screen -> `RealMapTest.tscn`.
+- Must show "(c) OpenStreetMap contributors" wherever a real map is shown.
+
+## Helpers you rescue (`helpers.gd`, autoload "Helpers")
+- Captives: Zone 2 cook, Zone 3 Smith's assistant, Zone 4 Alchemist's assistant. Held at a camp by a Master + 10 Trash; G frees them once no enemy is within 14 m. Saved per character (helpers.cfg).
+- At Home they stand between the Return Portal and the fast-travel stop. Their work starts on `SessionManager.break_started` (walking into Home).
+- Cook: the meal is served when you leave Home; strength = `cook_power(minutes)` (exponential, 100% at 4 min) applied to all three meal buffs. Once rescued, the Inn stops selling them.
+- Buffs are strengths 0..1 of `GameState.BUFF_MAX` (`buff_power`, `buff_bonus`, `buff_text`). Never treat `buffs[id]` as a bool.
+- Assistants: take all stored raw for their shop, refine it in 3 min with +1 per 3 (into `Crafting.stash`).
