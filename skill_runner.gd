@@ -467,14 +467,20 @@ func _turn_chain(id: int, first, p: Dictionary):
 	for j in range(int(p.jumps) + 1):
 		if id != _chain_id or not is_instance_valid(at):
 			return
-		_line(from, at.global_position, TURN_COLOR, 0.35)
-		at.flash()
-		await get_tree().create_timer(randf_range(float(p.delay_min), float(p.delay_max))).timeout
-		if id != _chain_id or not is_instance_valid(at) or not is_instance_valid(player):
-			return
 		var spot = at.global_position
-		var group = [at] if at.can_turn() else []
-		var others = _enemies_near(spot, float(p.group_radius)).filter(func(e): return e != at and e.can_turn() and not e in done)
+		_line(from, spot, TURN_COLOR, 0.35)
+		at.flash()
+		at.turning = true	# the bolt has it: it can't be killed while it turns
+		await get_tree().create_timer(randf_range(float(p.delay_min), float(p.delay_max))).timeout
+		if is_instance_valid(at):
+			at.turning = false
+			spot = at.global_position
+		if id != _chain_id or not is_instance_valid(player):
+			return
+		if not is_instance_valid(at) or not at.can_turn():	# gone anyway (a friend's hit online): take the nearest one there
+			at = _turnable_near(spot, float(p.group_radius), done)
+		var group = [at] if at != null else []
+		var others = _enemies_near(spot, float(p.group_radius)).filter(func(e): return e != at and e.can_turn() and not e in done)	# (they can't die mid-chain either: they turn at once)
 		others.sort_custom(func(a, b): return a.global_position.distance_to(spot) < b.global_position.distance_to(spot))
 		group.append_array(others.slice(0, maxi(0, count - group.size())))
 		for e in group:

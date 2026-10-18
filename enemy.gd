@@ -38,6 +38,7 @@ const HORDE_SPEED = 1.6		# horde enemies sprint
 # Turned (Healer's F): fights the other enemies for a while, then dies. Leaves the "enemy" group while
 # turned, so players, auras and the spawner all ignore it; it lives in the "ally_mob" group.
 var ally_time := 0.0
+var turning := false		# a Turn bolt has landed on it: can't be hurt until it turns (a split second)
 var ally_buff := 1.0		# the turning player's damage buff (Boost stacks x meal), copied when turned
 var _ally_target = null
 var _ally_retarget := 0.0
@@ -318,7 +319,7 @@ func root(seconds: float):
 
 
 func take_damage(amount):
-	if ally_time > 0.0:	# turned: on your side, can't be hurt (it dies on its own when its time is up)
+	if ally_time > 0.0 or turning:	# turned (on your side), or being turned right now: can't be hurt
 		return
 	if mirror:	# the host decides; show the hit right away
 		flash()
