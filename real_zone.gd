@@ -149,7 +149,7 @@ func _spawn_bosses(rm):
 
 func _spawn(tier: int, p: Vector2, d: Array):
 	var e = ENEMY_SCENE.instantiate()
-	e.enemy_died.connect(_on_enemy_died)
+	e.defeated.connect(_on_enemy_died)	# defeated = died OR turned
 	add_child(e)
 	e.global_position = Vector3(p.x, 1.2, p.y)
 	e.setup(d[0], tier, Crafting.roll_enemy_element(d[1], tier == 3))
@@ -160,7 +160,7 @@ func _spawn(tier: int, p: Vector2, d: Array):
 
 ## A rival came here (rivals.gd): it has to fall too.
 func adopt_enemy(e):
-	e.enemy_died.connect(_on_enemy_died)
+	e.defeated.connect(_on_enemy_died)	# defeated = died OR turned
 	alive += 1
 
 

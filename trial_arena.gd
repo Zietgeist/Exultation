@@ -35,7 +35,7 @@ func _spawn_foes():
 	for g in groups:
 		for i in range(g[1]):
 			var e = ENEMY_SCENE.instantiate()
-			e.enemy_died.connect(_on_enemy_died.bind(e))
+			e.defeated.connect(_on_enemy_died.bind(e))	# defeated = died OR turned
 			add_child(e)
 			e.global_position = Vector3(randf_range(-16, 16), 1.2, randf_range(-16, 2))
 			e.setup(diff, g[0], Crafting.roll_enemy_element(info.get("back_scene", ""), false))
@@ -44,7 +44,7 @@ func _spawn_foes():
 
 ## A rival came back here (rivals.gd): it has to fall before the ground is clear.
 func adopt_enemy(e):
-	e.enemy_died.connect(_on_enemy_died.bind(e))
+	e.defeated.connect(_on_enemy_died.bind(e))	# defeated = died OR turned
 	alive += 1
 
 

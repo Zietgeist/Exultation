@@ -169,7 +169,7 @@ func _send_horde(me):
 
 func _spawn(tier: int, p: Vector2, d: Array):
 	var e = ENEMY_SCENE.instantiate()
-	e.enemy_died.connect(func(_tier): horde_alive -= 1)
+	e.defeated.connect(func(_tier): horde_alive -= 1)	# died or turned
 	zone.add_child(e)
 	e.global_position = Vector3(p.x, 1.2, p.y)
 	e.setup(d[0], tier, Crafting.roll_enemy_element(d[1], false))

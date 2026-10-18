@@ -1,5 +1,7 @@
 extends CharacterBody3D
 signal enemy_died(tier)
+signal defeated(tier)	# ONCE: when it dies, or when it's turned to your side (whichever first). Clear-counts use this.
+var _defeated_sent := false
 
 # Tier settings
 enum Tier {TRASH, THUG, MASTER, BOSS}
@@ -174,6 +176,7 @@ func turn_ally(seconds: float, buff := 1.0):
 		return
 	ally_time = seconds
 	ally_buff = buff
+	_send_defeated()	# turned counts as beaten (a Trial Ground's last foe drops the Sigil now)
 	if Zones.first(self, "player"):	# loot is personal: drops for the player here (the caster when solo)
 		_turn_loot()
 	aggroed = false
@@ -188,6 +191,13 @@ func turn_ally(seconds: float, buff := 1.0):
 	m.emission = ALLY_COLOR
 	m.emission_energy_multiplier = 0.6
 	$MeshInstance3D.material_override = m
+
+
+func _send_defeated():
+	if _defeated_sent:
+		return
+	_defeated_sent = true
+	defeated.emit(tier)
 
 
 ## Turned: its blue orb and gold drop right away (not when it dies 20 s later).
@@ -361,6 +371,7 @@ func die():
 	if tier == Tier.BOSS:
 		GameState.add_mark("boss", global_position, self, _mark_name())
 	emit_signal("enemy_died", tier)
+	_send_defeated()
 	if Zones.first(self, "player") and not has_meta("recruited"):	# loot is personal: the host only drops its own if it's here (none for a recruit: it's leaving, not dying)
 		Story.on_kill(self)	# my worn gear remembers it
 		if is_instance_valid(player) and player.is_in_group("pet"):	# it was going after my pet
