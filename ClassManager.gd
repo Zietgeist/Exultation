@@ -21,7 +21,7 @@ const OLD_IDS := ["dps", "tank", "healer"]	# saves from before classes were file
 const KEYS := ["E", "Q", "F"]
 const RANK_USES := [0, 10, 30, 70, 150]	# total uses needed for rank 1, 2, 3, 4, 5
 const EFFECTS := ["heal_self", "damage_boost", "shield", "blast", "thorns_aura", "drain_aura",
-	"mending", "dash", "whirlwind", "totem", "root_field", "script"]
+	"mending", "dash", "whirlwind", "totem", "root_field", "turn_chain", "feast", "script"]
 
 signal rank_up(class_id, key, rank)
 

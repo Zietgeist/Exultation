@@ -3,7 +3,7 @@
 	"order": 3,
 	"name": "Healer",
 	"role": "Healer",
-	"about": "Keeps the party going. Energy refills on its own. Drains the life of crowds and bosses to heal the party.",
+	"about": "Keeps the party going. Energy refills on its own. Turns enemies against each other.",
 	"stats": {"health": 1.0, "speed": 1.0},
 	"energy": {"regen": 0.5, "per_damage_taken": 0.0, "per_meter_moved": 0.0},
 	"skills": {
@@ -14,9 +14,9 @@
 		"Q": {"id": "self_heal", "name": "Self Heal", "cost": 3, "effect": "heal_self",
 			"params": {"amount": 60}, "per_rank": {"amount": 10},
 			"about": "Heal yourself."},
-		"F": {"id": "life_drain", "name": "Life Drain", "cost": 4, "effect": "drain_aura",
-			"params": {"energy_per_second": 2.0, "share_per_enemy": 0.01, "max_share_per_second": 0.25, "min_per_second": 6, "heal_share": 0.12, "screen_share": 0.25},
-			"per_rank": {"heal_share": 0.02},
-			"about": "Toggle. Every enemy around you loses 1% of its life per second for each enemy in range (up to 25%), and heals the party. Swiftness on your gear drains faster; Vitality heals more."}
+		"F": {"id": "turn", "name": "Turn", "cost": 6, "effect": "turn_chain",
+			"params": {"per_bounce": 1, "grow": 1, "jumps": 2, "delay_min": 0.1, "delay_max": 0.5, "duration": 20, "group_radius": 6, "jump_range": 14, "aim_radius": 6},
+			"per_rank": {"per_bounce": 0.5},
+			"about": "A bolt lands on the enemy nearest the mouse and turns it to your side, then jumps and turns 2, then 3 (+1 each every 2 ranks). Turned enemies fight for you for 20s, then die. Casting again cuts the chain short. Not Bosses."}
 	}
 }

@@ -47,6 +47,8 @@ Every class is one `.json` file. No code needed for most ideas.
 | whirlwind | duration, damage_per_second, radius, speed_bonus |
 | totem | duration, radius, max, and EITHER strike_power, sweep_power, sweep_when (fights with your weapon: Strike the toughest foe, or Sweep when sweep_when+ are close) OR damage_per_second (zaps the 3 closest) |
 | root_field | duration, screen_share, damage |
+| turn_chain | per_bounce, grow, jumps, delay_min, delay_max, duration, group_radius, jump_range, aim_radius (turns enemies near the mouse to your side, then jumps; each jump turns `grow` more; recasting cuts the chain) |
+| feast | heal_per_enemy, max_enemies, screen_share (heals the party per enemy around you) |
 | script | your own: `"script": "res://mods/my_skill.gd"` with `func run(player, params) -> bool` |
 
 **World names**: a skin can rename classes and skills:

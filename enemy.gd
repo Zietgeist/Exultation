@@ -30,6 +30,17 @@ const GRAVITY = -9.8
 const Pathing = preload("res://pathing.gd")
 var _path: Array = []		# waypoints around walls (Thug and up only; Trash walks straight)
 var _on_hill := false		# climbing a hill: slow
+var smart_path := false		# finds its way around buildings even as Trash
+var horde = null			# Real Place director: horde enemies follow its route map straight to you
+const HORDE_SPEED = 1.6		# horde enemies sprint
+# Turned (Healer's F): fights the other enemies for a while, then dies. Leaves the "enemy" group while
+# turned, so players, auras and the spawner all ignore it; it lives in the "ally_mob" group.
+var ally_time := 0.0
+var _ally_target = null
+var _ally_retarget := 0.0
+const ALLY_POWER = 4.0		# turned enemies hit this much harder than they did against you
+const ALLY_SEEK = 25.0		# looks for enemies this far away; otherwise stays near the party
+const ALLY_COLOR = Color(0.35, 1.0, 0.75)
 var _path_t := 0.0			# seconds until the next "is my way blocked?" check
 
 var player = null
@@ -91,6 +102,9 @@ func _physics_process(delta):
 	if mirror:	# the host moves it; just glide to where the host says it is
 		global_position = global_position.lerp(net_target, min(1.0, delta * 12.0))
 		return
+	if ally_time > 0.0:
+		_ally_tick(delta)
+		return
 	# Chase the closest party member (with friends online, that's not always you)
 	_retarget -= delta
 	if _retarget <= 0.0 or player == null or not is_instance_valid(player) or not player.is_inside_tree():
@@ -123,7 +137,7 @@ func _physics_process(delta):
 			var direction = (_chase_point(delta) - global_position)
 			direction.y = 0
 			direction = direction.normalized()
-			var speed_now = SPEED * GameState.slow_factor_at(global_position, self) * (GameState.HILL_SPEED if _on_hill else 1.0)
+			var speed_now = SPEED * GameState.slow_factor_at(global_position, self) * (GameState.HILL_SPEED if _on_hill else 1.0) * (HORDE_SPEED if horde else 1.0)
 			if rooted_time > 0.0:
 				rooted_time -= delta
 				speed_now = 0.0
@@ -142,19 +156,97 @@ func _physics_process(delta):
 	move_and_slide()
 	_on_hill = GameState.on_hill(self)
 
+## Can the Healer's F turn this one? Not Bosses, Rivals or landmark bosses.
+func can_turn() -> bool:
+	return ally_time <= 0.0 and tier != Tier.BOSS and rival.is_empty() and not no_count and health > 0.0
+
+
+## Healer's F: fight for the player for `seconds`, then die (loot and kill count as normal).
+func turn_ally(seconds: float):
+	if not can_turn():
+		return
+	if mirror:	# the host runs enemies: ask it
+		flash()
+		Net.turn_enemy(net_id, seconds)
+		return
+	ally_time = seconds
+	aggroed = false
+	hunter = false
+	rooted_time = 0.0
+	_path = []
+	remove_from_group("enemy")
+	add_to_group("ally_mob")
+	var m = StandardMaterial3D.new()
+	m.albedo_color = ALLY_COLOR
+	m.emission_enabled = true
+	m.emission = ALLY_COLOR
+	m.emission_energy_multiplier = 0.6
+	$MeshInstance3D.material_override = m
+
+
+## Turned: chase the closest real enemy and hit it; nothing near -> stay close to the party.
+func _ally_tick(delta: float):
+	ally_time -= delta
+	if ally_time <= 0.0:
+		remove_from_group("ally_mob")
+		add_to_group("enemy")	# counted like any other kill
+		die()
+		return
+	_ally_retarget -= delta
+	if _ally_retarget <= 0.0 or _ally_target == null or not is_instance_valid(_ally_target) or not _ally_target.is_in_group("enemy"):
+		_ally_retarget = 0.3
+		_ally_target = null
+		var best = ALLY_SEEK
+		for e in Zones.all(self, "enemy"):
+			if not is_instance_valid(e) or e.is_queued_for_deletion() or e.health <= 0:
+				continue
+			var d = global_position.distance_to(e.global_position)
+			if d < best:
+				best = d
+				_ally_target = e
+	var goal = null
+	var close_enough = ATTACK_RANGE * 1.5
+	if _ally_target:
+		goal = _ally_target.global_position
+	else:
+		var friend = _closest_party_member()
+		if friend:
+			goal = friend.global_position
+			close_enough = 4.0
+	velocity.y += GRAVITY * delta
+	velocity.x = 0.0
+	velocity.z = 0.0
+	if goal != null:
+		var to = goal - global_position
+		to.y = 0.0
+		if to.length() > close_enough:
+			var dir = to.normalized() * SPEED * (GameState.HILL_SPEED if _on_hill else 1.0)
+			velocity.x = dir.x
+			velocity.z = dir.z
+	attack_cooldown -= delta
+	if _ally_target and global_position.distance_to(_ally_target.global_position) <= close_enough and attack_cooldown <= 0.0:
+		_ally_target.aggroed = true
+		_ally_target.take_damage(ATTACK_DAMAGE * get_damage_multiplier() * ALLY_POWER)
+		attack_cooldown = 1.0
+	move_and_slide()
+	_on_hill = GameState.on_hill(self)
+
+
 ## Where to walk next. Trash: straight at the target. Thug, Master, Boss: around walls when blocked.
 func _chase_point(delta: float) -> Vector3:
 	var goal = player.global_position
-	if tier == Tier.TRASH:
+	if horde and is_instance_valid(horde):
+		return horde.next_point(global_position, goal)
+	if tier == Tier.TRASH and not smart_path:
 		return goal
 	_path_t -= delta
 	if _path_t <= 0.0:
 		_path_t = randf_range(0.4, 0.6)	# spread the checks out so not every enemy plans on the same frame
-		var space = get_world_3d().direct_space_state
-		if Pathing.clear_line(space, global_position, goal):
+		var world = get_world_3d()
+		if Pathing.clear_line(world.direct_space_state, global_position, goal):
 			_path = []
 		else:
-			_path = Pathing.find(space, global_position, goal)
+			_path = Pathing.find(world, global_position, goal)
 	while not _path.is_empty() and Vector2(_path[0].x - global_position.x, _path[0].z - global_position.z).length() < 1.0:
 		_path.pop_front()
 	return goal if _path.is_empty() else _path[0]
@@ -201,6 +293,8 @@ func root(seconds: float):
 
 
 func take_damage(amount):
+	if ally_time > 0.0:	# turned: on your side, can't be hurt (it dies on its own when its time is up)
+		return
 	if mirror:	# the host decides; show the hit right away
 		flash()
 		Net.hit_enemy(net_id, amount)

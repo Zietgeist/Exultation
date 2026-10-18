@@ -38,7 +38,8 @@
 		"tank": "Guardian",
 		"healer": "Cleric",
 		"skirmisher": "Ranger",
-		"warden": "Druid"
+		"warden": "Druid",
+		"defiler": "Necromancer"
 	},
 	"skills": {
 		"boost": "Battle Cry",

@@ -38,7 +38,8 @@
 		"tank": "Bulwark",
 		"healer": "Medic",
 		"skirmisher": "Runner",
-		"warden": "Trapper"
+		"warden": "Trapper",
+		"defiler": "Plague Doctor"
 	},
 	"skills": {
 		"boost": "Adrenaline",

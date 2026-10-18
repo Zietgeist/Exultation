@@ -33,6 +33,9 @@ const TICK := 0.5
 const DASH_SPEED := 45.0
 const VOW_COLOR := Color(1.0, 0.85, 0.35)
 const DRAIN_COLOR := Color(0.65, 0.2, 0.9)
+const TURN_COLOR := Color(0.35, 1.0, 0.75)
+const FEAST_COLOR := Color(0.75, 0.15, 0.35)
+var _chain_id := 0		# turn_chain: casting again cancels the chain that's still bouncing
 
 
 func setup(p, id: String):
@@ -117,6 +120,29 @@ func _run(key: String, s: Dictionary, p: Dictionary) -> bool:
 			return true
 		"root_field":
 			_root_field(player.mouse_world_point, p)
+			return true
+		"turn_chain":
+			var first = _turnable_near(player.mouse_world_point, float(p.get("aim_radius", 6.0)), [])
+			if first == null:	# nothing at the mouse: the closest one around you
+				first = _turnable_near(player.global_position, float(p.get("jump_range", 14.0)), [])
+			if first == null:
+				player._float_text("Nothing close enough to turn (not Bosses)", TURN_COLOR)
+				return false	# no energy spent
+			_chain_id += 1	# a chain still bouncing stops here (you clipped it)
+			_turn_chain(_chain_id, first, p)
+			return true
+		"feast":
+			var near = _enemies_near(player.global_position, player.special_radius(float(p.screen_share)))
+			var n = mini(near.size(), int(p.max_enemies))
+			if n <= 0:
+				player._float_text("Nothing to feast on", FEAST_COLOR)
+				return false
+			var heal = float(p.heal_per_enemy) * n
+			for m in GameState.party(player):
+				m.heal(heal)
+			player._float_text("+%d (feast x%d)" % [heal, n], FEAST_COLOR)
+			for e in near.slice(0, n):
+				_line(e.global_position, player.global_position, FEAST_COLOR, 0.4)
 			return true
 		"script":	# a mod's own skill: script with  func run(player, params) -> bool
 			if not _custom.has(key):
@@ -429,6 +455,53 @@ func _root_field(center: Vector3, p: Dictionary):
 		e.root(p.duration)
 		e.take_damage(p.damage)
 	_flash_disc(center, radius, Color(0.35, 0.8, 0.3, 0.35), float(p.duration))
+
+
+## Healer's F: a bolt lands on an enemy, waits a moment, turns a group there, then jumps on.
+## Every jump turns MORE (per_bounce, then +grow each jump), so recasting early wastes the best part.
+func _turn_chain(id: int, first, p: Dictionary):
+	var at = first
+	var from = player.global_position
+	var count = int(p.per_bounce)
+	var done = []	# already turned (joined players' copies stay "enemies" on their screen for a moment)
+	for j in range(int(p.jumps) + 1):
+		if id != _chain_id or not is_instance_valid(at):
+			return
+		_line(from, at.global_position, TURN_COLOR, 0.35)
+		at.flash()
+		await get_tree().create_timer(randf_range(float(p.delay_min), float(p.delay_max))).timeout
+		if id != _chain_id or not is_instance_valid(at) or not is_instance_valid(player):
+			return
+		var spot = at.global_position
+		var group = [at] if at.can_turn() else []
+		var others = _enemies_near(spot, float(p.group_radius)).filter(func(e): return e != at and e.can_turn() and not e in done)
+		others.sort_custom(func(a, b): return a.global_position.distance_to(spot) < b.global_position.distance_to(spot))
+		group.append_array(others.slice(0, maxi(0, count - group.size())))
+		for e in group:
+			done.append(e)
+			e.turn_ally(float(p.duration))
+			_line(spot, e.global_position, TURN_COLOR, 0.25)
+		if j == 0 or group.size() > 0:
+			player._float_text("Turned %d" % group.size(), TURN_COLOR)
+		count += int(p.grow)
+		from = spot
+		at = _turnable_near(spot, float(p.jump_range), done)
+		if at == null:
+			return	# nobody left in reach
+
+
+## The turnable enemy closest to a spot (within radius), skipping `skip`.
+func _turnable_near(spot: Vector3, radius: float, skip: Array):
+	var best = null
+	var best_d = radius
+	for e in _enemies_near(spot, radius):
+		if e in skip or not e.has_method("can_turn") or not e.can_turn():
+			continue
+		var d = Vector2(e.global_position.x - spot.x, e.global_position.z - spot.z).length()
+		if d <= best_d:
+			best = e
+			best_d = d
+	return best
 
 
 # ---------------- Helpers ----------------

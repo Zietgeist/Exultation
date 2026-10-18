@@ -38,7 +38,8 @@
 		"tank": "Sentinel",
 		"healer": "Medtech",
 		"skirmisher": "Phase Runner",
-		"warden": "Engineer"
+		"warden": "Engineer",
+		"defiler": "Siphon"
 	},
 	"skills": {
 		"boost": "Overclock",

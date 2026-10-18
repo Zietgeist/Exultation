@@ -59,7 +59,8 @@
 		"tank": "Dreadknight",
 		"healer": "Blood Priest",
 		"skirmisher": "Shade",
-		"warden": "Witch"
+		"warden": "Witch",
+		"defiler": "Defiler"
 	},
 	"skills": {
 		"boost": "Bloodlust",

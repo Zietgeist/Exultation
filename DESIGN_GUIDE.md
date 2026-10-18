@@ -48,12 +48,14 @@ What makes each one different (keep these unique):
 |---|---|---|---|
 | DPS | Damage | Stacking damage Boost (E), big Blast on a crowd (F) | dealing damage (slow regen) |
 | Tank | Tank | Shield that soaks hits (E), Thorns Aura that taunts and reflects (F) | getting hit |
-| Healer | Healer | Heals OTHER players: Mending Vow (E), Life Drain aura (F) | refills on its own |
+| Healer | Healer | Heals OTHER players: Mending Vow (E); turns enemies to fight for you: Turn chain (F) | refills on its own |
 | Skirmisher | Mobile damage | Dash with no damage taken (E), Whirlwind spin (F), lower health, faster | running |
 | Warden | Control | Totems that fight (E), Root Field holds enemies (F) | refills on its own |
+| Defiler | Crowd damage | Gets stronger the MORE enemies are around: Soul Feast heals per enemy (E), Life Drain aura (F) | refills on its own |
 
 Signs a request might belong to another class:
-- Healing other players -> Healer.
+- Healing other players, or turning enemies to your side -> Healer.
+- Power that grows with how many enemies are around you -> Defiler.
 - Taunting, soaking or reflecting damage, extra health -> Tank.
 - Damage multipliers that stack, big burst on a crowd -> DPS.
 - Dashes, being untouchable, speed, energy from moving -> Skirmisher.
