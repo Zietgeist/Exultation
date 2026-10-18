@@ -479,7 +479,7 @@ func _turn_chain(id: int, first, p: Dictionary):
 		group.append_array(others.slice(0, maxi(0, count - group.size())))
 		for e in group:
 			done.append(e)
-			e.turn_ally(float(p.duration))
+			e.turn_ally(float(p.duration), _damage_buff())	# turned enemies inherit your damage buff, as it is right now
 			_line(spot, e.global_position, TURN_COLOR, 0.25)
 		if j == 0 or group.size() > 0:
 			player._float_text("Turned %d" % group.size(), TURN_COLOR)
@@ -488,6 +488,11 @@ func _turn_chain(id: int, first, p: Dictionary):
 		at = _turnable_near(spot, float(p.jump_range), done)
 		if at == null:
 			return	# nobody left in reach
+
+
+## Your damage buff right now: Boost stacks (Battle Cry, solo Mending Vow...) x the meal.
+func _damage_buff() -> float:
+	return player.boost_mult * (1.0 + GameState.buff_bonus("meal"))
 
 
 ## The turnable enemy closest to a spot (within radius), skipping `skip`.

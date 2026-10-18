@@ -17,6 +17,6 @@
 		"F": {"id": "turn", "name": "Turn", "cost": 6, "effect": "turn_chain",
 			"params": {"per_bounce": 1, "grow": 1, "jumps": 2, "delay_min": 0.1, "delay_max": 0.5, "duration": 20, "group_radius": 6, "jump_range": 14, "aim_radius": 6},
 			"per_rank": {"per_bounce": 0.5},
-			"about": "A bolt lands on the enemy nearest the mouse and turns it to your side, then jumps and turns 2, then 3 (+1 each every 2 ranks). Turned enemies fight for you for 20s, then die. Casting again cuts the chain short. Not Bosses."}
+			"about": "A bolt lands on the enemy nearest the mouse and turns it to your side, then jumps and turns 2, then 3 (+1 each every 2 ranks). Turned enemies fight for you for 20s with your damage buff, then die. Casting again cuts the chain short. Not Bosses."}
 	}
 }

@@ -526,8 +526,8 @@ func hit_enemy(id: int, amount: float):
 func root_enemy(id: int, seconds: float):
 	_root.rpc_id(1, Zones.local_key(), id, seconds)
 
-func turn_enemy(id: int, seconds: float):	# Healer's F, cast on a joined player's screen
-	_turn.rpc_id(1, Zones.local_key(), id, seconds)
+func turn_enemy(id: int, seconds: float, buff := 1.0):	# Healer's F, cast on a joined player's screen
+	_turn.rpc_id(1, Zones.local_key(), id, seconds, buff)
 
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -544,10 +544,10 @@ func _root(key: String, id: int, seconds: float):
 		e.root(seconds)
 
 @rpc("any_peer", "call_remote", "reliable")
-func _turn(key: String, id: int, seconds: float):
+func _turn(key: String, id: int, seconds: float, buff: float):
 	var e = enemies.get(id)
 	if e and is_instance_valid(e) and Zones.key_of(e) == key:
-		e.turn_ally(clampf(seconds, 0.0, 60.0))	# never trust a long time from the network
+		e.turn_ally(clampf(seconds, 0.0, 60.0), clampf(buff, 1.0, 4.0))	# never trust big numbers from the network
 
 
 # ---------------- Shared moments ----------------

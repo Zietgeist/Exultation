@@ -36,6 +36,7 @@ const HORDE_SPEED = 1.6		# horde enemies sprint
 # Turned (Healer's F): fights the other enemies for a while, then dies. Leaves the "enemy" group while
 # turned, so players, auras and the spawner all ignore it; it lives in the "ally_mob" group.
 var ally_time := 0.0
+var ally_buff := 1.0		# the turning player's damage buff (Boost stacks x meal), copied when turned
 var _ally_target = null
 var _ally_retarget := 0.0
 const ALLY_POWER = 4.0		# turned enemies hit this much harder than they did against you
@@ -162,14 +163,16 @@ func can_turn() -> bool:
 
 
 ## Healer's F: fight for the player for `seconds`, then die (loot and kill count as normal).
-func turn_ally(seconds: float):
+## buff = the player's damage buff right now; the turned enemy keeps it for its whole time.
+func turn_ally(seconds: float, buff := 1.0):
 	if not can_turn():
 		return
 	if mirror:	# the host runs enemies: ask it
 		flash()
-		Net.turn_enemy(net_id, seconds)
+		Net.turn_enemy(net_id, seconds, buff)
 		return
 	ally_time = seconds
+	ally_buff = buff
 	aggroed = false
 	hunter = false
 	rooted_time = 0.0
@@ -226,7 +229,7 @@ func _ally_tick(delta: float):
 	attack_cooldown -= delta
 	if _ally_target and global_position.distance_to(_ally_target.global_position) <= close_enough and attack_cooldown <= 0.0:
 		_ally_target.aggroed = true
-		_ally_target.take_damage(ATTACK_DAMAGE * get_damage_multiplier() * ALLY_POWER)
+		_ally_target.take_damage(ATTACK_DAMAGE * get_damage_multiplier() * ALLY_POWER * ally_buff)
 		attack_cooldown = 1.0
 	move_and_slide()
 	_on_hill = GameState.on_hill(self)
