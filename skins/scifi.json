@@ -147,7 +147,7 @@
 			"id": "cyborg",
 			"body": {"mech": true, "color": "#8d96a3"},
 			"name": "Cyborg",
-			"about": "More machine than human. No gloves, boots or shoulder plates; six implants instead.",
+			"about": "More machine than human. No gloves or shoulder plates; six implants instead.",
 			"slots": [
 				{
 					"slot": "weapon",
@@ -161,6 +161,10 @@
 					"slot": "chest",
 					"count": 1,
 					"label": "Chassis"
+				},
+				{
+					"slot": "feet",
+					"count": 1
 				},
 				{
 					"slot": "implant",
