@@ -264,8 +264,9 @@ func _inn_section():
 		GameState.notify("Old Tamsin's stew. Fully healed.")
 		_rebuild.call_deferred())
 	content.add_child(heal)
-	_title("Old Tamsin's offers (paid from banked gold, last until your next rest)", 20)
-	for id in GameState.INN_OFFERS:
+	if Helpers.is_rescued("cook"):	# the cook you rescued in Zone 2 makes meals now (helpers.gd)
+		_title("Old Tamsin: \"%s does the cooking now. Rest a while and let them cook!\"" % Helpers.helper_name("cook"), 20)
+	for id in ([] if Helpers.is_rescued("cook") else GameState.INN_OFFERS.keys()):
 		var o = GameState.INN_OFFERS[id]
 		var b = Button.new()
 		var owned = GameState.has_buff(id)

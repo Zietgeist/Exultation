@@ -560,13 +560,18 @@ func buy_satchel_upgrade() -> bool:
 # ---------------- Spending banked gold ----------------
 signal buffs_changed
 
-## Inn treats: bought with banked gold, last until your next rest (the next time you bank gold).
+## Meal buffs: last until your next rest (the next time you bank gold).
+## Each one has a STRENGTH 0..1 of its BUFF_MAX. Before you rescue the cook (Zone 2), the Inn sells them
+## at a fixed strength (power below). After, the cook (helpers.gd) makes all three, stronger the longer
+## you let them cook during your rest (up to 100% at 4 minutes).
+const BUFF_MAX = {"meal": 0.25, "sleep": 0.75, "tonic": 0.3}	# +25% damage, +75% energy regen, +30% max health
+const BUFF_WHAT = {"meal": "damage", "sleep": "energy regen", "tonic": "max health"}
 const INN_OFFERS = {
-	"meal": {name = "Hearty meal", gold = 6, about = "+15% damage"},				# was 25
-	"sleep": {name = "A good night's sleep", gold = 10, about = "+50% energy regen"},	# was 40
-	"tonic": {name = "Tamsin's tonic", gold = 8, about = "+20% max health"},			# was 30
+	"meal": {name = "Hearty meal", gold = 6, about = "+15% damage", power = 0.6},				# 0.6 x 25% = +15%
+	"sleep": {name = "A good night's sleep", gold = 10, about = "+50% energy regen", power = 0.667},	# = +50%
+	"tonic": {name = "Tamsin's tonic", gold = 8, about = "+20% max health", power = 0.667},		# = +20%
 }
-var buffs = {}	# offer id -> true
+var buffs = {}	# buff id -> strength 0..1 (old saves: true = the Inn's strength)
 
 func spend_gold(n: int) -> bool:
 	if n <= 0:
@@ -579,12 +584,30 @@ func spend_gold(n: int) -> bool:
 	return true
 
 func has_buff(id: String) -> bool:
-	return buffs.has(id)
+	return buff_power(id) > 0.0
+
+
+## 0..1: how strong this buff is right now (share of BUFF_MAX).
+func buff_power(id: String) -> float:
+	var v = buffs.get(id, 0.0)
+	if typeof(v) == TYPE_BOOL:	# old saves
+		return INN_OFFERS[id].power if v and INN_OFFERS.has(id) else 0.0
+	return clampf(float(v), 0.0, 1.0)
+
+
+## The bonus itself: e.g. 0.25 = +25% (damage / energy regen / max health).
+func buff_bonus(id: String) -> float:
+	return BUFF_MAX.get(id, 0.0) * buff_power(id)
+
+
+## "+18% damage"
+func buff_text(id: String) -> String:
+	return "+%d%% %s" % [roundi(buff_bonus(id) * 100.0), BUFF_WHAT.get(id, id)]
 
 func buy_buff(id: String) -> bool:
 	if has_buff(id) or not spend_gold(INN_OFFERS[id].gold):
 		return false
-	buffs[id] = true
+	buffs[id] = INN_OFFERS[id].power
 	save_progress()
 	buffs_changed.emit()
 	return true

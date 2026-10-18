@@ -137,7 +137,7 @@ func _carrying():
 	if wg.get_child_count() == 0:
 		_text(left, "Nothing yet. The Smith makes gear.", DIM)
 
-	var buffs = GameState.buffs.keys().map(func(id): return GameState.INN_OFFERS[id].name + ": " + GameState.INN_OFFERS[id].about)
+	var buffs = GameState.buffs.keys().filter(func(id): return GameState.has_buff(id)).map(func(id): return GameState.INN_OFFERS[id].name + ": " + GameState.buff_text(id))
 	if buffs.size() > 0:
 		_title(left, "Inn treats (until your next rest)", 20)
 		_text(left, "\n".join(buffs), Color(0.6, 1.0, 0.6))

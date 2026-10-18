@@ -134,7 +134,7 @@ func net_event(event: String, data: Dictionary):
 			GameState.notify("%s is saved! The townsfolk thank you." % info.name)
 			GameState.gold_banked += 40 * info.zone
 			GameState.save_progress()
-			GameState.buffs["meal"] = true	# they feed you
+			GameState.buffs["meal"] = GameState.INN_OFFERS.meal.power	# they feed you
 			GameState.buffs_changed.emit()
 			Story.add("Held off the raid on %s. The townsfolk fed us like heroes." % info.name)
 			Traits.nudge("bond", 6.0, "defended " + info.name)

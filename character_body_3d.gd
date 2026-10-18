@@ -305,7 +305,7 @@ func _physics_process(delta):
 	if moved > 2.0:
 		moved = 0.0	# teleported (respawn, portal), not running
 	_last_pos = global_position
-	var regen_mult = 1.5 if GameState.has_buff("sleep") else 1.0
+	var regen_mult = 1.0 + GameState.buff_bonus("sleep")
 	energy = min(energy + e_rules.get("regen", 0.15) * regen_mult * delta + moved * e_rules.get("per_meter_moved", 0.0), MAX_ENERGY)
 	
 
@@ -846,7 +846,7 @@ func apply_gear():
 	armor_resist = t.resist
 	var old_max = MAX_HEALTH
 	var stats = class_def.get("stats", {})
-	MAX_HEALTH = (BASE_MAX_HEALTH * stats.get("health", 1.0) + t.max_health) * (1.2 if GameState.has_buff("tonic") else 1.0) * Traits.health_mult()
+	MAX_HEALTH = (BASE_MAX_HEALTH * stats.get("health", 1.0) + t.max_health) * (1.0 + GameState.buff_bonus("tonic")) * Traits.health_mult()
 	health = clamp(health + (MAX_HEALTH - old_max), 1.0, MAX_HEALTH)
 	SPEED = BASE_SPEED * stats.get("speed", 1.0) * (1.0 + t.move) * Traits.move_mult()
 	if not is_puppet:	# Windrunner boots: enemies (physics layer 3) don't block you
@@ -857,7 +857,7 @@ func apply_gear():
 ## Damage and attack times = weapon x attack-speed setting x DPS boost.
 func _refresh_damage():
 	var modifier = speed_level * SPEED_DAMAGE_MODIFIER
-	var boost = boost_mult * (1.15 if GameState.has_buff("meal") else 1.0)
+	var boost = boost_mult * (1.0 + GameState.buff_bonus("meal"))
 	st_damage = weapon_st_base * (1.0 - modifier) * boost
 	aoe_damage = weapon_aoe_base * (1.0 - modifier) * boost
 	st_cooldown_time = gear_st_cd * (1.0 - modifier)

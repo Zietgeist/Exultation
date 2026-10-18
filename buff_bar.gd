@@ -58,9 +58,11 @@ func _active() -> Dictionary:
 	var inn_kind = {"meal": "meal", "sleep": "sleep", "tonic": "potion"}
 	var inn_col = {"meal": Color(1.0, 0.7, 0.3), "sleep": Color(0.6, 0.7, 1.0), "tonic": Color(0.5, 1.0, 0.6)}
 	for id in GameState.buffs:
+		if not GameState.has_buff(id):
+			continue
 		var o = GameState.INN_OFFERS.get(id, {})
 		add.call("inn_" + id, inn_kind.get(id, "potion"), inn_col.get(id, Color.WHITE), o.get("name", id),
-			o.get("about", "") + "\nLasts until your next rest (bank your gold at Home).", -1.0, "rest")
+			GameState.buff_text(id) + "\nLasts until your next rest (bank your gold at Home).", -1.0, "rest")
 	# Potion ward and haste
 	if p.ward_time > 0.0:
 		var bits = []
