@@ -7,6 +7,10 @@ var collected = false
 var kind = "blue"	# "blue" or "gold"
 var value = 1		# gold amount (gold orbs) or energy amount (blue orbs)
 const PICKUP_RANGE = 1.2
+const CHASE_FASTER = 1.4	# once locked on, always at least this much faster than you (speed boots too)
+const CHASE_ACCEL = 12.0	# and it keeps speeding up while it chases (m/s per second)
+var homing = false		# locked on: follows you at any distance until you're full
+var _chase_speed = 0.0
 
 func _ready() -> void:
 	player = Zones.first(self, "player")	# only the local player in this zone
@@ -27,13 +31,21 @@ func _process(delta) -> void:
 	if collected or not is_instance_valid(player):
 		return
 	if not _wanted():
-		return	# blue orbs wait on the ground while your energy is full
+		homing = false	# full (energy / gold bag): it stops and waits where it is
+		_chase_speed = 0.0
+		return
+	if Zones.zone_of(player) != Zones.zone_of(self):
+		return	# you left the zone
 	var dist = global_position.distance_to(player.global_position)
 	if dist <= PICKUP_RANGE:
 		_collect()
-	elif dist <= attract_range:
+		return
+	if dist <= attract_range:
+		homing = true
+	if homing:	# never gives up: faster than you, and faster the longer it chases
+		_chase_speed = maxf(_chase_speed + CHASE_ACCEL * delta, maxf(speed, float(player.SPEED) * CHASE_FASTER))
 		var direction = (player.global_position - global_position).normalized()
-		global_position += direction * speed * delta
+		global_position += direction * minf(_chase_speed * delta, dist)
 
 
 ## Should this orb come to the player right now?
