@@ -99,11 +99,16 @@ func tick(dt: float):
 				_finish(true)
 
 
+const RAID_MULT = 5		# Ivan: 5x the raiders per wave (was 4 + zone/2)
+const RAID_SIDES = 2		# each wave comes from this many directions at once
+
+
 func _wave():
-	var n = 4 + info.zone / 2
+	var n = (4 + info.zone / 2) * RAID_MULT
 	var a0 = randf() * TAU
 	for i in n:
-		var a = a0 + randf_range(-0.6, 0.6)
+		var side = i % RAID_SIDES	# split between the directions
+		var a = a0 + TAU * side / RAID_SIDES + randf_range(-0.6, 0.6)
 		var e = spawn_enemy(1 if randf() < 0.2 else 0, Vector3(cos(a), 0, sin(a)) * 60.0)
 		if e:
 			e.aggroed = true
