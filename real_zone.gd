@@ -21,6 +21,7 @@ var info := {}
 var alive := 0
 var bosses_left := 0
 var cleared := false
+var _ring = null			# the Return ring (real_return_ring.gd)
 var map_mesh: ArrayMesh		# the whole map as one flat drawing (mini-map and M map)
 var _sleep_t := 0.0
 const WAKE_RADIUS = 50.0	# idle enemies farther than SLEEP_RADIUS from you stop thinking (keeps 300+ enemies fast)
@@ -72,7 +73,7 @@ func _ready():
 	_build_map_mesh()
 	_credit_and_minimap()
 	if Zones.local_zone() == z:
-		GameState.notify.call_deferred("A real place! %d packs and %d bosses. The Return ring is where you arrived." % [PACKS, BOSSES])
+		GameState.notify.call_deferred("A real place! %d packs and %d bosses. The Return ring opens once it's clear (G in it to leave early)." % [PACKS, BOSSES])
 
 
 ## How tough: grows with how far you've got (zones open), like the zone you'd be fighting in.
@@ -171,7 +172,9 @@ func _on_enemy_died(tier):
 		GameState.notify("A boss is down! %s" % ("One more to go." if bosses_left == 1 else ("Both bosses down!" if bosses_left <= 0 else "%d to go." % bosses_left)))
 	if alive <= 0 and not cleared:
 		cleared = true
-		GameState.notify("This place is clear! Head back through the Return ring.")
+		GameState.notify("This place is clear! The Return ring is open.")
+		if is_instance_valid(_ring):
+			_ring.unlock()
 
 
 ## Invisible walls at the edge of the downloaded area.
@@ -190,11 +193,10 @@ func _border():
 
 
 func _return_ring(rm):
-	var g = load("res://portal.gd").new()
+	var g = load("res://real_return_ring.gd").new()	# locked until cleared (G leaves early)
 	g.target_scene = info.back_scene
 	g.target_position = info.back_pos
-	g.label_text = "Return"
-	g.arm_time = 2.0	# you arrive right next to it: don't bounce straight back
+	_ring = g
 	var s = info.spawn
 	var spot = Vector2(s.x + 4.0, s.z)
 	for off in [Vector2(4, 0), Vector2(-4, 0), Vector2(0, 4), Vector2(0, -4)]:
@@ -261,10 +263,9 @@ func draw_map(ci: CanvasItem, offset: Vector2, s: float, view: Rect2):
 		var p = offset + Vector2(a.global_position.x, a.global_position.z) * s
 		if view.has_point(p):
 			ci.draw_circle(p, 3.0, Color(0.35, 1.0, 0.75))
-	for ring in find_children("*", "Area3D", true, false):	# the Return ring
-		if ring.get("label_text") == "Return":
-			var p = offset + Vector2(ring.global_position.x, ring.global_position.z) * s
-			ci.draw_arc(p, 6.0, 0, TAU, 16, Color(1.0, 0.8, 0.2), 2.0)
+	if is_instance_valid(_ring):	# the Return ring: gold when open, gray while locked
+		var p = offset + Vector2(_ring.global_position.x, _ring.global_position.z) * s
+		ci.draw_arc(p, 6.0, 0, TAU, 16, Color(0.6, 0.6, 0.6) if _ring.locked else Color(1.0, 0.8, 0.2), 2.0)
 	var me = Zones.player
 	if me and is_instance_valid(me):
 		var p = offset + Vector2(me.global_position.x, me.global_position.z) * s

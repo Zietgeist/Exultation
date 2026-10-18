@@ -15,7 +15,9 @@ const REAL_MAP = preload("res://real_map.gd")
 
 const GRACE = 25.0			# quiet seconds after you arrive
 const CALM_TIME = 60.0		# "subsiding for a minute"
-const WAVE_EVERY = Vector2(7.0, 11.0)	# seconds between hordes while building up
+const WAVE_EVERY = Vector2(4.0, 7.0)	# seconds between hordes while building up
+const SWARMS_PER_WAVE = Vector2i(2, 3)	# each horde bursts out of this many buildings around you
+const DOOR_OUT = 1.5		# spawn this far outside a building's wall ("out the door")
 const BASE_WAVE = 30			# first horde of a cycle (before strength)
 const WAVE_GROW = 15			# each horde in the same cycle is this much bigger
 const MAX_BUILD = 120.0		# a build-up never lasts longer than this
@@ -46,11 +48,43 @@ var _build_time := 0.0
 var _lowest := 1.0			# lowest health share this cycle
 var _last_hp := -1.0
 var _since_hurt := 0.0
+var _doors := []			# [{p = Vector2 spot just outside a wall, c = building center}] (built once)
 var _flow := {}				# route map: grid square -> steps to you (0 = your square)
 var _clear := {}			# grid square -> true if a straight run from it to you hits no building
 var _flow_start := Vector2i.ZERO
 var _flow_t := 0.0
 const NEIGHBORS = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(-1, -1)]
+
+
+func _ready():
+	_build_doors.call_deferred()
+
+
+## A "door" on every building: the middle of its longest wall, a little outside. Hordes pour out of these.
+func _build_doors():
+	if zone == null:
+		return
+	for b in zone.info.data.buildings:
+		var pts = b.pts
+		if pts.size() < 3:
+			continue
+		var center = Vector2.ZERO
+		for q in pts:
+			center += q
+		center /= pts.size()
+		var best = -1.0
+		var door = null
+		for i in range(pts.size()):
+			var a = pts[i]
+			var c = pts[(i + 1) % pts.size()]
+			var l = a.distance_to(c)
+			if l > best:
+				var mid = (a + c) / 2.0
+				var out = (mid - center).normalized()
+				best = l
+				door = mid + out * DOOR_OUT
+		if door != null and not REAL_MAP._inside_building(zone.info.data, door):
+			_doors.append({p = door, c = center})
 
 
 func _physics_process(delta):
@@ -145,9 +179,12 @@ func _calm():
 func _send_horde(me):
 	if horde_alive >= MAX_HORDE_ALIVE:
 		return
-	var center = _offscreen_spot(me)
-	if center == null:
-		return	# nowhere hidden right now: next time
+	var spots = _horde_doors(me, randi_range(SWARMS_PER_WAVE.x, SWARMS_PER_WAVE.y))
+	if spots.is_empty():
+		var open = _offscreen_spot(me)	# no buildings around: out of the open, like before
+		if open == null:
+			return	# nowhere hidden right now: next time
+		spots = [open]
 	_wave += 1
 	var size = mini(roundi((BASE_WAVE + WAVE_GROW * (_wave - 1)) * strength), MAX_HORDE_ALIVE - horde_alive)
 	var d = zone._difficulty()
@@ -158,10 +195,13 @@ func _send_horde(me):
 		tiers.append(2)	# every 3rd horde: a Master too
 	while tiers.size() < size:
 		tiers.append(0)
-	for t in tiers:
+	tiers.shuffle()
+	for k in range(tiers.size()):
+		var t = tiers[k]
+		var center = spots[k % spots.size()]	# split the horde between the buildings
 		for attempt in range(6):
 			var a = randf() * TAU
-			var p = center + Vector2(cos(a), sin(a)) * randf_range(0.5, 5.0)
+			var p = center + Vector2(cos(a), sin(a)) * randf_range(0.3, 2.5)
 			if not REAL_MAP._inside_building(zone.info.data, p) and absf(p.x) < REAL_MAP.HALF_SIZE - 2.0 and absf(p.y) < REAL_MAP.HALF_SIZE - 2.0:
 				_spawn(t, p, d)
 				break
@@ -240,6 +280,49 @@ func _straight(c: Vector2i) -> bool:
 			break
 	_clear[c] = ok
 	return ok
+
+
+## Up to n building doors around you, off-screen, spread out (not all from one side).
+func _horde_doors(me, n: int) -> Array:
+	var cam = get_viewport().get_camera_3d()
+	var mp = Vector2(me.global_position.x, me.global_position.z)
+	var cands = []
+	for d in _doors:
+		var dist = d.p.distance_to(mp)
+		if dist < SPAWN_DIST.x or dist > SPAWN_DIST.y + 10.0:
+			continue
+		if cam and cam.is_position_in_frustum(Vector3(d.p.x, 1.2, d.p.y)):
+			continue
+		cands.append(d.p)
+	cands.shuffle()
+	var out = []
+	for p in cands:
+		if out.any(func(q): return q.distance_to(p) < 15.0):
+			continue	# different buildings, different directions
+		out.append(p)
+		if out.size() >= n:
+			break
+	for p in out:	# a puff of dust at each door, so you see where they came from (if you look)
+		_dust(Vector3(p.x, 0.5, p.y))
+	return out
+
+
+func _dust(at: Vector3):
+	var mi = MeshInstance3D.new()
+	var sm = SphereMesh.new()
+	sm.radius = 1.6
+	sm.height = 2.0
+	mi.mesh = sm
+	var m = StandardMaterial3D.new()
+	m.albedo_color = Color(0.55, 0.5, 0.45, 0.6)
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mi.material_override = m
+	zone.add_child(mi)
+	mi.global_position = at
+	var tw = mi.create_tween()
+	tw.tween_property(mi, "scale", Vector3.ONE * 2.5, 1.2)
+	tw.parallel().tween_property(m, "albedo_color:a", 0.0, 1.2)
+	tw.tween_callback(mi.queue_free)
 
 
 ## Somewhere around you that's out of sight (off the screen) and not inside a building.
