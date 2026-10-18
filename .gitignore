@@ -7,3 +7,6 @@ Claude outputs/
 
 # Map service key (private, never commit)
 geo_key.txt
+
+# Exported game builds (made with Project > Export)
+builds/
