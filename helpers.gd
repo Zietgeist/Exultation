@@ -1,6 +1,7 @@
 extends Node
 ## Autoload "Helpers": people you rescue, who then help you in town during your rests.
-##   Zone 2: the COOK. Takes over the Inn's three treats (damage, energy regen, max health).
+##   Zone 2: the COOK. Takes over the Inn's three treats (damage, energy regen, max health), and refines
+##           your stored herbs into tonics like an assistant (Wren takes that over once rescued).
 ##           Cooking starts when your break starts (you walk into Home) and the meal is served when you
 ##           leave Home. The longer you let them cook, the better, growing EXPONENTIALLY:
 ##           1 min ~2%, 2 min ~8%, 3 min ~29%, 4 min = 100% (see cook_power).
@@ -15,7 +16,7 @@ const HOME = "res://Home.tscn"
 const NPC = preload("res://npc.gd")
 const ENEMY_SCENE = preload("res://enemy.tscn")
 const HELPERS = {
-	"cook": {zone = "res://Zone2.tscn", name = "Mara", role = "Camp Cook", color = Color(0.95, 0.6, 0.35), spot = Vector3(-6, 0, 19)},
+	"cook": {zone = "res://Zone2.tscn", name = "Mara", role = "Camp Cook", shop = "chemist", only = ["herb"], color = Color(0.95, 0.6, 0.35), spot = Vector3(-6, 0, 19)},	# also refines herbs (Wren takes over once rescued)
 	"smith_helper": {zone = "res://Zone3.tscn", name = "Pell", role = "Smith's Assistant", shop = "smith", color = Color(0.6, 0.45, 0.35), spot = Vector3(-11, 0, 22)},
 	"chemist_helper": {zone = "res://Zone4.tscn", name = "Wren", role = "Alchemist's Assistant", shop = "chemist", color = Color(0.45, 0.75, 0.6), spot = Vector3(-16, 0, 25)},
 }
@@ -91,7 +92,7 @@ func _on_rest(_blocks):
 	if is_rescued("cook"):
 		cook_since = _now()
 		GameState.notify("%s starts cooking. Stay a while: the longer it cooks, the better (best at 4 minutes)." % helper_name("cook"))
-	for id in ["smith_helper", "chemist_helper"]:
+	for id in ["smith_helper", "chemist_helper", "cook"]:	# Wren before Mara: with both, Wren gets the herbs
 		if is_rescued(id) and not jobs.has(id):
 			_start_job(id)
 	_save()
@@ -101,6 +102,8 @@ func _start_job(id: String):
 	var out = {}
 	var made = 0
 	for o in Crafting.refine_options(HELPERS[id].shop):
+		if HELPERS[id].has("only") and not o.raw in HELPERS[id].only:
+			continue	# Mara only does herbs
 		var batches = int(o.have / o.cost)
 		if batches <= 0:
 			continue
@@ -114,7 +117,7 @@ func _start_job(id: String):
 		return	# nothing stored to refine (talk to them to hear what they need)
 	jobs[id] = {done_at = _now() + ASSIST_SECONDS, out = out, made = made}
 	GameState.save_progress()	# the raw materials left the storehouse
-	GameState.notify("%s takes your %s: %d refined in 3 minutes." % [helper_name(id), "ore" if id == "smith_helper" else "herbs", made])
+	GameState.notify("%s takes your %s: %d refined in 3 minutes." % [helper_name(id), "ore" if id == "smith_helper" else "herbs", made])	# (Mara's herb job runs beside her cooking)
 
 
 func _process(delta):
@@ -174,7 +177,10 @@ func open(what: String, who):
 			var left = maxf(0.0, COOK_FULL_MIN * 60.0 - (_now() - cook_since))
 			GameState.notify("%s: \"It's %d%% ready.%s Leave Home whenever you like: I'll serve what's done.\"" % [n, roundi(cook_power(m) * 100), (" Best in %d:%02d." % [int(left) / 60, int(left) % 60]) if left > 0 else " It's perfect!"])
 		else:
-			GameState.notify("%s: \"Come home from a zone for a break, and I'll start cooking.\"" % n)
+			GameState.notify("%s: \"Come home from a zone for a break, and I'll start cooking. I'll turn your herbs into tonics too.\"" % n)
+		if jobs.has("cook"):
+			var left = maxf(0.0, float(jobs.cook.done_at) - _now())
+			GameState.notify("%s: \"Your tonics: %d in %d:%02d.\"" % [n, int(jobs.cook.made), int(left) / 60, int(left) % 60])
 		return
 	if jobs.has(what):
 		var left = maxf(0.0, float(jobs[what].done_at) - _now())
