@@ -77,3 +77,6 @@ Trials, Zones, Story, Rivals, Traits, Travel (fast_travel.gd), Party, Landmarks.
 - Cook: the meal is served when you leave Home; strength = `cook_power(minutes)` (exponential, 100% at 4 min) applied to all three meal buffs. Once rescued, the Inn stops selling them.
 - Buffs are strengths 0..1 of `GameState.BUFF_MAX` (`buff_power`, `buff_bonus`, `buff_text`). Never treat `buffs[id]` as a bool.
 - Assistants: take all stored raw for their shop, refine it in 3 min with +1 per 3 (into `Crafting.stash`).
+
+## Farmland (open_field map, Zone 1 and "Overgrown Fields")
+- `terrain_generator.gd` `_layout_farmland`: river with bridges (`_layout_river`), fenced fields (wall type "fence" + crop "deco" rows + a pack site style "field" that the spawner fills with a herd, `SITE_PACKS.field`), barns (piece kind "barn", look from `props.gd barn()`). All saved/rebuilt like other pieces.

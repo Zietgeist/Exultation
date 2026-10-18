@@ -236,6 +236,36 @@ static func node(style: String, type: String) -> Node3D:
 
 
 # ======================= CAMPS AND VALLEYS (pack sites) =======================
+## A barn, w x h x d (collision: that box). data: {w, h, d, v = variant}
+##   fantasy: red barn, white trim, gable roof | zombie: rusted, roof half caved in
+##   scifi: metal hangar with a curved roof | darkfantasy: black rotting barn
+static func barn(style: String, data: Dictionary) -> Node3D:
+	var root = Node3D.new()
+	var w = data.w
+	var h = data.h
+	var d = data.d
+	var v = int(data.get("v", 0))
+	var walls = {"zombie": Color(0.45, 0.25, 0.18), "scifi": Color(0.55, 0.58, 0.62), "darkfantasy": Color(0.16, 0.13, 0.13)}.get(style, Color(0.62, 0.15, 0.12))
+	var roof = {"zombie": Color(0.35, 0.33, 0.3), "scifi": Color(0.4, 0.45, 0.55), "darkfantasy": Color(0.1, 0.09, 0.1)}.get(style, Color(0.3, 0.28, 0.27))
+	var wall_h = h * 0.65
+	_mesh(root, _box(Vector3(w, wall_h, d)), mat(walls), Vector3(0, wall_h / 2.0, 0))
+	if style == "scifi":	# hangar: a half-cylinder roof along its length
+		var c = _mesh(root, _cyl(d * 0.55, d * 0.55, w, 16), mat(roof), Vector3(0, wall_h, 0), Vector3(0, 0, PI / 2.0))
+		c.scale = Vector3(1, 1, 0.6)
+	else:	# gable roof: two sloped slabs
+		var rise = h - wall_h
+		var slope = atan2(rise, d / 2.0)
+		var slab = Vector2(d / 2.0, rise).length() + 0.4
+		for side in [-1.0, 1.0]:
+			if style == "zombie" and side > 0.0 and v % 2 == 0:
+				continue	# caved-in half
+			_mesh(root, _box(Vector3(w + 0.6, 0.3, slab)), mat(roof), Vector3(0, wall_h + rise / 2.0, side * d / 4.0), Vector3(side * slope, 0, 0))
+	_mesh(root, _box(Vector3(w * 0.3, wall_h * 0.75, 0.15)), mat(Color(0.12, 0.1, 0.09)), Vector3(0, wall_h * 0.375, d / 2.0 + 0.05))	# big door
+	if not style in ["zombie", "scifi", "darkfantasy"]:	# fantasy: white trim around the door
+		_mesh(root, _box(Vector3(w * 0.34, 0.25, 0.2)), mat(Color(0.9, 0.9, 0.85)), Vector3(0, wall_h * 0.75 + 0.1, d / 2.0 + 0.08))
+	return root
+
+
 ## A hut, about 3 x 3 (collision: a 3 x 2.4 x 3 box). data: {v = variant}
 ##   fantasy: log hut with a thatched roof | zombie: scrap shack | scifi: dome pod
 static func hut(style: String, data: Dictionary) -> Node3D:

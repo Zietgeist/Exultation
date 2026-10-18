@@ -65,6 +65,7 @@ func _ready():
 		"rooms": _layout_rooms(roundi(6 * m))
 		"lanes": _layout_lanes()
 		"fences": _layout_fences(roundi(4 * m))
+		"farmland": _layout_farmland(m)
 	spawn_sites(mini(roundi(SITES_PER_SCALE * GameState.zone_area_scale(self)), MAX_SITES))
 	spawn_hills(roundi(def.hills * m))
 	spawn_groves(roundi(def.groves * m), Vector2i(6, 12) if template == "forest" else Vector2i(4, 9))
@@ -335,6 +336,90 @@ func _layout_river():
 		_make_deco({p = p, s = Vector3(12, 0.12, 4.5) if not along_x else Vector3(4.5, 0.12, 12), c = "bridge", f = Color(0.45, 0.32, 0.2)})
 
 
+## Farmland (the open-field map): a river with bridges, fenced fields with crop rows and a herd
+## grazing in each one (a pack site), and barns.
+const FARM_FIELDS = 5		# per obstacle multiplier (+2), at most MAX_FARM_FIELDS
+const MAX_FARM_FIELDS = 40
+const FARM_BARNS = 2.5
+const MAX_FARM_BARNS = 25
+const CROP_COLORS = [Color(0.72, 0.62, 0.25), Color(0.35, 0.55, 0.22), Color(0.45, 0.35, 0.22)]	# wheat, greens, ploughed
+
+func _layout_farmland(m: float):
+	_layout_river()
+	var want = mini(roundi(FARM_FIELDS * m) + 2, MAX_FARM_FIELDS)
+	var made = 0
+	for i in range(want * 4):
+		if made >= want:
+			break
+		var big = minf(_half.x, _half.y)	# small zones (Zone 1 is 60 x 100 m) get smaller fields
+		var w = randf_range(14.0, clampf(big * 0.7, 16.0, 40.0))
+		var d = randf_range(12.0, clampf(big * 0.55, 14.0, 30.0))
+		var pad = maxf(w, d) / 2.0 + 3.0
+		var c = get_clear_pos(pad)
+		if not _site_fits(c, pad):
+			continue
+		_field(c, w, d)
+		_keep_out.append(Rect2(c.x - pad, c.z - pad, pad * 2.0, pad * 2.0))
+		made += 1
+	var barns = mini(roundi(FARM_BARNS * m) + 1, MAX_FARM_BARNS)
+	for i in range(barns):
+		var c = get_clear_pos(10.0)
+		if not _site_fits(c, 9.0):
+			continue
+		_make_barn({p = c, w = randf_range(10.0, 14.0), d = randf_range(8.0, 10.0), h = randf_range(6.0, 8.0), r = (randi() % 4) * PI / 2.0, v = randi() % 100})
+		_keep_out.append(Rect2(c.x - 9.0, c.z - 9.0, 18.0, 18.0))
+
+
+## One field: a wooden fence with 1-2 gate gaps, rows of crops, and a herd site in the middle.
+func _field(c: Vector3, w: float, d: float):
+	var hx = w / 2.0
+	var hz = d / 2.0
+	var corners = [c + Vector3(-hx, 0, -hz), c + Vector3(hx, 0, -hz), c + Vector3(hx, 0, hz), c + Vector3(-hx, 0, hz)]
+	var gated = [randi() % 4]
+	if randf() < 0.5:
+		gated.append((gated[0] + 2) % 4)	# a second gate, across
+	for s in range(4):
+		var a = corners[s]
+		var b = corners[(s + 1) % 4]
+		var length = a.distance_to(b)
+		var dir = (b - a) / length
+		var gap = randf_range(4.0, length - 8.0) if s in gated else -100.0	# where the 4 m gate opens
+		var t = 0.0
+		while t < length - 0.5:
+			var t2 = minf(t + 6.0, length)
+			if t2 > gap and t < gap + 4.0:	# this piece would cross the gate: split around it
+				if gap - t > 1.0:
+					_place_wall("fence", a + dir * t, a + dir * gap)
+				if t2 - (gap + 4.0) > 1.0:
+					_place_wall("fence", a + dir * (gap + 4.0), a + dir * t2)
+			else:
+				_place_wall("fence", a + dir * t, a + dir * t2)
+			t = t2
+	var crop = CROP_COLORS.pick_random()
+	var row = -hz + 2.5
+	while row <= hz - 2.5:	# crop rows (you can walk through them)
+		_make_deco({p = Vector3(c.x, 0.3, c.z + row), s = Vector3(w - 4.0, 0.35, 1.1), c = "crop", f = crop})
+		row += 3.0
+	_make_site(c, {style = "field", r = minf(hx, hz), seed = 0, n = 0})
+
+
+## A barn: solid, looks different per world (props.gd barn).
+func _make_barn(t: Dictionary):
+	var body = StaticBody3D.new()
+	body.set_meta("kind", "barn")
+	body.set_meta("data", {w = t.w, d = t.d, h = t.h, r = t.r, v = t.v})
+	var shape = BoxShape3D.new()
+	shape.size = Vector3(t.w, t.h, t.d)
+	var col = CollisionShape3D.new()
+	col.shape = shape
+	col.position.y = t.h / 2.0
+	body.add_child(col)
+	body.add_child(PROPS.barn(SkinManager.props_style(), t))
+	add_child(body)
+	body.position = Vector3(t.p.x, 0, t.p.z)
+	body.rotation.y = t.r
+
+
 ## Ruins: the broken outlines of old buildings, each with a doorway. Some wall pieces have fallen.
 func _layout_rooms(count: int):
 	for i in range(count):
@@ -568,6 +653,8 @@ func _make_site(pos: Vector3, data: Dictionary):
 			col.shape = cyl
 			col.position = mp + Vector3(0, md.h / 2.0, 0)
 			body.add_child(col)
+	elif data.style == "field":
+		pass	# a fenced field (_layout_farmland built the fence): a herd grazes inside
 	else:
 		ErrorLog.fail("Terrain: unknown site style '%s'" % data.style)
 	for mi in body.find_children("*", "MeshInstance3D", true, false):
@@ -679,6 +766,7 @@ func _rebuild(t: Dictionary):
 		"shrine": _make_shrine(t)
 		"gate": _make_gate(t)
 		"site": _make_site(t.p, t)
+		"barn": _make_barn(t)
 
 
 # ---------------- Resources ----------------
@@ -754,6 +842,10 @@ func _make_wall(t: Dictionary):
 	piece.set_meta("kind", "wall")
 	piece.set_meta("data", {type = t.type, l = t.l, r = t.r})
 	add_child(piece)
+	if t.type == "fence":	# a field fence: a low wall, thinner and wooden
+		var mi = piece.get_node("MeshInstance3D")
+		mi.mesh.size = Vector3(t.l, 1.1, 0.2)
+		mi.material_override = SkinManager.material("fence", Color(0.45, 0.32, 0.2))
 	piece.position = Vector3(t.p.x, 0, t.p.z)
 	piece.rotation.y = t.r
 

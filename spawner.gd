@@ -29,7 +29,7 @@ const DENSITY = 1.33		# Oct 2026: 33% more enemies than before
 const PACK_MIN = 8			# small ones per leader
 const PACK_MAX = 20
 const PACK_AVG = 14
-const SITE_PACKS = {camp = 3, valley = 3, hill = 1}	# how many packs gather at each kind of site
+const SITE_PACKS = {camp = 3, valley = 3, hill = 1, field = 2}	# how many packs gather at each kind of site
 
 const UPFRONT_SHARE = 0.9	# placed on the map at the start
 const SAFE_START_RADIUS = 40.0	# nothing is placed this close to where you walk in (or any way in)
@@ -242,6 +242,8 @@ func _pack_spot(slot: Dictionary) -> Array:
 			return [site.p + dir * site.r * 0.35, site.r * 0.45]
 		"valley":	# mountains fill the outer ~40% of the ring: stay in the middle
 			return [site.p + dir * site.r * 0.25, site.r * 0.3]
+		"field":	# a herd grazing inside its fence
+			return [site.p + dir * site.r * 0.3, site.r * 0.5]
 		_:
 			return [site.p + dir * (site.r + 4.0), 5.0]
 

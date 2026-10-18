@@ -13,7 +13,7 @@ extends RefCounted
 const ORDER = ["open_field", "rolling_hills", "forest", "river", "ruins", "rails", "island"]
 
 const TEMPLATES = {
-	"open_field": {name = "Open Field", hills = 2, groves = 3, ditches = 3, low = 1, solid = 0, boxes = 0.15, layout = ""},
+	"open_field": {name = "Open Field", hills = 2, groves = 3, ditches = 2, low = 0, solid = 0, boxes = 0.15, layout = "farmland"},	# fields, fences, barns, a river
 	"rolling_hills": {name = "Rolling Hills", hills = 11, groves = 4, ditches = 3, low = 0, solid = 0, boxes = 0.2, layout = "fences"},
 	"forest": {name = "Forest", hills = 2, groves = 15, ditches = 5, low = 0, solid = 0, boxes = 0.15, layout = "clearings"},
 	"river": {name = "River", hills = 3, groves = 7, ditches = 0, low = 0, solid = 0, boxes = 0.25, layout = "river"},
