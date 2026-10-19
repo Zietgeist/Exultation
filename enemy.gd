@@ -45,6 +45,8 @@ var _ally_retarget := 0.0
 const ALLY_POWER = 4.0		# turned enemies hit this much harder than they did against you
 const ALLY_SEEK = 25.0		# looks for enemies this far away; otherwise stays near the party
 const ALLY_COLOR = Color(0.35, 1.0, 0.75)
+var _slow := 1.0			# ditch slow where it stands (refreshed every 0.25 s)
+var _slow_t := 0.0
 var _path_t := 0.0			# seconds until the next "is my way blocked?" check
 
 var player = null
@@ -89,11 +91,11 @@ func setup(diff, t = Tier.TRASH, element := "physical"):
 
 func _ready():
 	# Enemies live on physics layer 3 (not 1), so gear can let a player walk through them.
-	# They still collide with walls/players (layer 1) and each other (layer 3).
+	# They collide with walls/players (layer 1) but NOT each other: hundreds of enemies shoving each
+	# other made physics take ~500 ms a frame in raids. They keep apart with _crowd_push() instead.
 	collision_layer = 0
 	set_collision_layer_value(3, true)
 	set_collision_mask_value(1, true)
-	set_collision_mask_value(3, true)
 	player = Zones.first(self, "party")
 	SkinManager.skin_changed.connect(apply_skin)
 
@@ -142,15 +144,26 @@ func _physics_process(delta):
 		velocity.y += GRAVITY * delta
 		
 		if aggroed:
+			# Already close enough to hit and standing on the ground: stand still (no physics). In a raid,
+			# hundreds of enemies shoving into you every frame was a big part of the lag.
+			_hold = distance <= ATTACK_RANGE * 0.9 and is_on_floor() and _push_t > 0 and _push.length() < 0.5
 			var direction = (_chase_point(delta) - global_position)
 			direction.y = 0
 			direction = direction.normalized()
-			var speed_now = SPEED * GameState.slow_factor_at(global_position, self) * (GameState.HILL_SPEED if _on_hill else 1.0) * (HORDE_SPEED if horde else 1.0)
+			_slow_t -= delta
+			if _slow_t <= 0.0:	# in a ditch? (checked 4 times a second, not every frame)
+				_slow_t = 0.25
+				_slow = GameState.slow_factor_at(global_position, self)
+			var speed_now = SPEED * _slow * (GameState.HILL_SPEED if _on_hill else 1.0) * (HORDE_SPEED if horde else 1.0)
 			if rooted_time > 0.0:
 				rooted_time -= delta
 				speed_now = 0.0
 			velocity.x = direction.x * speed_now
 			velocity.z = direction.z * speed_now
+			if speed_now > 0.0:
+				var push = _crowd_push()
+				velocity.x += push.x
+				velocity.z += push.y
 			
 			attack_cooldown -= delta
 			if not rival.is_empty():
@@ -161,8 +174,72 @@ func _physics_process(delta):
 					player.take_damage(hit, self)
 					attack_cooldown = 1.0
 	
+	if _hold:
+		_hold = false
+		return
 	move_and_slide()
 	_on_hill = GameState.on_hill(self)
+
+var _hold := false
+
+# ---------------- Crowd: keep apart without physics ----------------
+# Enemies don't collide with each other (too slow with hundreds). Instead there's one shared grid of how
+# many moving enemies are in each small square, rebuilt once per physics frame. Each enemy steps away
+# from crowded squares next to it, so a mob spreads into a ring around you instead of one blob.
+const CROWD_CELL = 1.5
+const CROWD_PUSH = 1.6		# push per neighbor (m/s)
+const CROWD_MAX = 5.0		# strongest push (m/s)
+const CROWD_EVERY = 2		# physics frames between re-checks
+static var _crowd := {}		# Vector3i(world, cell x, cell z) -> Vector3(count, sum x, sum z)
+static var _crowd_frame := -1
+var _push := Vector2.ZERO
+var _push_t := 0
+
+
+static func _build_crowd(tree: SceneTree):
+	_crowd.clear()
+	for e in tree.get_nodes_in_group("enemy") + tree.get_nodes_in_group("ally_mob"):
+		if not e.aggroed and e.ally_time <= 0.0:
+			continue	# idle enemies stand still
+		var p = e.global_position
+		var key = Vector3i(e.get_world_3d().get_instance_id() % 1000000, floori(p.x / CROWD_CELL), floori(p.z / CROWD_CELL))
+		_crowd[key] = _crowd.get(key, Vector3.ZERO) + Vector3(1.0, p.x, p.z)
+
+
+## A shove away from crowded spots next to it (x, z).
+func _crowd_push() -> Vector2:
+	_push_t -= 1
+	if _push_t > 0:
+		return _push
+	_push_t = CROWD_EVERY
+	var frame = Engine.get_physics_frames()
+	if frame != _crowd_frame:
+		_crowd_frame = frame
+		_build_crowd(get_tree())
+	var p = global_position
+	var w = get_world_3d().get_instance_id() % 1000000
+	var cx = floori(p.x / CROWD_CELL)
+	var cz = floori(p.z / CROWD_CELL)
+	var out = Vector2.ZERO
+	for dx in range(-1, 2):
+		for dz in range(-1, 2):
+			var c = _crowd.get(Vector3i(w, cx + dx, cz + dz))
+			if c == null:
+				continue
+			if dx == 0 and dz == 0:	# my own square: leave myself out
+				c -= Vector3(1.0, p.x, p.z)
+			if c.x < 0.5:
+				continue
+			var d = Vector2(p.x - c.y / c.x, p.z - c.z / c.x)
+			var l = d.length()
+			if l < 0.05:	# right in the middle of them: pick a side
+				d = Vector2(randf() - 0.5, randf() - 0.5)
+				l = d.length() + 0.001
+			var near = clampf(1.0 - l / (CROWD_CELL * 1.5), 0.0, 1.0)
+			out += d / l * c.x * near * CROWD_PUSH
+	_push = out.limit_length(CROWD_MAX)
+	return _push
+
 
 ## Can the Healer's F turn this one? Not Bosses, Rivals or landmark bosses.
 func can_turn() -> bool:
@@ -251,8 +328,9 @@ func _ally_tick(delta: float):
 		to.y = 0.0
 		if to.length() > close_enough:
 			var dir = to.normalized() * SPEED * (GameState.HILL_SPEED if _on_hill else 1.0)
-			velocity.x = dir.x
-			velocity.z = dir.z
+			var push = _crowd_push()
+			velocity.x = dir.x + push.x
+			velocity.z = dir.z + push.y
 	attack_cooldown -= delta
 	if _ally_target and global_position.distance_to(_ally_target.global_position) <= close_enough and attack_cooldown <= 0.0:
 		_ally_target.aggroed = true

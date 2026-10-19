@@ -381,11 +381,41 @@ func slow_factor_at(world_pos: Vector3, node = null) -> float:
 
 
 ## The slow patch at a spot, or null.
+## Every enemy asks this, so ditches are sorted into a grid once per physics frame (per zone) and a
+## question only looks at the few ditches in its own grid square (was: every ditch in the game, every time).
+const DITCH_CELL = 8.0
+var _ditch_grid := {}		# viewport id -> {Vector2i cell: [ditches]}
+var _ditch_frame := -1
+
 func ditch_at(world_pos: Vector3, node = null):
-	for d in (Zones.all(node, "ditch") if node else Zones.local_all("ditch")):
-		if d.contains(world_pos):
+	var frame = Engine.get_physics_frames()
+	if frame != _ditch_frame:
+		_ditch_frame = frame
+		_ditch_grid.clear()
+	var who = node if node else Zones.player
+	var vp = who.get_viewport() if who and is_instance_valid(who) and who.is_inside_tree() else null
+	var vid = vp.get_instance_id() if vp else 0
+	if not _ditch_grid.has(vid):
+		_ditch_grid[vid] = _sort_ditches(Zones.all(node, "ditch") if node else Zones.local_all("ditch"))
+	var cell = Vector2i(floori(world_pos.x / DITCH_CELL), floori(world_pos.z / DITCH_CELL))
+	for d in _ditch_grid[vid].get(cell, []):
+		if is_instance_valid(d) and d.contains(world_pos):
 			return d
 	return null
+
+
+func _sort_ditches(list: Array) -> Dictionary:
+	var grid = {}
+	for d in list:
+		var r = d.size.length() / 2.0 + 0.5	# reaches this far from its middle, however it's turned
+		var p = d.global_position
+		for x in range(floori((p.x - r) / DITCH_CELL), floori((p.x + r) / DITCH_CELL) + 1):
+			for z in range(floori((p.z - r) / DITCH_CELL), floori((p.z + r) / DITCH_CELL) + 1):
+				var c = Vector2i(x, z)
+				if not grid.has(c):
+					grid[c] = []
+				grid[c].append(d)
+	return grid
 
 
 # ---------------- Notices (big gold message on screen) ----------------
