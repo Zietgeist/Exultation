@@ -12,6 +12,7 @@ const CELLS = 7
 const CELL = 20.0
 const HALF = 70.0
 const WALL_H = 4.0
+const FOE_MULT = 3		# enemies per room (x the old 1-3)
 
 var info := {}
 var alive := 0
@@ -58,7 +59,7 @@ func _process(_delta):
 		if l == null or not is_instance_valid(l):
 			l = OmniLight3D.new()
 			l.light_color = Color(1.0, 0.85, 0.6)
-			l.omni_range = 16.0
+			l.omni_range = 16.8	# 5% more than the old 16
 			l.light_energy = 1.6
 			l.shadow_enabled = false
 			add_child(l)
@@ -181,7 +182,7 @@ func _foes():
 	for c in cells.slice(2):
 		if _rng.randf() > 0.7 * share:
 			continue
-		for i in range(_rng.randi_range(1, 3)):
+		for i in range(_rng.randi_range(1, 3) * FOE_MULT):
 			_foe(_rng.randi() % 2 if _rng.randf() < 0.8 else 2, _cell_center(c) + Vector3(_rng.randf_range(-6, 6), 0, _rng.randf_range(-6, 6)), diff)
 	var lord = _foe(3, _cell_center(cells[-1]), diff * 1.5)
 	lord.no_count = true
