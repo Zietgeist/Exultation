@@ -202,5 +202,7 @@
 		"cape": "#2c0a0e",
 		"plume": "#8a1018",
 		"eyes": "#ff3a1a"
-	}
+	},
+	"boss_epithets": ["the Hollow King", "Plaguemother", "the Weeping", "Gravecaller", "of the Black Sun", "Soulrender"],
+	"boss_moves": {"quake": "Grave Quake", "charge": "Death Charge", "rain": "Bone Rain", "nova": "Soul Nova"}
 }

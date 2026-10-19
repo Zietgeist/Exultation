@@ -80,6 +80,10 @@ func setup(diff, t = Tier.TRASH, element := "physical"):
 	
 	# Set color (from the current skin)
 	apply_skin()
+	if tier == Tier.BOSS and rival.is_empty() and not has_node("BossKit"):	# title, aura, big dodgeable moves (boss_kit.gd)
+		var kit = preload("res://boss_kit.gd").new()
+		kit.name = "BossKit"
+		add_child(kit)
 	if Net.is_host() and not mirror:
 		net_id = Net.register_enemy(self)
 
@@ -366,6 +370,8 @@ func mirror_died():
 		Story.on_kill(self)
 	if tier == Tier.BOSS:
 		GameState.add_mark("boss", global_position, self, _mark_name())
+		if has_node("BossKit"):
+			$BossKit.on_death()
 	if not has_meta("looted"):	# a turned enemy already dropped its loot
 		drop_orb()
 		drop_gold()
@@ -379,6 +385,8 @@ func die():
 		Rivals.rival_died(self)
 	if tier == Tier.BOSS:
 		GameState.add_mark("boss", global_position, self, _mark_name())
+		if has_node("BossKit"):
+			$BossKit.on_death()
 	emit_signal("enemy_died", tier)
 	_send_defeated()
 	if Zones.first(self, "player") and not has_meta("recruited"):	# loot is personal: the host only drops its own if it's here (none for a recruit: it's leaving, not dying)
@@ -508,7 +516,7 @@ func _slam(at: Vector3):
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	ring.material_override = mat
 	get_parent().add_child(ring)
-	ring.global_position = Vector3(at.x, 0.06, at.z)
+	ring.global_position = Vector3(at.x, 0.25, at.z)	# floor top is 0.2 (was 0.06: hidden under the floor)
 	await get_tree().create_timer(1.0).timeout
 	if is_instance_valid(ring):
 		ring.queue_free()

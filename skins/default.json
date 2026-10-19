@@ -259,5 +259,7 @@
 			"island": "Lake Isle"
 		}
 	},
-	"fast_travel": "portal"
+	"fast_travel": "portal",
+	"boss_epithets": ["the Ashborn", "the Unbroken", "Doomscale", "the Hungering", "Stormmaw", "the Last Flame", "Bonecrusher", "the Ancient"],
+	"boss_moves": {"quake": "Quake", "charge": "Rampage", "rain": "Firefall", "nova": "Inferno"}
 }

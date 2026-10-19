@@ -69,6 +69,7 @@ const SPAWN_HEIGHT = 1.5	# start a little above the floor and drop onto it
 const FALL_LIMIT = -10.0	# below this, we fell out of the world
 const BASE_CAMERA_OFFSET = Vector3(0, 8, 5)	# the original, closer camera
 const CAMERA_ZOOM = 1.5	# camera is 1.5x farther out than the original (same angle)
+var _shake := 0.0	# screen shake left (add_shake)
 const CAMERA_OFFSET = BASE_CAMERA_OFFSET * CAMERA_ZOOM
 const RESPAWN_SAFE_TIME = 2.0	# seconds you can't be hurt after respawning
 var spawn_point = Vector3.ZERO
@@ -270,6 +271,9 @@ func _physics_process(delta):
 
 	if camera:
 		camera.global_position = global_position + CAMERA_OFFSET
+		if _shake > 0.0:	# bosses roaring and slamming
+			_shake = max(0.0, _shake - delta * 1.5)
+			camera.global_position += Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * _shake * 0.6
 
 	_tick_gathering(delta)
 	_tick_potion(delta)
@@ -987,3 +991,8 @@ func _check_stuck(direction: Vector3, speed_now: float, delta: float, before: Ve
 	ErrorLog.warn("Player stuck at %s in %s, touching %s. Moved back to the last free spot." % [global_position.round(), GameState.current_zone, touching])
 	global_position = _free_pos if _free_pos != null else spawn_point
 	velocity = Vector3.ZERO
+
+
+## Shake the screen a bit (boss roars, slams). Stacks up to a limit.
+func add_shake(amount: float):
+	_shake = min(1.0, _shake + amount)

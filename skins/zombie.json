@@ -231,5 +231,7 @@
 			"island": "Quarantine Island"
 		}
 	},
-	"fast_travel": "rail"
+	"fast_travel": "rail",
+	"boss_epithets": ["Patient Zero", "the Bloated", "Big Rot", "the Butcher", "Meat Wagon", "the Screamer"],
+	"boss_moves": {"quake": "Ground Pound", "charge": "Stampede", "rain": "Bile Rain", "nova": "Burst"}
 }

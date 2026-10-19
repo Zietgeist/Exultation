@@ -193,5 +193,7 @@
 			"island": "Orbital Platform"
 		}
 	},
-	"fast_travel": "tube"
+	"fast_travel": "tube",
+	"boss_epithets": ["Prime", "Omega Strain", "the Overmind", "Unit Zero", "the Devourer", "Apex"],
+	"boss_moves": {"quake": "Seismic Pulse", "charge": "Ram Protocol", "rain": "Orbital Strike", "nova": "Overload"}
 }
