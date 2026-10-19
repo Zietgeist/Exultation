@@ -41,6 +41,7 @@ const WAKE_RADIUS = 45.0		# dormant enemies closer than this become real
 const SLEEP_RADIUS = 60.0		# real, calm enemies farther than this go dormant
 const STREAM_EVERY = 0.1		# seconds between wake/sleep checks
 const MAX_WAKES_PER_CHECK = 12	# spread the work so there are no hitches
+const SWAP_MIN = 30.0		# idle enemies farther than this can be put back to sleep to make room for closer ones
 var MAX_AWAKE = 60			# at most this many real enemies at once (big zones pack 150-200 into
 								# the wake circle, which lags). Nearest wake first; more wake as you kill.
 
@@ -283,7 +284,7 @@ func _process(delta):
 
 func _spawn_near_player():
 	var left = reserve[0] + reserve[1] + reserve[2]
-	if left <= 0 or in_safe_spot(player.global_position) or Landmarks.in_safe(player) or Zones.all(self, "enemy").size() >= MAX_AWAKE:
+	if left <= 0 or in_safe_spot(player.global_position) or Landmarks.in_safe(player) or _mine().size() >= MAX_AWAKE:
 		return
 	var center = _offscreen_spot()
 	if center == null:	# nowhere out of sight right now: try again next time
@@ -470,7 +471,7 @@ func _stream():
 	for m in GameState.party(self):
 		if is_instance_valid(m) and m.is_inside_tree():
 			spots.append(m.global_position)
-	var awake = Zones.all(self, "enemy")
+	var awake = _mine()	# landmark foes and captive guards don't use up the cap (they stay put far away)
 	var room = MAX_AWAKE - awake.size()
 	# Too many awake (e.g. after a party spread out): calm ones farthest from everyone go back to sleep
 	if room < 0:
@@ -491,30 +492,44 @@ func _stream():
 					b.erase(d)
 					_instantiate(d.t, d.p, d.h, d.get("e", "physical"))
 	# Wake the NEAREST sleeping ones, up to the cap
-	if room > 0:
-		var near = []	# [distance, bucket, entry]
-		for sp in spots:
-			for kx in range(floori((sp.x - WAKE_RADIUS) / BUCKET), floori((sp.x + WAKE_RADIUS) / BUCKET) + 1):
-				for kz in range(floori((sp.z - WAKE_RADIUS) / BUCKET), floori((sp.z + WAKE_RADIUS) / BUCKET) + 1):
-					var b = _buckets.get(Vector2i(kx, kz))
-					if b == null:
-						continue
-					for d in b:
-						var dist = _nearest(spots, d.p)
-						if dist < WAKE_RADIUS:
-							near.append([dist, b, d])
-		near.sort_custom(func(a, b): return a[0] < b[0])
-		var woke = 0
-		for n in near:
-			if woke >= mini(room, MAX_WAKES_PER_CHECK):
+	var near = []	# [distance, bucket, entry]
+	for sp in spots:
+		for kx in range(floori((sp.x - WAKE_RADIUS) / BUCKET), floori((sp.x + WAKE_RADIUS) / BUCKET) + 1):
+			for kz in range(floori((sp.z - WAKE_RADIUS) / BUCKET), floori((sp.z + WAKE_RADIUS) / BUCKET) + 1):
+				var b = _buckets.get(Vector2i(kx, kz))
+				if b == null:
+					continue
+				for d in b:
+					var dist = _nearest(spots, d.p)
+					if dist < WAKE_RADIUS:
+						near.append([dist, b, d])
+	near.sort_custom(func(a, b): return a[0] < b[0])
+	# Cap full of idle enemies left BEHIND you? Swap them for the ones ahead, so you never run into empty ground
+	if near.size() > room:
+		var calm = awake.filter(func(e): return is_instance_valid(e) and not e.aggroed and not e.is_queued_for_deletion() and e.has_meta("from_spawner") and e.tier != 3)
+		calm.sort_custom(func(a, b): return _nearest(spots, a.global_position) > _nearest(spots, b.global_position))
+		var want = mini(near.size(), MAX_WAKES_PER_CHECK) - room
+		for e in calm:
+			if want <= 0:
 				break
-			var d = n[2]
-			var i = n[1].find(d)
-			if i == -1:
-				continue
-			n[1].remove_at(i)
-			_instantiate(d.t, d.p, d.h, d.get("e", "physical"))
-			woke += 1
+			var far = _nearest(spots, e.global_position)
+			if far < SWAP_MIN or far < near[room][0] + 8.0:	# only trade a far one for a clearly closer one
+				break
+			_sleep({t = e.tier, p = e.global_position, h = e.health, e = e.damage_type})
+			e.queue_free()
+			room += 1
+			want -= 1
+	var woke = 0
+	for n in near:
+		if woke >= mini(room, MAX_WAKES_PER_CHECK):
+			break
+		var d = n[2]
+		var i = n[1].find(d)
+		if i == -1:
+			continue
+		n[1].remove_at(i)
+		_instantiate(d.t, d.p, d.h, d.get("e", "physical"))
+		woke += 1
 	for enemy in awake:
 		if not is_instance_valid(enemy) or enemy.aggroed or enemy.is_queued_for_deletion() or not enemy.has_meta("from_spawner"):
 			continue
@@ -524,6 +539,11 @@ func _stream():
 		if _nearest(spots, ep) > SLEEP_RADIUS:
 			_sleep({t = enemy.tier, p = ep, h = enemy.health, e = enemy.damage_type})
 			enemy.queue_free()
+
+
+## Awake enemies this spawner owns (only these count toward MAX_AWAKE).
+func _mine() -> Array:
+	return Zones.all(self, "enemy").filter(func(e): return e.has_meta("from_spawner"))
 
 
 ## Flat distance from a spot to the closest of several spots.
