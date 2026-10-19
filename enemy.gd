@@ -504,6 +504,19 @@ func _tick_power(delta: float, distance: float):
 
 ## Red circle on the ground, then a big hit on everyone still in it a second later. Step out!
 func _slam(at: Vector3):
+	if Net.is_online() and Net.is_host():	# joined players see the circle too
+		Net.boss_fx(self, "slam", {at = at})
+	slam_fx(at)
+	await get_tree().create_timer(1.0).timeout
+	if not is_instance_valid(self) or not is_inside_tree():
+		return
+	for m in GameState.party(self) + Zones.all(self, "pet"):
+		if is_instance_valid(m) and Vector2(m.global_position.x - at.x, m.global_position.z - at.z).length() <= SLAM_RADIUS:
+			m.take_damage(ATTACK_DAMAGE * 1.5, self)
+
+
+## Just the red circle (host and joined players).
+func slam_fx(at: Vector3):
 	var ring = MeshInstance3D.new()
 	var cyl = CylinderMesh.new()
 	cyl.top_radius = SLAM_RADIUS
@@ -517,14 +530,7 @@ func _slam(at: Vector3):
 	ring.material_override = mat
 	get_parent().add_child(ring)
 	ring.global_position = Vector3(at.x, 0.25, at.z)	# floor top is 0.2 (was 0.06: hidden under the floor)
-	await get_tree().create_timer(1.0).timeout
-	if is_instance_valid(ring):
-		ring.queue_free()
-	if not is_instance_valid(self) or not is_inside_tree():
-		return
-	for m in GameState.party(self) + Zones.all(self, "pet"):
-		if is_instance_valid(m) and Vector2(m.global_position.x - at.x, m.global_position.z - at.z).length() <= SLAM_RADIUS:
-			m.take_damage(ATTACK_DAMAGE * 1.5, self)
+	get_tree().create_timer(1.0).timeout.connect(ring.queue_free)
 
 
 func _say(text: String):

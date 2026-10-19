@@ -550,6 +550,46 @@ func _turn(key: String, id: int, seconds: float, buff: float):
 		e.turn_ally(clampf(seconds, 0.0, 60.0), clampf(buff, 1.0, 4.0))	# never trust big numbers from the network
 
 
+# ---------------- Boss moves (boss_kit.gd) ----------------
+
+## Host: a boss (or a rival's slam) just did something big: show it to the players in its zone.
+func boss_fx(e, kind: String, data: Dictionary):
+	if not is_host() or e.net_id == 0:
+		return
+	var key = Zones.key_of(e)
+	for peer in _peers_in(key):
+		_boss_fx.rpc_id(peer, key, e.net_id, kind, data)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _boss_fx(key: String, id: int, kind: String, data: Dictionary):
+	if Zones.local_key() != key:
+		return
+	var m = mirrors.get(id)
+	if m == null or not is_instance_valid(m):	# not near me (no copy here): nothing to see
+		return
+	if kind == "slam":
+		if typeof(data.get("at")) == TYPE_VECTOR3:
+			m.slam_fx(data.at)
+	elif m.has_node("BossKit"):
+		m.get_node("BossKit").net_fx(kind, data)
+
+
+## Joined player: a boss just showed up on my screen; ask the host its name and how angry it is.
+func ask_boss_info(id: int):
+	if is_client():
+		_boss_info.rpc_id(1, Zones.local_key(), id)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _boss_info(key: String, id: int):
+	var e = enemies.get(id)
+	if e == null or not is_instance_valid(e) or Zones.key_of(e) != key or not e.has_node("BossKit"):
+		return
+	var kit = e.get_node("BossKit")
+	_boss_fx.rpc_id(multiplayer.get_remote_sender_id(), key, id, "info", {name = kit.display_name, phase = kit.phase})
+
+
 # ---------------- Shared moments ----------------
 
 ## Host: tell the players in `node`'s zone about something (their zone scene handles it in net_event).

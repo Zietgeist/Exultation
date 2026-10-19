@@ -9,7 +9,8 @@ extends Node3D
 ##       Inferno  (rage phases only) a huge ring around ITSELF: back off
 ##   - Two rage phases (at 66% and 33% health): calls minions, moves faster, attacks more often
 ##   - Death: slow motion, a flash and a shockwave
-## The host runs the moves (online, joined players see the aura, title and death).
+## The host runs the moves and does the damage. Online, it sends every warning circle, charge lane,
+## shockwave, roar and rage to the joined players (Net.boss_fx -> net_fx), so they see the same fight.
 ## Names and move words come from the skin ("boss_epithets", "boss_moves").
 
 const MOVE_EVERY = [7.0, 5.5, 4.0]	# seconds between moves, by phase
@@ -50,7 +51,10 @@ func _ready():
 	if boss.damage_type != "physical":
 		_color = Crafting.ELEMENT_COLORS.get(boss.damage_type, GOLD)
 	_make_aura()
-	_name_it.call_deferred()	# after landmarks set their own title ("Lord of ...")
+	if boss.mirror:	# joined player: the host knows its name and how angry it is
+		Net.ask_boss_info.call_deferred(boss.net_id)
+	else:
+		_name_it.call_deferred()	# after landmarks set their own title ("Lord of ...")
 
 
 ## "Dragon the Ashborn" (landmark bosses keep the title they were given).
@@ -120,8 +124,13 @@ func _physics_process(delta):
 # ---------------- Big moments ----------------
 
 func _roar(text: String):
-	GameState.notify(text)
 	boss.rooted_time = max(boss.rooted_time, 1.0)	# it stops to roar
+	_send("roar", {text = text})
+	_roar_fx(text)
+
+
+func _roar_fx(text: String):
+	GameState.notify(text)
 	_shockwave(boss.global_position, 14.0, _color)
 	_shake_near(boss.global_position, 0.5)
 
@@ -129,15 +138,22 @@ func _roar(text: String):
 func _check_phase():
 	if phase >= PHASE_AT.size() or boss.health > boss.MAX_HEALTH * PHASE_AT[phase]:
 		return
-	phase += 1
-	boss.SPEED = _base_speed * SPEED_UP[phase]
+	boss.SPEED = _base_speed * SPEED_UP[phase + 1]
+	_set_phase(phase + 1)
+	_send("phase", {phase = phase})
 	_roar("%s is enraged!" % display_name)
 	_summon(MINIONS[phase - 1])
-	if phase == 2:	# last stand: bigger, burning red
-		boss.get_node("MeshInstance3D").scale *= 1.15
-		_color = _color.lerp(DANGER, 0.6)
-		_light.light_color = _color
-		_ring_mat.albedo_color = Color(_color.r, _color.g, _color.b, _ring_mat.albedo_color.a)
+
+
+## How angry it looks (host and joined players both).
+func _set_phase(p: int):
+	while phase < p:
+		phase += 1
+		if phase == 2:	# last stand: bigger, burning red
+			boss.get_node("MeshInstance3D").scale *= 1.15
+			_color = _color.lerp(DANGER, 0.6)
+			_light.light_color = _color
+			_ring_mat.albedo_color = Color(_color.r, _color.g, _color.b, _ring_mat.albedo_color.a)
 
 
 ## Minions burst out of the ground around it and come straight for you.
@@ -155,7 +171,7 @@ func _summon(count: int):
 		e.global_position = Vector3(p.x, boss.global_position.y, p.z)
 		e.setup(boss.difficulty, tiers[i], boss.damage_type)
 		e.aggroed = true
-		_shockwave(e.global_position, 2.5, _color)
+		_wave(e.global_position, 2.5)
 
 
 func _do_move():
@@ -165,6 +181,7 @@ func _do_move():
 	moves.erase(_last_move)	# never the same twice in a row
 	var m = moves[randi() % moves.size()]
 	_last_move = m
+	_send("shout", {move = m})
 	_shout(m)
 	match m:
 		"quake":
@@ -184,6 +201,8 @@ func _shout(move: String):
 	var word = DEFAULT_MOVES[move]
 	if typeof(words) == TYPE_DICTIONARY:
 		word = str(words.get(move, word))
+	if display_name == "":
+		return
 	if boss._title_label == null:
 		return
 	boss._title_label.text = "%s\n%s!" % [display_name, word.to_upper()]
@@ -215,23 +234,27 @@ func _charge():
 	if to.length() < 0.5:
 		to = Vector3(1, 0, 0)
 	_charge_dir = to.normalized()
+	boss.rooted_time = max(boss.rooted_time, 1.0)
+	_send("lane", {at = boss.global_position, dir = _charge_dir})
+	_lane_fx(boss.global_position, _charge_dir)
+	await get_tree().create_timer(0.9).timeout
+	if not is_instance_valid(boss) or not boss.is_inside_tree():
+		return
+	_charge_hit = []
+	_charge_left = CHARGE_TIME
+
+
+## The red lane it's about to charge down (shows for 0.9 s).
+func _lane_fx(start: Vector3, dir: Vector3):
 	var lane = MeshInstance3D.new()
 	var box = BoxMesh.new()
 	box.size = Vector3(CHARGE_WIDTH, 0.04, CHARGE_LEN)
 	lane.mesh = box
 	lane.material_override = _flat_mat(Color(DANGER.r, DANGER.g, DANGER.b, 0.35))
 	boss.get_parent().add_child(lane)
-	var start = boss.global_position
-	lane.global_position = Vector3(start.x, _ground_y(start), start.z) + _charge_dir * CHARGE_LEN * 0.5
-	lane.look_at(lane.global_position + _charge_dir, Vector3.UP)
-	boss.rooted_time = max(boss.rooted_time, 1.0)
-	await get_tree().create_timer(0.9).timeout
-	if is_instance_valid(lane):
-		lane.queue_free()
-	if not is_instance_valid(boss) or not boss.is_inside_tree():
-		return
-	_charge_hit = []
-	_charge_left = CHARGE_TIME
+	lane.global_position = Vector3(start.x, _ground_y(start), start.z) + dir * CHARGE_LEN * 0.5
+	lane.look_at(lane.global_position + dir, Vector3.UP)
+	get_tree().create_timer(0.9).timeout.connect(lane.queue_free)
 
 
 func _tick_charge(delta: float):
@@ -246,13 +269,27 @@ func _tick_charge(delta: float):
 			m.take_damage(boss.ATTACK_DAMAGE * 0.7, boss)
 			_shake_near(m.global_position, 0.4)
 	if _charge_left <= 0.0:
-		_shockwave(boss.global_position, 4.0, _color)
+		_wave(boss.global_position, 4.0)
 
 
 ## A red circle that fills up; when full, everyone still in it is hit.
 func _telegraph(at: Vector3, radius: float, delay: float, power: float):
-	var root = boss.get_parent()
 	var spot = Vector3(at.x, _ground_y(at), at.z)
+	_send("tele", {at = spot, r = radius, d = delay})
+	_tele_fx(spot, radius, delay)
+	var dmg = boss.ATTACK_DAMAGE * power
+	var who = boss
+	await get_tree().create_timer(delay).timeout
+	if not is_instance_valid(who) or not who.is_inside_tree():
+		return
+	for m in _targets():
+		if _flat(m.global_position, spot) <= radius:
+			m.take_damage(dmg, who)
+
+
+## The circle itself: fills up over `delay`, then bursts (everyone sees this; only the host does damage).
+func _tele_fx(spot: Vector3, radius: float, delay: float):
+	var root = boss.get_parent()
 	var edge = _disc(radius, Color(DANGER.r, DANGER.g, DANGER.b, 0.22))
 	var fill = _disc(radius, Color(DANGER.r, DANGER.g, DANGER.b, 0.45))
 	root.add_child(edge)
@@ -262,7 +299,6 @@ func _telegraph(at: Vector3, radius: float, delay: float, power: float):
 	fill.scale = Vector3(0.01, 1, 0.01)
 	var tw = fill.create_tween()
 	tw.tween_property(fill, "scale", Vector3.ONE, delay)
-	var dmg = boss.ATTACK_DAMAGE * power
 	var who = boss
 	await get_tree().create_timer(delay).timeout
 	if is_instance_valid(edge):
@@ -273,9 +309,51 @@ func _telegraph(at: Vector3, radius: float, delay: float, power: float):
 		return
 	_shockwave(spot, radius * 1.2, _color)
 	_shake_near(spot, 0.25)
-	for m in _targets():
-		if _flat(m.global_position, spot) <= radius:
-			m.take_damage(dmg, who)
+
+
+# ---------------- Online ----------------
+
+## Host: show this to the joined players in this zone too.
+func _send(kind: String, data: Dictionary):
+	if Net.is_online() and Net.is_host():
+		Net.boss_fx(boss, kind, data)
+
+
+## A shockwave everyone sees.
+func _wave(at: Vector3, radius: float):
+	_send("wave", {at = at, r = radius})
+	_shockwave(at, radius, _color)
+
+
+## Joined player: the host says this boss just did something. Show it (no damage here: the host does that).
+func net_fx(kind: String, data: Dictionary):
+	if not is_instance_valid(boss) or not boss.is_inside_tree():
+		return
+	if kind in ["tele", "lane", "wave"] and typeof(data.get("at")) != TYPE_VECTOR3:
+		ErrorLog.warn("Boss effect '%s' from the host had no spot" % kind)
+		return
+	match kind:
+		"info":
+			display_name = str(data.get("name", ""))
+			if display_name != "":
+				boss.set_title(display_name)
+			_set_phase(clampi(int(data.get("phase", 0)), 0, PHASE_AT.size()))
+		"roar":
+			_roar_fx(str(data.get("text", "")))
+		"phase":
+			_set_phase(clampi(int(data.get("phase", 0)), 0, PHASE_AT.size()))
+		"shout":
+			if DEFAULT_MOVES.has(data.get("move")):
+				_shout(data.move)
+		"tele":
+			_tele_fx(data.at, clampf(float(data.get("r", 1.0)), 0.5, 12.0), clampf(float(data.get("d", 1.0)), 0.1, 3.0))
+		"lane":
+			if typeof(data.get("dir")) == TYPE_VECTOR3:
+				_lane_fx(data.at, Vector3(data.dir).normalized())
+		"wave":
+			_shockwave(data.at, clampf(float(data.get("r", 1.0)), 0.5, 25.0), _color)
+		_:
+			ErrorLog.warn("Boss effect from the host I don't know: %s" % kind)
 
 
 # ---------------- Death (enemy.gd calls this) ----------------
