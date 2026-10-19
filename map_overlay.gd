@@ -304,7 +304,7 @@ func _draw_zone(path: String, font, cleared := true):
 		var col = Color(0.7, 1.0, 0.7) if Landmarks.state(path, l.info.id).has("taken") else Color(0.95, 0.75, 0.45)
 		draw_arc(c, r, 0, TAU, 32, col, 2.0)
 		_tip(c, l.info.name + "\n" + ("Landmark - done" if Landmarks.state(path, l.info.id).has("taken") else "Landmark - go explore it"), r + 4.0)
-		draw_string(font, c + Vector2(-80, -r - 6), l.info.name, HORIZONTAL_ALIGNMENT_CENTER, 160, 14, col)
+		draw_string(font, c + Vector2(-130, -r - 6), l.info.name, HORIZONTAL_ALIGNMENT_CENTER, 260, 14, col)
 	# A captive to free (helpers.gd): always shown, so you know where to go
 	for n in Zones.local_all("npc"):
 		if str(n.get("shop")).begins_with("captive:"):
@@ -317,7 +317,11 @@ func _draw_zone(path: String, font, cleared := true):
 		if Travel.is_found(path, w.station_id):
 			var c = _to_screen(fit, w.global_position)
 			draw_colored_polygon(PackedVector2Array([c + Vector2(0, -7), c + Vector2(6, 0), c + Vector2(0, 7), c + Vector2(-6, 0)]), Color(0.5, 0.8, 1.0))
-			_tip(c, Travel.station_name() + "\nFast travel stop you've found")
+			if not str(w.station_id).begins_with("lm:"):	# a landmark's stop: the landmark's name is already there
+				var where = _station_short(w.label_text)	# "by the Zone 5 gate", "northwest"...
+				draw_string_outline(font, c + Vector2(-90, 20), where, HORIZONTAL_ALIGNMENT_CENTER, 180, 12, 4, Color(0, 0, 0, 0.8))
+				draw_string(font, c + Vector2(-90, 20), where, HORIZONTAL_ALIGNMENT_CENTER, 180, 12, Color(0.6, 0.88, 1.0))
+			_tip(c, "%s: %s\nFast travel stop you've found" % [Travel.station_name(), w.label_text])
 	# Shrines you've seen
 	for sh in Zones.local_all("shrine"):
 		if seen.call(sh.global_position):
@@ -437,3 +441,9 @@ func _draw_fog_cells(screen: Rect2, half: Vector2, revealed, cell := 4.0):
 			elif not on and start != -1:
 				draw_rect(Rect2(screen.position + Vector2(start * cw, r * ch), Vector2((c - start) * cw + 0.5, ch + 0.5)), EXPLORED)
 				start = -1
+
+
+## A stop's label without the zone name in front ("Zone 6, by the Zone 5 gate" -> "by the Zone 5 gate").
+func _station_short(label: String) -> String:
+	var i = label.find(", ")
+	return label.substr(i + 2) if i >= 0 else label
