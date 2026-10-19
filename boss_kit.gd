@@ -168,6 +168,7 @@ func _summon(count: int):
 		var e = preload("res://enemy.tscn").instantiate()
 		e.set_meta("landmark", "boss_minion")	# not the spawner's: not saved with the zone
 		boss.get_parent().add_child(e)
+		p = GameState.dry_spot(p, boss)
 		e.global_position = Vector3(p.x, boss.global_position.y, p.z)
 		e.setup(boss.difficulty, tiers[i], boss.damage_type)
 		e.aggroed = true

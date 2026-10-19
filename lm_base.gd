@@ -99,7 +99,7 @@ func spawn_enemy(tier: int, local_pos: Vector3, diff_mult := 1.0, title := ""):
 	var e = ENEMY_SCENE.instantiate()
 	e.set_meta("landmark", info.id)
 	Zones.root_of(self).add_child(e)
-	var p = to_global(local_pos)
+	var p = GameState.dry_spot(to_global(local_pos), self)	# raiders from the river side: start on the bank
 	e.global_position = Vector3(p.x, 1.2, p.z)
 	e.setup(zone_diff() * diff_mult, tier, Crafting.roll_enemy_element(zone_path, tier == 3))
 	if title != "":

@@ -404,6 +404,48 @@ func ditch_at(world_pos: Vector3, node = null):
 	return null
 
 
+## Is this spot in deep water (the river / lake boxes you can't walk into, or island sea)?
+func in_deep_water(pos: Vector3, node) -> bool:
+	return _water_box_at(pos, node) != null or _island_water(pos, node)
+
+
+## A dry spot near `pos` (pos itself when it's already dry). Every enemy spawn goes through this:
+## an enemy placed inside a deep-water box gets pushed out the TOP by the physics and stands on the
+## invisible lid, floating where you can't reach it. Deep water is the island map's sea, so dry land
+## is always toward the middle of the map: walk that way until the feet are dry.
+func dry_spot(pos: Vector3, node) -> Vector3:
+	if not in_deep_water(pos, node):
+		return pos
+	var flat = Vector3(pos.x, 0, pos.z)
+	var dist = flat.length()
+	var dir = -flat.normalized() if dist > 0.1 else Vector3(1, 0, 0)
+	var walked = 0.0
+	while walked < dist:
+		walked += 2.0
+		var p = pos + dir * walked
+		if not in_deep_water(p, node):
+			p = p + dir * 1.5	# a step past the shoreline
+			return p if not in_deep_water(p, node) else pos + dir * walked
+	ErrorLog.warn("Couldn't find dry land near %s" % pos)
+	return pos
+
+
+func _water_box_at(pos: Vector3, node):
+	for w in Zones.all(node, "deep_water"):
+		var d = w.get_meta("data", null)
+		if d == null:
+			continue
+		var c = w.global_position
+		if abs(pos.x - c.x) <= d.sx / 2.0 + 0.6 and abs(pos.z - c.z) <= d.sz / 2.0 + 0.6:	# + a body's width
+			return w
+	return null
+
+
+func _island_water(pos: Vector3, node) -> bool:
+	var terrain = Zones.first(node, "zone_terrain")
+	return terrain != null and terrain.has_method("is_water") and terrain.is_water(pos)
+
+
 func _sort_ditches(list: Array) -> Dictionary:
 	var grid = {}
 	for d in list:

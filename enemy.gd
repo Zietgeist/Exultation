@@ -154,6 +154,9 @@ func _physics_process(delta):
 			if _slow_t <= 0.0:	# in a ditch? (checked 4 times a second, not every frame)
 				_slow_t = 0.25
 				_slow = GameState.slow_factor_at(global_position, self)
+				if global_position.y > 2.6 and is_on_floor() and _standing_on_water():	# up on a river's invisible lid
+					var dry = GameState.dry_spot(global_position, self)
+					global_position = Vector3(dry.x, 1.2, dry.z)
 			var speed_now = SPEED * _slow * (GameState.HILL_SPEED if _on_hill else 1.0) * (HORDE_SPEED if horde else 1.0)
 			if rooted_time > 0.0:
 				rooted_time -= delta
@@ -181,6 +184,15 @@ func _physics_process(delta):
 	_on_hill = GameState.on_hill(self)
 
 var _hold := false
+
+
+## Is the thing under my feet a deep-water box? (The physics can push an enemy up onto its lid.)
+func _standing_on_water() -> bool:
+	for i in range(get_slide_collision_count()):
+		var c = get_slide_collision(i).get_collider()
+		if c and c.is_in_group("deep_water"):
+			return true
+	return false
 
 # ---------------- Crowd: keep apart without physics ----------------
 # Enemies don't collide with each other (too slow with hundreds). Instead there's one shared grid of how

@@ -301,6 +301,8 @@ func _offscreen_spot():
 	for i in range(8):
 		var a = randf() * TAU
 		var p = clamp_to_map(player.global_position + Vector3(cos(a), 0, sin(a)) * randf_range(NEAR_MIN, NEAR_MAX))
+		if GameState.in_deep_water(p, self):	# not out in the river
+			continue
 		if cam and cam.is_position_in_frustum(p + Vector3(0, ENEMY_REST_HEIGHT, 0)):
 			continue
 		return p
@@ -456,7 +458,7 @@ func _instantiate(t: int, pos: Vector3, h: float, element := "physical"):
 	enemy.set_meta("from_spawner", true)
 	Zones.root_of(self).add_child(enemy)  # enemies belong to the zone, so they vanish when it unloads
 	pos.y = ENEMY_REST_HEIGHT
-	enemy.global_position = _clear_spot(clamp_to_map(pos))
+	enemy.global_position = _clear_spot(GameState.dry_spot(clamp_to_map(pos), self))	# never inside deep water
 	enemy.call("setup", 1.0, t, element)
 	if h > 0.0:
 		enemy.health = h
@@ -653,4 +655,4 @@ func _clear_spot(pos: Vector3) -> Vector3:
 				break
 		if not blocked:
 			return test
-	return pos
+	return GameState.dry_spot(pos, self)

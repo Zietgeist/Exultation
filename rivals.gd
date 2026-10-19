@@ -215,7 +215,7 @@ func spawn_rival(z, s: Dictionary, spot: Vector3):
 			return
 	var e = load("res://enemy.tscn").instantiate()
 	z.root.add_child(e)
-	e.global_position = spot
+	e.global_position = GameState.dry_spot(spot, z.root)
 	e.setup(1.0, 3)
 	e.become_rival(s)
 	if z.root.has_method("adopt_enemy"):	# Trial Ground: it has to fall before the ground is clear
