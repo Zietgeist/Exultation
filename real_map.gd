@@ -25,30 +25,55 @@ const BAD_NAME_WORDS = "concentration camp|extermination|death camp|massacre|gen
 const LEVEL_HEIGHT = 3.2		# meters per floor when OSM only gives building:levels
 
 var _http: HTTPRequest
+var _http2: HTTPRequest		# second line: the safety check and the map download run at the same time
+const CACHE_DIR = "user://real_places/"	# downloaded places, so playing one again is instant
+const CACHE_DAYS = 30		# re-download after this (the real world changes)
+const CACHE_MAX = 40		# keep at most this many places (oldest go first)
 
 
 func _ready():
 	_http = HTTPRequest.new()
 	_http.timeout = 90.0
 	add_child(_http)
+	_http2 = HTTPRequest.new()
+	_http2.timeout = 90.0
+	add_child(_http2)
 
 
 ## The whole job. Returns {} if it couldn't (the status signal says why), else
 ## {name, buildings = [{pts, h}], roads = [{pts, w}], areas = [{pts, kind}]} in meters around (0, 0).
 func load_place(query: String) -> Dictionary:
+	var t0 = Time.get_ticks_msec()
 	var where = await _locate(query.strip_edges())
 	if where.is_empty():
 		return {}
-	status.emit("Checking the area...")
-	var safety = await _query(_safety_query(where.lat, where.lon), "off-limits check")
+	var t_found = Time.get_ticks_msec()
+	if _blocked_site(where.lat, where.lon):	# the hand-made list: checked even for a saved place
+		status.emit("Sorry, this place can't be used for a map.\nNearby: a protected site")
+		return {}
+	var cached = _cache_load(where.lat, where.lon)
+	if not cached.is_empty():
+		print("Real map: saved place, loaded in %.1f s (address %.1f s)" % [(Time.get_ticks_msec() - t0) / 1000.0, (t_found - t0) / 1000.0])
+		cached.name = where.name
+		return cached
+	# Both downloads at once: the safety check (2 km around) and the map. The map is only used if the check passes.
+	status.emit("Checking the area and downloading buildings and streets (can take 10-30 s)...")
+	var jobs = {}
+	_run_query(_http, _safety_query(where.lat, where.lon), "off-limits check", jobs, "safety")
+	_run_query(_http2, _map_query(where.lat, where.lon), "map", jobs, "map")
+	while not jobs.has("safety") or not jobs.has("map"):
+		await get_tree().process_frame
+		if jobs.has("safety") and (jobs.safety.is_empty() or _off_limits(where.lat, where.lon, jobs.safety) != ""):
+			_http2.cancel_request()
+			break	# safety check failed or off-limits: no need to wait for the map
+	var safety = jobs.get("safety", {})
 	if safety.is_empty():
 		return {}
 	var why = _off_limits(where.lat, where.lon, safety)
 	if why != "":
 		status.emit("Sorry, this place can't be used for a map.\nNearby: %s" % why)
 		return {}
-	status.emit("Downloading buildings and streets (can take 10-30 s)...")
-	var data = await _query(_map_query(where.lat, where.lon), "map")
+	var data = jobs.map
 	if data.is_empty():
 		return {}
 	why = _off_limits(where.lat, where.lon, data)	# the map's own buildings too (a base inside the area)
@@ -56,8 +81,63 @@ func load_place(query: String) -> Dictionary:
 		status.emit("Sorry, this place can't be used for a map.\nNearby: %s" % why)
 		return {}
 	var out = _to_local(where.lat, where.lon, data)
+	_cache_save(where.lat, where.lon, out)
+	print("Real map: downloaded in %.1f s (address %.1f s, map + safety check %.1f s; %d buildings)" % [
+		(Time.get_ticks_msec() - t0) / 1000.0, (t_found - t0) / 1000.0, (Time.get_ticks_msec() - t_found) / 1000.0, out.buildings.size()])
 	out.name = where.name
 	return out
+
+
+## Start a query and put its answer in jobs[slot] when it's done ({} if it failed).
+func _run_query(http: HTTPRequest, q: String, what: String, jobs: Dictionary, slot: String):
+	jobs[slot] = await _query(q, what, http)
+
+
+# ---------------- Saved places (on this PC only) ----------------
+# A file per place, named by a scrambled code made from its coordinates (never the address), holding
+# only the map shapes in meters around the middle. Same spot again within 30 days: no download.
+
+func _cache_path(lat: float, lon: float) -> String:
+	return CACHE_DIR + ("%.4f,%.4f" % [lat, lon]).sha256_text().substr(0, 24) + ".dat"
+
+
+func _cache_load(lat: float, lon: float) -> Dictionary:
+	var path = _cache_path(lat, lon)
+	if not FileAccess.file_exists(path):
+		return {}
+	var f = FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		ErrorLog.warn("Real map: couldn't open a saved place (%s)" % error_string(FileAccess.get_open_error()))
+		return {}
+	var saved = f.get_var()
+	f.close()
+	if typeof(saved) != TYPE_DICTIONARY or not saved.has("data") or not saved.has("time"):
+		ErrorLog.warn("Real map: a saved place was unreadable; downloading it again")
+		return {}
+	if Time.get_unix_time_from_system() - float(saved.time) > CACHE_DAYS * 86400.0:
+		return {}
+	return saved.data
+
+
+func _cache_save(lat: float, lon: float, data: Dictionary):
+	DirAccess.make_dir_recursive_absolute(CACHE_DIR)
+	var f = FileAccess.open(_cache_path(lat, lon), FileAccess.WRITE)
+	if f == null:
+		ErrorLog.warn("Real map: couldn't save the place for next time (%s)" % error_string(FileAccess.get_open_error()))
+		return
+	f.store_var({time = Time.get_unix_time_from_system(), data = data})
+	f.close()
+	_cache_trim()
+
+
+## Keep the folder small: oldest saved places go first.
+func _cache_trim():
+	var files = Array(DirAccess.get_files_at(CACHE_DIR)).filter(func(n): return n.ends_with(".dat"))
+	if files.size() <= CACHE_MAX:
+		return
+	files.sort_custom(func(a, b): return FileAccess.get_modified_time(CACHE_DIR + a) < FileAccess.get_modified_time(CACHE_DIR + b))
+	for n in files.slice(0, files.size() - CACHE_MAX):
+		DirAccess.remove_absolute(CACHE_DIR + n)
 
 
 # ---------------- 1. Where is it? ----------------
@@ -148,20 +228,22 @@ out tags geom;""".replace("{B}", b)
 
 
 ## Send one query, trying each server (and a busy one twice). {} if they all fail.
-func _query(q: String, what: String) -> Dictionary:
+func _query(q: String, what: String, http: HTTPRequest = null) -> Dictionary:
+	if http == null:
+		http = _http
 	var r = []
 	var ok = false
 	for i in range(OVERPASS_URLS.size()):
 		for attempt in range(TRIES_PER_SERVER):
 			if i > 0 or attempt > 0:
 				status.emit("Map server busy, trying again (server %d of %d)..." % [i + 1, OVERPASS_URLS.size()])
-			var err = _http.request(OVERPASS_URLS[i], ["User-Agent: " + USER_AGENT, "Content-Type: application/x-www-form-urlencoded"],
+			var err = http.request(OVERPASS_URLS[i], ["User-Agent: " + USER_AGENT, "Content-Type: application/x-www-form-urlencoded"],
 				HTTPClient.METHOD_POST, "data=" + q.uri_encode())
 			if err != OK:
 				ErrorLog.fail("Real map: couldn't start the %s download (error %d)" % [what, err])
 				status.emit("Couldn't start the map download.")
 				return {}
-			r = await _http.request_completed
+			r = await http.request_completed
 			ok = r[0] == HTTPRequest.RESULT_SUCCESS and r[1] == 200
 			if ok:
 				break
@@ -195,9 +277,8 @@ func _server_says(body: PackedByteArray) -> String:
 
 ## "" = fine. Otherwise a short reason ("military area").
 func _off_limits(lat: float, lon: float, data: Dictionary) -> String:
-	for site in _blocklist():
-		if _dist_m(lat, lon, float(site.lat), float(site.lon)) < float(site.radius_m) + SAFETY_RADIUS:
-			return "a protected site"
+	if _blocked_site(lat, lon):
+		return "a protected site"
 	var bad_name = RegEx.create_from_string("(?i)(" + BAD_NAME_WORDS + ")")
 	for e in data.elements:
 		var t = e.get("tags", {})
@@ -215,6 +296,14 @@ func _off_limits(lat: float, lon: float, data: Dictionary) -> String:
 			if bad_name.search(str(t.get(k, ""))):
 				return "an atrocity site or its memorial" + _named(t)
 	return ""
+
+
+## Near a site on the hand-made list (real_map_blocklist.json)?
+func _blocked_site(lat: float, lon: float) -> bool:
+	for site in _blocklist():
+		if _dist_m(lat, lon, float(site.lat), float(site.lon)) < float(site.radius_m) + SAFETY_RADIUS:
+			return true
+	return false
 
 
 ## ": <name>" so testers can see WHAT blocked the map (a public place name, never the player's address).
@@ -339,25 +428,35 @@ func build(data: Dictionary) -> Node3D:
 			_strip(rs, r.pts[i], r.pts[i + 1], r.w, 0.05 if r.w > 3.0 else 0.06)
 	if not data.roads.is_empty():
 		_add_mesh(root, rs.commit(), Color(0.3, 0.3, 0.32), true)
-	# buildings: one mesh + one collision shape for all of them
+	# buildings: one mesh per 100 m square (so the ones off screen aren't drawn), one see-through material
 	if not data.buildings.is_empty():
-		var bs = SurfaceTool.new()
-		bs.begin(Mesh.PRIMITIVE_TRIANGLES)
+		var tiles = {}	# Vector2i -> SurfaceTool
 		for b in data.buildings:
-			_building(bs, b.pts, b.h)
-		var mesh = bs.commit()
-		var mi = MeshInstance3D.new()
-		mi.mesh = mesh
+			var mid = Vector2.ZERO
+			for q in b.pts:
+				mid += q
+			mid /= maxf(1.0, b.pts.size())
+			var k = Vector2i(floori(mid.x / BUILDING_TILE), floori(mid.y / BUILDING_TILE))
+			if not tiles.has(k):
+				tiles[k] = SurfaceTool.new()
+				tiles[k].begin(Mesh.PRIMITIVE_TRIANGLES)
+			_building(tiles[k], b.pts, b.h)
 		var see = see_through_material(Color(0.8, 0.79, 0.76))
-		mi.material_override = see
-		root.add_child(mi)
 		root.set_meta("building_mat", see)	# real_zone.gd / the test scene tell it where you and the camera are
 		var body = StaticBody3D.new()
-		var col = CollisionShape3D.new()
-		var shape = mesh.create_trimesh_shape()
-		shape.backface_collision = true	# walls block from both sides, whichever way OSM drew them
-		col.shape = shape
-		body.add_child(col)
+		for k in tiles:
+			var mesh = tiles[k].commit()
+			if mesh.get_surface_count() == 0:
+				continue
+			var mi = MeshInstance3D.new()
+			mi.mesh = mesh
+			mi.material_override = see
+			root.add_child(mi)
+			var col = CollisionShape3D.new()
+			var shape = mesh.create_trimesh_shape()
+			shape.backface_collision = true	# walls block from both sides, whichever way OSM drew them
+			col.shape = shape
+			body.add_child(col)
 		root.add_child(body)
 	return root
 
@@ -426,6 +525,7 @@ func _strip(st: SurfaceTool, a: Vector2, b: Vector2, w: float, y: float):
 ## Buildings: a hole is cut through any wall or roof between the camera and you (CUT_RADIUS m around
 ## that line, with a speckled edge), so tall buildings never hide you. Call update_see_through() each frame.
 const CUT_RADIUS = 5.0
+const BUILDING_TILE = 100.0	# meters: buildings are drawn in squares this big
 const SEE_THROUGH_SHADER = """
 shader_type spatial;
 render_mode cull_disabled;
