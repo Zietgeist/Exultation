@@ -16,6 +16,15 @@ const PACK_SPREAD = 6.0
 const PACK_GAP = 25.0		# packs at least this far apart
 const SAFE_START = 30.0		# no pack this close to where you arrive
 const MASTER_CHANCE = 0.25	# a pack's leader is a Master instead of a Thug
+# Things to gather (G), placed from the real map: herbs in parks and lawns, ore (scrap, rubble) at the
+# foot of buildings, Treesilver in bigger parks and woods, Cliff Orchids at the base of the tallest buildings.
+const ORE_COUNT = 35
+const HERB_COUNT = 45
+const HERB_IN_GREEN = 0.75	# share of herbs that grow in parks/lawns (the rest: any open ground)
+const TREESILVER_MAX = 8
+const TREESILVER_MIN_AREA = 1500.0	# m2: only parks/woods at least this big
+const ORCHID_COUNT = 4
+const NODE_GAP = 4.0		# resources at least this far apart
 
 var info := {}
 var alive := 0
@@ -74,6 +83,7 @@ func _ready():
 	if not Net.is_client():
 		_spawn_packs(rm)
 		_spawn_bosses(rm)
+		_spawn_resources(rm)
 		var director = load("res://real_director.gd").new()	# hordes: build-up, peak, a minute of calm
 		director.zone = self
 		add_child(director)
@@ -305,3 +315,129 @@ func _credit_and_minimap():
 	l.position += Vector2(8, -6)
 	ui.add_child(l)
 	add_child(ui)
+
+
+# ---------------- Resources ----------------
+
+## Gatherable nodes, quality like the zone the enemies are scaled to.
+func _spawn_resources(rm):
+	var q = maxi(1, GameState.zone_quality(_difficulty()[1]))	# Zone 1 has no resources (quality 0): start at 1
+	var h = REAL_MAP.HALF_SIZE - 6.0
+	var placed = []	# Vector2s
+	var ok = func(p: Vector2) -> bool:
+		if abs(p.x) > h or abs(p.y) > h or rm._inside_building(info.data, p) or _in_water(p):
+			return false
+		return not placed.any(func(o): return o.distance_to(p) < NODE_GAP)
+	var put = func(type: String, p: Vector2, reach: float):
+		placed.append(p)
+		var n = load("res://resource_node.gd").new()
+		n.type = type
+		n.quality = q
+		n.reach = reach
+		add_child(n)
+		n.position = Vector3(p.x, 0.0, p.y)
+	var greens = info.data.areas.filter(func(a): return a.kind == "green" and a.pts.size() >= 3)
+	var counts = {ore = 0, herb = 0, treesilver = 0, orchid = 0}
+	# Herbs: mostly in parks and lawns (weighted by size), the rest anywhere open
+	var green_area = 0.0
+	for a in greens:
+		green_area += _area(a.pts)
+	for i in range(HERB_COUNT * 6):
+		if counts.herb >= HERB_COUNT:
+			break
+		var p = Vector2.ZERO
+		if green_area > 0.0 and randf() < HERB_IN_GREEN:
+			p = _random_in(_pick_by_area(greens, green_area).pts)
+		else:
+			p = Vector2(randf_range(-h, h), randf_range(-h, h))
+		if ok.call(p):
+			put.call("herb", p, 0.0)
+			counts.herb += 1
+	# Treesilver: bigger parks and woods
+	var big = greens.filter(func(a): return _area(a.pts) >= TREESILVER_MIN_AREA)
+	for a in big:
+		if counts.treesilver >= TREESILVER_MAX:
+			break
+		for attempt in range(8):
+			var p = _random_in(a.pts)
+			if ok.call(p):
+				put.call("treesilver", p, 0.5)
+				counts.treesilver += 1
+				break
+	# Ore: scrap and rubble along building walls (a step outside the middle of a wall)
+	var blds = info.data.buildings.filter(func(b): return b.pts.size() >= 3)
+	for i in range(ORE_COUNT * 6):
+		if counts.ore >= ORE_COUNT or blds.is_empty():
+			break
+		var p = _beside_wall(blds.pick_random(), 1.3)
+		if p != null and ok.call(p):
+			put.call("ore", p, 0.0)
+			counts.ore += 1
+	# Cliff Orchids: at the foot of the tallest buildings
+	var tall = blds.duplicate()
+	tall.sort_custom(func(a, b): return a.h > b.h)
+	for b in tall.slice(0, ORCHID_COUNT * 4):
+		if counts.orchid >= ORCHID_COUNT:
+			break
+		var p = _beside_wall(b, 1.0)
+		if p != null and ok.call(p):
+			put.call("orchid", p, 0.5)
+			counts.orchid += 1
+	if counts.ore + counts.herb == 0:
+		ErrorLog.warn("Real Place: no room for any resources on this map")
+	print("Real Place resources: %s (quality %d)" % [counts, q])
+
+
+## A spot just outside the middle of one of a building's walls (null if the wall is tiny).
+func _beside_wall(b: Dictionary, out: float):
+	var pts = b.pts
+	var i = randi() % pts.size()
+	var a = pts[i]
+	var c = pts[(i + 1) % pts.size()]
+	if a.distance_to(c) < 2.0:
+		return null
+	var mid = (a + c) / 2.0
+	var normal = (c - a).normalized().orthogonal()
+	var p = mid + normal * out
+	if Geometry2D.is_point_in_polygon(p, pts):	# that side was inward: go the other way
+		p = mid - normal * out
+	return p
+
+
+func _in_water(p: Vector2) -> bool:
+	for a in info.data.areas:
+		if a.kind == "water" and Geometry2D.is_point_in_polygon(p, a.pts):
+			return true
+	return false
+
+
+func _area(pts: PackedVector2Array) -> float:
+	var s = 0.0
+	for i in range(pts.size()):
+		var a = pts[i]
+		var b = pts[(i + 1) % pts.size()]
+		s += a.x * b.y - b.x * a.y
+	return abs(s) / 2.0
+
+
+func _pick_by_area(list: Array, total: float) -> Dictionary:
+	var r = randf() * total
+	for a in list:
+		r -= _area(a.pts)
+		if r <= 0.0:
+			return a
+	return list[-1]
+
+
+## A random point inside a polygon (tries its bounding box; the middle of the box if unlucky).
+func _random_in(pts: PackedVector2Array) -> Vector2:
+	var lo = pts[0]
+	var hi = pts[0]
+	for p in pts:
+		lo = Vector2(minf(lo.x, p.x), minf(lo.y, p.y))
+		hi = Vector2(maxf(hi.x, p.x), maxf(hi.y, p.y))
+	for i in range(12):
+		var p = Vector2(randf_range(lo.x, hi.x), randf_range(lo.y, hi.y))
+		if Geometry2D.is_point_in_polygon(p, pts):
+			return p
+	return (lo + hi) / 2.0
