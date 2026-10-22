@@ -155,6 +155,8 @@ func _draw():
 		for k in ["a", "b", "c"]:
 			if part.has(k):
 				low = max(low, part[k].y)
+		for v in part.get("pts", []):	# polygons too (an Ent's roots)
+			low = max(low, v.y)
 	draw_set_transform(_px(Vector2(0.5, low + 0.01)), 0.0, Vector2(1.0, 0.22))
 	draw_circle(Vector2.ZERO, h * 0.16, Color(0, 0, 0, 0.3))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)

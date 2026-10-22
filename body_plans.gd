@@ -122,10 +122,16 @@ static func _humanoid(b: Dictionary) -> Dictionary:
 static func _tree(b: Dictionary) -> Dictionary:
 	var w = float(b.get("build", 1.0))
 	var parts = []
-	for r in [Vector2(0.22, 0.96), Vector2(0.5, 0.98), Vector2(0.78, 0.96)]:
-		parts.append({t = "limb", a = Vector2(0.5, 0.8), b = r, w = 0.04 * w})
+	# Roots: four pointed roots spreading out to the sides from a flared base (no root straight down the middle)
+	var roots = [
+		[Vector2(0.36, 0.87), Vector2(0.24, 0.915), Vector2(0.09, 0.955), Vector2(0.25, 0.945), Vector2(0.40, 0.925)],
+		[Vector2(0.42, 0.90), Vector2(0.36, 0.95), Vector2(0.29, 0.99), Vector2(0.40, 0.97), Vector2(0.47, 0.93)],
+	]
+	for r in roots:
+		parts.append({t = "poly", pts = r, shade = -0.1})
+		parts.append({t = "poly", pts = r.map(func(v): return Vector2(1.0 - v.x, v.y)), shade = -0.1})
 	parts.append({t = "poly", pts = [Vector2(0.5 - 0.08 * w, 0.28), Vector2(0.5 + 0.08 * w, 0.28),
-		Vector2(0.5 + 0.11 * w, 0.86), Vector2(0.5 - 0.11 * w, 0.86)]})
+		Vector2(0.5 + 0.11 * w, 0.82), Vector2(0.5 + 0.19 * w, 0.93), Vector2(0.5 - 0.19 * w, 0.93), Vector2(0.5 - 0.11 * w, 0.82)]})
 	var tips = [Vector2(0.16, 0.24), Vector2(0.84, 0.22), Vector2(0.5, 0.08)]
 	parts.append({t = "limb", a = Vector2(0.5, 0.42), b = tips[0], w = 0.04 * w})
 	parts.append({t = "limb", a = Vector2(0.5, 0.38), b = tips[1], w = 0.04 * w})
