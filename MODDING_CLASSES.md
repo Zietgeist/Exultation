@@ -38,9 +38,9 @@ Every class is one `.json` file. No code needed for most ideas.
 |---|---|
 | heal_self | amount |
 | damage_boost | multiplier (the cap with every stack; stacks add up evenly), duration, max_stacks |
-| shield | absorb, duration |
+| shield | absorb, duration (ticks at half speed while standing still) |
 | blast | damage, screen_share |
-| thorns_aura | duration, damage_per_second, reflect, screen_share |
+| thorns_aura | duration, damage_per_second, reflect, screen_share (inner ring), middle_ring, outer_ring (ring sizes as multiples of the inner one; damage x2 inner, x1 middle, x0.5 outer; ticks at half speed while standing still) |
 | drain_aura (toggle) | energy_per_second, share_per_enemy (max-life share per enemy in range), max_share_per_second, min_per_second, heal_share, screen_share |
 | mending | heal, jumps, duration; optional solo_boost_multiplier, solo_boost_duration, solo_boost_max_stacks (solo at full health it stacks damage like Boost) |
 | dash | distance, safe_time |

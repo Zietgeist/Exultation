@@ -15,7 +15,7 @@ var cooldowns := {}		# key -> seconds left
 var boost_timers := []	# damage_boost: seconds left for each stack (pressing again refreshes them all)
 var shield_hp := 0.0
 var shield_time := 0.0
-var thorns := {}		# thorns_aura: time, dps, reflect, share
+var thorns := {}		# thorns_aura: time, dps, reflect, share, middle, outer
 var drain := {}			# drain_aura (toggle): params while on
 var whirl := {}			# whirlwind: time, dps, radius
 var dash_left := 0.0	# dash: distance still to travel
@@ -26,10 +26,14 @@ var _custom := {}		# key -> script object from a mod
 
 var _tick := 0.0
 var _disc: MeshInstance3D = null		# aura ring under the player
+var _thorn_rings := []			# thorns: the fainter middle and outer rings
 var _shield_ball: MeshInstance3D = null
 var _vow_ball: MeshInstance3D = null
 
 const TICK := 0.5
+const THORNS_INNER := 2.0		# thorns damage: inner ring x2, middle ring x1, outer ring x0.5
+const THORNS_OUTER := 0.5
+const ROOTED_TIME_RATE := 0.5	# standing still: thorns and shield run down at half speed
 const DASH_SPEED := 45.0
 const VOW_COLOR := Color(1.0, 0.85, 0.35)
 const DRAIN_COLOR := Color(0.65, 0.2, 0.9)
@@ -84,7 +88,10 @@ func _run(key: String, s: Dictionary, p: Dictionary) -> bool:
 			_blast(player.mouse_world_point, p)
 			return true
 		"thorns_aura":
-			thorns = {time = float(p.duration), dps = p.damage_per_second, reflect = p.reflect, share = p.screen_share}
+			if not p.has("middle_ring") or not p.has("outer_ring"):
+				ErrorLog.warn("thorns_aura needs middle_ring and outer_ring params; using 2 and 3")
+			thorns = {time = float(p.duration), dps = p.damage_per_second, reflect = p.reflect, share = p.screen_share,
+				middle = float(p.get("middle_ring", 2.0)), outer = float(p.get("outer_ring", 3.0))}
 			_tick = 0.0
 			return true
 		"drain_aura":
@@ -241,8 +248,10 @@ func _physics_process(delta):
 		if boost_timers.size() != before:
 			_set_boost()
 
+	# Planted (standing still): shield and thorns last twice as long
+	var slow_delta = delta * (ROOTED_TIME_RATE if _standing_still() else 1.0)
 	if shield_time > 0.0:
-		shield_time -= delta
+		shield_time -= slow_delta
 		if shield_time <= 0.0:
 			shield_hp = 0.0
 	_show_ball("_shield_ball", shield_hp > 0.0, Color(0.4, 0.7, 1.0, 0.25), 1.3, Vector3.ZERO)
@@ -267,7 +276,7 @@ func _physics_process(delta):
 			player.skill_haste = 0.0
 
 	if not thorns.is_empty():
-		thorns.time -= delta
+		thorns.time -= slow_delta
 		if thorns.time <= 0.0:
 			thorns = {}
 
@@ -286,15 +295,34 @@ func _physics_process(delta):
 		return
 	_tick = TICK
 	if not thorns.is_empty():
-		for e in _enemies_near(player.global_position, player.special_radius(thorns.share)):
-			e.aggroed = true
-			e.take_damage(thorns.dps * TICK)
+		_thorns_tick()
 	if not drain.is_empty():
 		_drain_tick()
 	if not whirl.is_empty():
 		for e in _enemies_near(player.global_position, whirl.radius):
 			e.aggroed = true
 			e.take_damage(whirl.dps * TICK * player.get_damage_multiplier())
+
+
+## Thorns: three rings. Inner (the old size) x2 damage, middle x1, outer x0.5. All of them taunt,
+## so enemies across a huge area walk in and get hurt more the closer they come.
+func _thorns_tick():
+	var inner = player.special_radius(thorns.share)
+	var center = player.global_position
+	for e in _enemies_near(center, inner * thorns.outer):
+		e.aggroed = true
+		var d = Vector2(e.global_position.x - center.x, e.global_position.z - center.z).length()
+		var mult = 1.0
+		if d <= inner:
+			mult = THORNS_INNER
+		elif d > inner * thorns.middle:
+			mult = THORNS_OUTER
+		e.take_damage(thorns.dps * TICK * mult)
+
+
+## True when the player isn't moving (and isn't dashing).
+func _standing_still() -> bool:
+	return dash_left <= 0.0 and Vector2(player.velocity.x, player.velocity.z).length() < 0.1
 
 
 # ---------------- Effects ----------------
@@ -565,6 +593,7 @@ func _update_disc():
 		if _disc:
 			_disc.queue_free()
 			_disc = null
+		_update_thorn_rings(0.0)
 		return
 	if _disc == null:
 		_disc = player._make_disc(1.0, color)
@@ -574,6 +603,26 @@ func _update_disc():
 	_disc.scale = Vector3(radius, 1, radius)
 	if not whirl.is_empty():
 		_disc.rotation.y += 0.4
+	_update_thorn_rings(radius)
+
+
+## Thorns' middle and outer rings: fainter green discs under the main one.
+func _update_thorn_rings(inner: float):
+	var on = inner > 0.0 and drain.is_empty() and not thorns.is_empty()
+	if not on:
+		for r in _thorn_rings:
+			r.queue_free()
+		_thorn_rings = []
+		return
+	if _thorn_rings.is_empty():
+		for i in range(2):
+			var ring = player._make_disc(1.0, Color(0.3, 0.9, 0.3, 0.12 if i == 0 else 0.07))
+			player.add_child(ring)
+			ring.position = Vector3(0, -0.92 - 0.01 * i, 0)
+			_thorn_rings.append(ring)
+	var sizes = [inner * thorns.middle, inner * thorns.outer]
+	for i in range(2):
+		_thorn_rings[i].scale = Vector3(sizes[i], 1, sizes[i])
 
 
 func _show_ball(var_name: String, on: bool, color: Color, radius: float, offset: Vector3):
