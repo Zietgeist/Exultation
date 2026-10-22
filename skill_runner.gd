@@ -75,13 +75,13 @@ func _run(key: String, s: Dictionary, p: Dictionary) -> bool:
 		"heal_self":
 			if player.health > player.MAX_HEALTH * 0.5:
 				Traits.on_early_heal()	# Wary
-			player.heal(p.amount)
+			player.heal(p.amount * (1.0 + Crafting.gear_stat("self_heal")))	# Sap Rings
 			return true
 		"damage_boost":	# every press refreshes ALL stacks to full time, and adds one if not at max
 			_add_boost(float(p.multiplier), float(p.duration), int(p.max_stacks))
 			return true
 		"shield":
-			shield_hp = p.absorb
+			shield_hp = p.absorb * (1.0 + Crafting.gear_stat("shield_absorb"))	# Bark Rings
 			shield_time = p.duration
 			return true
 		"blast":
@@ -307,8 +307,10 @@ func _physics_process(delta):
 ## Thorns: three rings. Inner (the old size) x2 damage, middle x1, outer x0.5. All of them taunt,
 ## so enemies across a huge area walk in and get hurt more the closer they come.
 func _thorns_tick():
-	var inner = player.special_radius(thorns.share)
+	var inner = _thorns_inner()
 	var center = player.global_position
+	# Thorn Rings always, Deep Root Rings while planted
+	var boost = 1.0 + Crafting.gear_stat("thorns_damage") + (Crafting.gear_stat("planted_damage") if _standing_still() else 0.0)
 	for e in _enemies_near(center, inner * thorns.outer):
 		if e.has_method("taunt"):
 			e.taunt(player, TICK + 0.2)	# come for me, not my pet
@@ -320,7 +322,12 @@ func _thorns_tick():
 			mult = THORNS_INNER
 		elif d > inner * thorns.middle:
 			mult = THORNS_OUTER
-		e.take_damage(thorns.dps * TICK * mult)
+		e.take_damage(thorns.dps * TICK * mult * boost)
+
+
+## Inner Thorns ring radius (the old size), grown by Bramble Rings.
+func _thorns_inner() -> float:
+	return player.special_radius(thorns.share) * (1.0 + Crafting.gear_stat("thorns_reach"))
 
 
 ## True when the player isn't moving (and isn't dashing).
@@ -588,7 +595,7 @@ func _update_disc():
 		radius = player.special_radius(drain.screen_share)
 	elif not thorns.is_empty():
 		color = Color(0.3, 0.9, 0.3, 0.25)
-		radius = player.special_radius(thorns.share)
+		radius = _thorns_inner()
 	elif not whirl.is_empty():
 		color = Color(1, 1, 1, 0.3)
 		radius = whirl.radius

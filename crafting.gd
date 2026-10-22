@@ -88,6 +88,17 @@ const BASES = {
 		stats = {hardness = 1.0, move = 0.03}, about = "Foot armor, a little faster."},
 	"ring": {label = "Ring", shop = "smith", slot = "ring", need = {"ingot": 1}, slots = 1,
 		stats = {hardness = 0.0, move = 0.0}, about = "Small, but every slot counts."},
+	# Skill rings (Oct 2026): small boosts to your skills that stack, made for races with lots of ring slots (Ents have 20).
+	"thorn_ring": {label = "Thorn Ring", shop = "smith", slot = "ring", need = {"ingot": 2}, slots = 1,
+		stats = {hardness = 0.0, move = 0.0, thorns_damage = 0.05}, about = "+5% Thorns damage. Stacks with every ring you wear."},
+	"bramble_ring": {label = "Bramble Ring", shop = "smith", slot = "ring", need = {"silverbar": 1}, slots = 1,
+		stats = {hardness = 0.0, move = 0.0, thorns_reach = 0.03}, about = "+3% Thorns ring size (all three rings). Stacks."},
+	"deeproot_ring": {label = "Deep Root Ring", shop = "smith", slot = "ring", need = {"silverbar": 1, "ingot": 1}, slots = 1,
+		stats = {hardness = 0.0, move = 0.0, planted_damage = 0.08}, about = "+8% Thorns damage while you stand still. Stacks."},
+	"bark_ring": {label = "Bark Ring", shop = "smith", slot = "ring", need = {"ingot": 1, "silverbar": 1}, slots = 1,
+		stats = {hardness = 0.0, move = 0.0, shield_absorb = 0.08}, about = "+8% Shield strength. Stacks."},
+	"sap_ring": {label = "Sap Ring", shop = "smith", slot = "ring", need = {"silverbar": 2}, slots = 1,
+		stats = {hardness = 0.0, move = 0.0, self_heal = 0.08}, about = "+8% Self Heal. Stacks."},
 	"draught": {label = "Draught", shop = "chemist", slot = "potion", need = {"tonic": 1}, slots = 1,
 		stats = {heal = 30.0}, about = "A quick heal."},
 	"elixir": {label = "Elixir", shop = "chemist", slot = "potion", need = {"essence": 1}, slots = 2,
@@ -582,6 +593,24 @@ func gear_attr(attr: String) -> float:
 	return total
 
 
+## Skill-ring stats (thorns_damage, shield_absorb...) added up across everything worn.
+## Returns a bonus share: 0.25 means +25%.
+func gear_stat(key: String) -> float:
+	if not SKILL_STATS.has(key):
+		ErrorLog.fail("gear_stat: unknown skill stat " + key)
+		return 0.0
+	var total = 0.0
+	for it in equipped_items():
+		if it.slot != "potion":
+			total += float(recipe(it.base).stats.get(key, 0.0))
+	return total
+
+const SKILL_STATS = {
+	"thorns_damage": "Thorns damage", "thorns_reach": "Thorns ring size", "planted_damage": "Thorns damage while standing still",
+	"shield_absorb": "Shield strength", "self_heal": "Self Heal",
+}
+
+
 func equipped_items() -> Array:
 	var out = []
 	for k in equipped:
@@ -700,6 +729,10 @@ func describe(item: Dictionary) -> String:
 				lines.append("Walk through enemies")
 			if e.max_health > 0.0:
 				lines.append("+%d max health" % e.max_health)
+			var rs = recipe(item.base).stats
+			for k in SKILL_STATS:
+				if rs.get(k, 0.0) > 0.0:
+					lines.append("+%d%% %s" % [roundi(rs[k] * 100), SKILL_STATS[k]])
 		"potion":
 			lines.append("Heals %d" % e.heal)
 			for el in e.ward:
