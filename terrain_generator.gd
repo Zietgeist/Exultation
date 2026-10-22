@@ -29,6 +29,8 @@ var template := "open_field"
 var _gates = []		# gate positions, read before anything is placed
 var _roads = []		# [[a, b], ...] clear lanes: gate -> middle (bending around landmarks)
 var _keep_out = []	# Rect2s (x, z) that layouts claimed: rivers, rooms, rail lanes
+var _rail_lanes = []	# [[a, b], ...] track center lines (rails maps): scrap metal lies along them
+var _rooms = []		# [{c, w, d}] ruined rooms (ruins maps): rubble with ore inside
 var _half := Vector2(45, 45)
 
 
@@ -436,6 +438,7 @@ func _layout_rooms(count: int):
 		if not found:
 			continue
 		_keep_out.append(Rect2(c.x - w / 2.0 - 1, c.z - d / 2.0 - 1, w + 2, d + 2))
+		_rooms.append({c = c, w = w, d = d})
 		var door_side = randi() % 4
 		var sides = [
 			{a = c + Vector3(-w / 2, 0, -d / 2), b = c + Vector3(w / 2, 0, -d / 2)},
@@ -500,6 +503,7 @@ func _layout_lanes():
 		var rail = Vector3(long * 2, 0.1, 0.15) if along_x else Vector3(0.15, 0.1, long * 2)
 		var o = Vector3(0, 0, 0.7) if along_x else Vector3(0.7, 0, 0)
 		var base = at.call(0.0, mid)
+		_rail_lanes.append([at.call(-long, mid), at.call(long, mid), along_x])
 		_make_deco({p = base + Vector3(0, 0.19, 0), s = bed, c = "rail_bed", f = Color(0.42, 0.36, 0.3)})
 		_make_deco({p = base + o + Vector3(0, 0.24, 0), s = rail, c = "rail", f = Color(0.25, 0.25, 0.27)})
 		_make_deco({p = base - o + Vector3(0, 0.24, 0), s = rail, c = "rail", f = Color(0.25, 0.25, 0.27)})
@@ -780,7 +784,9 @@ func spawn_resources():
 		for i in range(randi_range(ORE_PER_HILL.x, ORE_PER_HILL.y)):
 			var a = randf() * TAU
 			var p = hill.position + Vector3(cos(a), 0, sin(a)) * (d.r * 0.8 + 0.9)
-			if is_free(p):
+			# Not is_free(): every hill sits in its own keep-out square (so shrines stay off it), which
+			# made is_free() say no to ALL hill ore. Only water and gates matter here.
+			if not is_water(p) and not _near_gate(p, 1.0):
 				_make_node(p, {type = "ore", q = _quality, reach = 0.0})
 		if randf() < ORCHID_CHANCE:
 			var a = randf() * TAU
@@ -798,6 +804,37 @@ func spawn_resources():
 			var p = tree.position + Vector3(cos(a), 0, sin(a)) * randf_range(1.2, 2.5)
 			if is_free(p):
 				_make_node(p, {type = "herb", q = _quality, reach = 0.0})
+	_spawn_rail_scrap()
+	_spawn_keep_rubble()
+
+
+# Rails and ruins maps have few or no hills, so almost no ore. They get their own (Oct 2026):
+const RAIL_SCRAP_GAP = Vector2(35.0, 55.0)	# meters between scrap piles along a track
+const RAIL_SCRAP_ORE = Vector2i(2, 3)		# ore per scrap pile
+const RUBBLE_PER_ROOM = Vector2i(1, 2)
+const RUBBLE_ORE = 2
+
+## Scrap metal beside the tracks: each pile gives 2-3 ore.
+func _spawn_rail_scrap():
+	for lane in _rail_lanes:
+		var a: Vector3 = lane[0]
+		var b: Vector3 = lane[1]
+		var side = Vector3(0, 0, 1) if lane[2] else Vector3(1, 0, 0)
+		var length = a.distance_to(b)
+		var t = randf_range(5.0, RAIL_SCRAP_GAP.y)
+		while t < length:
+			var p = a.lerp(b, t / length) + side * randf_range(2.2, 4.0) * (1.0 if randf() < 0.5 else -1.0)
+			if not is_water(p) and not _near_gate(p, 2.0):
+				_make_node(p, {type = "ore", q = _quality, reach = 0.0, amount = randi_range(RAIL_SCRAP_ORE.x, RAIL_SCRAP_ORE.y)})
+			t += randf_range(RAIL_SCRAP_GAP.x, RAIL_SCRAP_GAP.y)
+
+
+## Rubble inside ruined rooms: 1-2 piles a room, 2 ore each.
+func _spawn_keep_rubble():
+	for r in _rooms:
+		for i in range(randi_range(RUBBLE_PER_ROOM.x, RUBBLE_PER_ROOM.y)):
+			var p = r.c + Vector3(randf_range(-r.w / 2.0 + 2.0, r.w / 2.0 - 2.0), 0, randf_range(-r.d / 2.0 + 2.0, r.d / 2.0 - 2.0))
+			_make_node(p, {type = "ore", q = _quality, reach = 0.0, amount = RUBBLE_ORE})
 
 
 func _make_node(pos: Vector3, data: Dictionary):
@@ -805,8 +842,9 @@ func _make_node(pos: Vector3, data: Dictionary):
 	n.type = data.type
 	n.quality = data.q
 	n.reach = data.get("reach", 0.0)
+	n.amount = int(data.get("amount", 1))
 	n.set_meta("kind", "node")
-	n.set_meta("data", {type = data.type, q = data.q, reach = n.reach})
+	n.set_meta("data", {type = data.type, q = data.q, reach = n.reach, amount = n.amount})
 	add_child(n)
 	n.position = pos
 

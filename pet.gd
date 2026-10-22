@@ -518,7 +518,7 @@ func _gather(delta):
 	for n in [target, target2]:
 		if n == null or not is_instance_valid(n):
 			continue
-		if not GameState.add_resource(n.type, n.quality):
+		if not GameState.add_resource(n.type, n.quality, n.amount):
 			_say("Satchel full!", Color(1, 0.6, 0.4))
 			break
 		got.append(GameState.resource_name(n.type, n.quality))

@@ -5,6 +5,7 @@ extends Node3D
 var type = "ore"	# "ore", "herb", "treesilver", "orchid"
 var quality = 1
 var reach = 0.0		# extra gather distance (for nodes sitting on a hill or trunk)
+var amount = 1		# how many one gather gives (rail scrap and keep rubble give more)
 
 var _label: Label3D
 
@@ -20,7 +21,7 @@ func _ready():
 	_label.pixel_size = 0.012	# readable from the zoomed-out camera
 	_label.outline_size = 10
 	_label.no_depth_test = true
-	_label.text = "G: " + GameState.resource_name(type, quality)
+	_label.text = "G: " + GameState.resource_name(type, quality) + (" x%d" % amount if amount > 1 else "")
 	_label.modulate = GameState.RESOURCE_INFO[type].color.lightened(0.4)
 	_label.visible = false
 	add_child(_label)

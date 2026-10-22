@@ -765,10 +765,10 @@ func _tick_gathering(delta):
 	if gather_left <= 0.0:
 		var n = gather_node
 		gather_node = null
-		if not GameState.add_resource(n.type, n.quality):
+		if not GameState.add_resource(n.type, n.quality, n.amount):
 			_float_text("Satchel full! Refine at Home (or buy a bigger one at the Inn)", Color(1, 0.6, 0.4))
 			return
-		_float_text("+1 " + GameState.resource_name(n.type, n.quality), GameState.RESOURCE_INFO[n.type].color.lightened(0.3))
+		_float_text("+%d " % n.amount + GameState.resource_name(n.type, n.quality), GameState.RESOURCE_INFO[n.type].color.lightened(0.3))
 		n.queue_free()
 
 
