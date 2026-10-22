@@ -32,6 +32,7 @@ Every class is one `.json` file. No code needed for most ideas.
 - `energy`: regen per second, energy per point of damage taken, energy per meter run.
 - `per_rank`: added to `params` for each rank above 1. Skills rank up by use (10, 30, 70, 150 uses).
 - `cooldown`: seconds (optional).
+- `planted_strike`: single-target damage multiplier while standing still (optional, default 1). Tank uses 3.
 
 **Effects you can use** (and their params)
 | effect | params |

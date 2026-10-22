@@ -336,6 +336,8 @@ func single_target_attack(forced = null):
 
 	if closest:
 		var damage = (st_damage * get_damage_multiplier() + _element_damage()) * Traits.damage_mult(health / MAX_HEALTH) * Traits.strike_mult()
+		if skills and skills._standing_still():	# planted (classes/*.json "planted_strike", e.g. Tank x3)
+			damage *= float(class_def.get("planted_strike", 1.0))
 		if randf() < Traits.crit_chance():	# Precision
 			damage *= 2.0
 			_float_text("Critical!", Color(1, 0.9, 0.3))
