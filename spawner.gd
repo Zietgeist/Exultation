@@ -277,9 +277,11 @@ func _process(delta):
 		near_timer = 0.0
 		_spawn_near_player()
 
-	# 2nd Boss arrives once enough enemies are cleared (or if the 1st is somehow missing)
-	if bosses_spawned < MAX_BOSSES and total_killed >= min_clear:
-		_spawn_boss_near_player()
+	# 2nd Boss arrives once enough enemies are cleared, or once there aren't enough left to clear
+	_boss_check_t -= delta
+	if _boss_check_t <= 0.0:
+		_boss_check_t = 3.0
+		_check_bosses()
 
 
 func _spawn_near_player():
@@ -318,9 +320,49 @@ func _pick_from_reserve() -> int:
 	return 0
 
 
+var _boss_check_t := 0.0
+
+## Bosses that really exist here right now (awake or sleeping), not just the spawn counter.
+func bosses_present() -> int:
+	var n = _mine().filter(func(e): return e.tier == 3 and not e.is_queued_for_deletion()).size()
+	for b in _buckets.values():
+		for d in b:
+			if d.t == 3:
+				n += 1
+	return n
+
+
+## Enemies still to kill here (awake, sleeping, and the held-back reserve). Bosses not included.
+func enemies_left() -> int:
+	var n = _mine().filter(func(e): return e.tier != 3).size() + reserve[0] + reserve[1] + reserve[2]
+	for b in _buckets.values():
+		for d in b:
+			if d.t != 3:
+				n += 1
+	return n
+
+
+## Make sure both bosses can always be met:
+## - kills reached (or not enough enemies left to reach them): the 2nd boss comes for you
+## - a boss went missing (never killed, not here): it comes back the same way
+func _check_bosses():
+	var present = bosses_present()
+	var missing = MAX_BOSSES - bosses_killed - present
+	if missing <= 0:
+		return
+	var ready = total_killed >= min_clear or total_killed + enemies_left() < min_clear
+	if ready:
+		if bosses_spawned >= MAX_BOSSES:
+			ErrorLog.warn("Spawner: %d boss(es) went missing (killed %d, here %d); sending to the player" % [missing, bosses_killed, present])
+		_spawn_boss_near_player(missing)
+	elif bosses_killed + present == 0:	# the 1st boss vanished from its corner
+		ErrorLog.warn("Spawner: the 1st boss is missing; sending it to the player")
+		_spawn_boss_near_player(1)
+
+
 ## The 2nd Boss arrives just off-screen and comes straight for you.
-func _spawn_boss_near_player():
-	while bosses_spawned < MAX_BOSSES:
+func _spawn_boss_near_player(count := 1):
+	for i in range(count):
 		var angle = randf() * TAU
 		var boss = _make_enemy(3, player.global_position + Vector3(cos(angle), 0, sin(angle)) * 25.0)
 		boss.hunter = true

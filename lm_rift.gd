@@ -79,7 +79,7 @@ func _guardian_down():
 	var sp = Zones.first(self, "zone_spawner")
 	if sp:
 		for k in sp._buckets.keys():
-			sp._buckets[k] = sp._buckets[k].filter(func(d): return Vector2(d.p.x - global_position.x, d.p.z - global_position.z).length() > CALM_RADIUS)
+			sp._buckets[k] = sp._buckets[k].filter(func(d): return d.t == 3 or Vector2(d.p.x - global_position.x, d.p.z - global_position.z).length() > CALM_RADIUS)	# bosses stay
 		sp.total_killed += roundi(sp.min_clear * 0.08)
 	set_state({closed = Time.get_date_string_from_system(), by = Landmarks.who()})
 	announce("closed", {by = Landmarks.who()})
