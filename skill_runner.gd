@@ -310,7 +310,10 @@ func _thorns_tick():
 	var inner = player.special_radius(thorns.share)
 	var center = player.global_position
 	for e in _enemies_near(center, inner * thorns.outer):
-		e.aggroed = true
+		if e.has_method("taunt"):
+			e.taunt(player, TICK + 0.2)	# come for me, not my pet
+		else:
+			e.aggroed = true
 		var d = Vector2(e.global_position.x - center.x, e.global_position.z - center.z).length()
 		var mult = 1.0
 		if d <= inner:

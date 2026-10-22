@@ -404,6 +404,15 @@ func call_friends(radius: float):
 			e.aggroed = true	# set directly, so it doesn't call anyone else
 
 
+## Taunt: chase THIS one (not whoever is closest, like a pet) for a while. Thorns calls this every tick.
+func taunt(by, seconds: float):
+	if mirror or ally_time > 0.0 or by == null or not is_instance_valid(by):
+		return
+	player = by
+	_retarget = maxf(_retarget, seconds)
+	aggroed = true
+
+
 func root(seconds: float):
 	_rooted_until = maxf(_rooted_until, Time.get_ticks_msec() / 1000.0 + seconds)	# (a joined player's copy knows too)
 	if mirror:
