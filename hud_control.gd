@@ -51,6 +51,11 @@ func _ready():
 	flow_label = get_node("VBoxContainer/FlowLabel")
 	health_bar = get_node("VBoxContainer/HealthBar")
 	energy_bar = get_node("VBoxContainer/EnergyBar")
+	# Bar colors: health green, energy blue
+	for pair in [[health_bar, Color(0.25, 0.85, 0.3)], [energy_bar, Color(0.25, 0.5, 1.0)]]:
+		var bar_fill = StyleBoxFlat.new()
+		bar_fill.bg_color = pair[1]
+		pair[0].add_theme_stylebox_override("fill", bar_fill)
 	kill_label = get_node("VBoxContainer/KillLabel")
 	speed_label = get_node("VBoxContainer/SpeedLabel")
 	orb_bar = get_node("VBoxContainer/OrbBar")
