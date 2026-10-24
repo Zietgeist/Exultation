@@ -20,6 +20,7 @@ var drain := {}			# drain_aura (toggle): params while on
 var whirl := {}			# whirlwind: time, dps, radius
 var dash_left := 0.0	# dash: distance still to travel
 var dash_dir := Vector3.ZERO
+var dash_land := {}		# dash: landing hit (damage, radius, stun) once the dash ends
 var totems := []		# totem: [{node, time, dps, radius}]
 var mending := {}		# a Mending Vow sitting on THIS player: heal, jumps, time, wait
 var _custom := {}		# key -> script object from a mod
@@ -115,6 +116,11 @@ func _run(key: String, s: Dictionary, p: Dictionary) -> bool:
 				to = -player.global_transform.basis.z
 			dash_dir = to.normalized()
 			dash_left = p.distance
+			dash_land = {}
+			if p.has("land_damage"):
+				if not p.has("land_radius") or not p.has("stun_time"):
+					ErrorLog.warn("dash with land_damage needs land_radius and stun_time params; using 3 and 1")
+				dash_land = {damage = float(p.land_damage), radius = float(p.get("land_radius", 3.0)), stun = float(p.get("stun_time", 1.0))}
 			player.invulnerable_time = max(player.invulnerable_time, p.safe_time)
 			return true
 		"whirlwind":
@@ -258,6 +264,9 @@ func _physics_process(delta):
 
 	if dash_left > 0.0:	# the player moves at DASH_SPEED while this runs (see dash_velocity)
 		dash_left -= DASH_SPEED * delta
+		if dash_left <= 0.0 and not dash_land.is_empty():
+			_dash_land(dash_land)
+			dash_land = {}
 
 	if not mending.is_empty():
 		mending.time -= delta
@@ -358,6 +367,15 @@ func _set_boost():
 	player.dps_boost_stacks = boost_timers.size()
 	player.boost_mult = 1.0 + (_boost_cap - 1.0) * float(player.dps_boost_stacks) / float(max(_boost_max_stacks, 1))
 	player._refresh_damage()
+
+
+## Phase Runner's Blink landing: hit and stun everything close to where you land.
+func _dash_land(d: Dictionary):
+	var center = player.global_position
+	for e in _enemies_near(center, d.radius):
+		e.stun(d.stun)	# stun first: the hit may kill it
+		e.take_damage(d.damage * player.get_damage_multiplier())
+	_flash_disc(center, d.radius, Color(0.55, 0.85, 1.0, 0.45), 0.3)
 
 
 ## Big hit on everything in a circle around the mouse.

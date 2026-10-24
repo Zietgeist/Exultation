@@ -526,6 +526,9 @@ func hit_enemy(id: int, amount: float):
 func root_enemy(id: int, seconds: float):
 	_root.rpc_id(1, Zones.local_key(), id, seconds)
 
+func stun_enemy(id: int, seconds: float):	# Phase Runner's Blink landing, on a joined player's screen
+	_stun.rpc_id(1, Zones.local_key(), id, seconds)
+
 func turn_enemy(id: int, seconds: float, buff := 1.0):	# Healer's F, cast on a joined player's screen
 	_turn.rpc_id(1, Zones.local_key(), id, seconds, buff)
 
@@ -542,6 +545,12 @@ func _root(key: String, id: int, seconds: float):
 	var e = enemies.get(id)
 	if e and is_instance_valid(e) and Zones.key_of(e) == key:
 		e.root(seconds)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _stun(key: String, id: int, seconds: float):
+	var e = enemies.get(id)
+	if e and is_instance_valid(e) and Zones.key_of(e) == key:
+		e.stun(clampf(seconds, 0.0, 5.0))	# never trust big numbers from the network
 
 @rpc("any_peer", "call_remote", "reliable")
 func _turn(key: String, id: int, seconds: float, buff: float):

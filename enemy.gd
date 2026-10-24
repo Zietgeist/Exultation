@@ -422,6 +422,16 @@ func root(seconds: float):
 	aggroed = true
 
 
+## Stunned (Phase Runner's Blink landing): can't move AND can't swing for a moment.
+func stun(seconds: float):
+	if mirror:
+		_rooted_until = maxf(_rooted_until, Time.get_ticks_msec() / 1000.0 + seconds)
+		Net.stun_enemy(net_id, seconds)
+		return
+	root(seconds)
+	attack_cooldown = maxf(attack_cooldown, seconds)
+
+
 ## Held in a Root Field / Stasis Field right now? (totems hit these harder)
 func is_rooted() -> bool:
 	return rooted_time > 0.0 or Time.get_ticks_msec() / 1000.0 < _rooted_until

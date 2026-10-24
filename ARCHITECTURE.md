@@ -15,7 +15,7 @@ Read this before big changes. Keep it short; update it when a rule changes.
 ## Online (host and clients) - `net.gd`
 - The HOST runs every zone that has a player in it: enemies, kills, layouts, bosses. The host decides.
 - CLIENTS show only their own zone, with "mirror" copies of the host's enemies.
-- Hits and roots go to the host (`_hit`, `_root`); damage and heals go to the player they target.
+- Hits, roots and stuns go to the host (`_hit`, `_root`, `_stun`); damage and heals go to the player they target.
 - Every player keeps their own loot, gold, gear, unlocks and skill ranks.
 - Rules:
   - Anything that changes the shared world checks `Net.is_client()` and sends it to the host.
