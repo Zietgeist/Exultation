@@ -1,9 +1,10 @@
 extends CanvasLayer
-## Character window (press C). Four tabs:
+## Character window (press C). Five tabs:
 ##   Gear      your race's body with every gear slot on it (paper_doll.gd), plus gear you're not wearing.
 ##   Stats     health, energy, attacks, resistances and skills, as bars and cards.
 ##   Becoming  the six sliders that move with how you play, and your pet.
 ##   Journey   zones, gold, time, and the Trial ladder.
+##   Guide     a small wiki: how everything works (text in guide.json, live parts in guide.gd).
 ## The game keeps running while it's open (multiplayer). Gear can be changed only in town.
 
 const GOLD = Color(1.0, 0.85, 0.3)
@@ -13,7 +14,8 @@ const CARD_BG = Color(0.11, 0.1, 0.13)
 const TILE = preload("res://item_tile.gd")
 const ICONS = preload("res://icons.gd")
 const DOLL = preload("res://paper_doll.gd")
-const TABS = ["Gear", "Stats", "Becoming", "Journey"]
+const GUIDE = preload("res://guide.gd")
+const TABS = ["Gear", "Stats", "Becoming", "Journey", "Guide"]
 
 var panel: PanelContainer
 var tabs: TabContainer
@@ -22,6 +24,14 @@ var _tab := 0
 var _refresh := 0.0
 var _menu: PopupMenu
 var _menu_actions := []
+# Guide tab
+var _guide_topics := []		# [{group, title, text}] from GUIDE.topics()
+var _guide_list: VBoxContainer
+var _guide_text: RichTextLabel
+var _guide_buttons := {}		# title -> its button in the list
+var _guide_query := ""			# what's typed in the search box
+var _guide_pick := ""			# the topic being shown
+var _bbcode := RegEx.create_from_string("\\[[^\\]]*\\]")	# for searching text without [b] tags
 
 
 func _ready():
@@ -72,6 +82,8 @@ func _unhandled_input(event):
 
 func toggle():
 	visible = not visible
+	if not visible:
+		get_viewport().gui_release_focus()	# closed while typing in the Guide search: let WASD walk again
 	GameState.ui_open = visible or _open_shop() != null	# the game keeps running (multiplayer-friendly); only your attack keys are paused
 	arrange()
 	if visible:
@@ -139,6 +151,7 @@ func _rebuild():
 		"Stats": _stats(page, p)
 		"Becoming": _becoming(page, p)
 		"Journey": _journey(page)
+		"Guide": _guide(page)
 
 
 func _header(page, p):
@@ -318,6 +331,109 @@ func _becoming(page, p):
 				c.toggle())
 	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	page.add_child(b)
+
+
+# ---------------- Guide (a small wiki) ----------------
+
+## Topic list with a search box on the left, the topic's text on the right.
+## Typing and clicking only refill the list / text (no _rebuild), so the search box keeps its focus.
+func _guide(page):
+	_guide_topics = GUIDE.topics()
+	var cols = HBoxContainer.new()
+	cols.add_theme_constant_override("separation", 14)
+	cols.custom_minimum_size = Vector2(0, 470)
+	page.add_child(cols)
+	var left = VBoxContainer.new()
+	left.custom_minimum_size = Vector2(260, 0)
+	cols.add_child(left)
+	var search = LineEdit.new()
+	search.placeholder_text = "Search the guide..."
+	search.clear_button_enabled = true
+	search.text = _guide_query
+	search.text_changed.connect(func(t): _guide_query = t; _guide_fill_list())
+	left.add_child(search)
+	var scroll = ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	left.add_child(scroll)
+	_guide_list = VBoxContainer.new()
+	_guide_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_guide_list.add_theme_constant_override("separation", 0)
+	scroll.add_child(_guide_list)
+	_guide_text = RichTextLabel.new()
+	_guide_text.bbcode_enabled = true
+	_guide_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_guide_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_guide_text.add_theme_color_override("default_color", SOFT)
+	_guide_text.add_theme_font_size_override("normal_font_size", 15)
+	_guide_text.add_theme_font_size_override("bold_font_size", 15)
+	cols.add_child(_guide_text)
+	_guide_fill_list()
+	_guide_show(_guide_pick)
+
+
+func _guide_fill_list():
+	for c in _guide_list.get_children():
+		c.queue_free()
+	_guide_buttons.clear()
+	var q = _guide_query.strip_edges().to_lower()
+	var group = ""
+	var first = ""
+	for t in _guide_topics:
+		if q != "" and not (t.title.to_lower().contains(q) or _bbcode.sub(t.text, "", true).to_lower().contains(q)):
+			continue
+		if t.group != group:
+			group = t.group
+			var g = _label(group, GOLD, 15)
+			if _guide_list.get_child_count() > 0:
+				g.custom_minimum_size.y = 30	# a little space above each group
+				g.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+			_guide_list.add_child(g)
+		var b = Button.new()
+		b.text = t.title
+		b.flat = true
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.focus_mode = Control.FOCUS_NONE	# keeps the search box focused, and Space never presses it
+		var title = t.title
+		b.pressed.connect(func(): _guide_show(title))
+		_guide_list.add_child(b)
+		_guide_buttons[title] = b
+		if first == "":
+			first = title
+	if first == "":
+		_guide_list.add_child(_label("Nothing found.", DIM, 14))
+	elif not _guide_buttons.has(_guide_pick):	# searching: show the first match
+		_guide_show(first)
+	else:
+		_guide_mark()
+
+
+func _guide_show(title: String):
+	var topic = {}
+	for t in _guide_topics:
+		if t.title == title:
+			topic = t
+	if topic.is_empty():
+		if _guide_topics.is_empty():
+			_guide_text.text = "The guide couldn't be loaded (see logs/error_log.txt)."
+			return
+		topic = _guide_topics[0]
+	_guide_pick = topic.title
+	_guide_text.text = "[font_size=24][color=#%s]%s[/color][/font_size]\n\n%s" % [GOLD.to_html(false), topic.title, topic.text]
+	_guide_text.scroll_to_line(0)
+	_guide_mark()
+
+
+## The topic being shown is gold in the list.
+func _guide_mark():
+	for k in _guide_buttons:
+		var b = _guide_buttons[k]
+		if k == _guide_pick:
+			b.add_theme_color_override("font_color", GOLD)
+			b.add_theme_color_override("font_hover_color", GOLD)
+		else:
+			b.remove_theme_color_override("font_color")
+			b.remove_theme_color_override("font_hover_color")
 
 
 # ---------------- Journey ----------------

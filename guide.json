@@ -1,0 +1,184 @@
+{
+	"about": "Text for the Guide tab in the character window (C). Edit freely. Tokens: {el:shadow} element name, {name:enemy_trash} skin name, {class:tank} class name, {bag_min}/{bag_max} minutes. live = a section guide.gd fills from game data.",
+	"topics": [
+		{
+			"group": "Getting started",
+			"title": "Welcome",
+			"text": "Exultation is a fast action RPG. Fight in focused blocks of about 20-25 minutes, then rest at Home: bank your gold, craft, swap gear, and head back out.\n\n[b]Showing up often beats playing long.[/b] Rest on time and you grow stronger; a big part of your power comes from shrine trials that open over days, not hours.\n\nPick a topic on the left, or type in the search box to find a word anywhere in this guide."
+		},
+		{
+			"group": "Getting started",
+			"title": "Controls",
+			"text": "[b]Moving and fighting[/b]\n• [b]W A S D[/b] or arrow keys: move\n• [b]Left click[/b]: Strike (one enemy, hits hard)\n• [b]Right click[/b]: Sweep (a cone in front of you, hits a crowd)\n• [b]Mouse wheel[/b]: auto-attack style. Up = single target, down = multi target\n• [b]Tab[/b]: auto-attack on / off\n• [b]R[/b]: change your main target\n• [b]E[/b], [b]Q[/b], [b]F[/b]: your class skills ([b]Q[/b] is always a self heal)\n• [b]Space[/b] or a [b]side mouse button[/b]: same as F, your big ability\n• [b]1[/b]: drink a potion\n\n[b]Doing things[/b]\n• [b]G[/b]: gather a resource, talk to someone, use a shrine\n• [b]T[/b]: feed your pet (stand near it)\n• [b]V[/b]: talk to guards / put your disguise back on (at strongholds)\n\n[b]Windows[/b]\n• [b]C[/b]: character (this window)    • [b]I[/b]: inventory\n• [b]M[/b]: map    • [b]J[/b]: Chronicle    • [b]K[/b]: pet\n• [b]Esc[/b]: close a window\n\n[b]Online[/b]\n• [b]F7[/b]: invite Steam friends (when you host)\n• [b]P[/b]: rejoin your party    • [b]Y[/b] / [b]N[/b]: follow a friend through a gate, or stay\n\n[b]Test key[/b]: [b]F9[/b] switches the world look (see Worlds)."
+		},
+		{
+			"group": "Getting started",
+			"title": "The flow loop",
+			"text": "The game is built around short, focused runs.\n\n• [b]Flow timer[/b] (top left): counts while you're out in a zone. Being at Home is a break.\n• [b]Gold bag[/b]: enemies drop gold orbs. The bag holds 100 gold and fills in about {bag_min}-{bag_max} minutes of fighting. When it's full, a [b]gold portal home[/b] opens next to you.\n• [b]Deposit Shrine[/b] (Home): step in to bank your gold. It also moves everything in your satchel to the storehouse, and starts a [b]5-minute rest[/b].\n• While you rest: refine, craft, buy treats at the Inn, change your gear (gear only changes in town).\n• [b]Return Portal[/b]: once the rest is over, it takes you back exactly where you left.\n• At [b]25:00[/b] of flow the air grows heavy: time to go home. Going home on time (20-26 minutes) makes you [b]Patient[/b]; staying out makes you [b]Driven[/b]. See Becoming.\n\nBanking at a forward camp or a town Inn out in the world counts as a rest too."
+		},
+		{
+			"group": "Getting started",
+			"title": "Health, energy and orbs",
+			"text": "[b]Health[/b]\nYour class sets your starting health (base 100). Vitality on armor, a tonic from the Inn and the Steadfast trait add more.\n\n[b]Hurt means weaker hits.[/b] Above 66% health you hit at full power. From 33% to 66%: 75%. Under 33%: only half. Heal early to keep your damage up.\n\n[b]Energy[/b]\nYou have up to 10 energy. Your E, Q and F skills cost energy. Every class earns it its own way (see Classes): the Tank by getting hit, the Skirmisher by running, some classes refill on their own.\n\n[b]Orbs[/b]\n• [b]Blue orbs[/b] give energy. Bigger enemies drop more: {name:enemy_trash_one} 0.25, {name:enemy_thug_one} 0.5, {name:enemy_master_one} 1, {name:enemy_boss_one} 2.\n• [b]Gold orbs[/b] fill your gold bag.\n• Orbs only fly to you when you have room (energy not full, bag not full). Otherwise they wait."
+		},
+		{
+			"group": "Getting started",
+			"title": "Dying",
+			"text": "When you fall:\n• You come back at the zone's entry door, safe from hits for 2 seconds.\n• Enemies lose track of you.\n• A [b]red X[/b] on your map (M) shows where you fell and what got you.\n• You keep your gold, gear and items.\n\nBut the world remembers:\n• If a small [b]{name:enemy_trash_one}[/b] kills you, it becomes your [b]Rival[/b] (see Rivals).\n• If a [b]{name:enemy_boss_one}[/b] kills you, it waits where you fell with the health it had left. It's on your map."
+		},
+		{
+			"group": "Combat",
+			"title": "Strike, Sweep and the big ability",
+			"text": "Every fight has three tools. Each one is the obvious answer to a different moment:\n\n• [b]Sweep[/b] (right click): a close group of small, weak enemies. Hits everything in a cone in front of you, up to a number of targets set by your weapon. Sweeps do [b]0.75x[/b] weapon damage.\n• [b]Strike[/b] (left click): one tough enemy, the leader, a {name:enemy_master_one}, a {name:enemy_boss_one}. Strikes do [b]1.5x[/b] weapon damage and reach [b]twice[/b] as far as your weapon's listed reach.\n• [b]Big ability[/b] (F, Space or a side mouse button): a big pack. It costs energy, so it's a choice.\n• [b]Moving[/b]: always. Where you stand matters most.\n\nA good fight: run into a group, sweep the small ones, strike the leader, drop the big ability on a big pack."
+		},
+		{
+			"group": "Combat",
+			"title": "Auto-attack",
+			"text": "Auto-attack lets you think about where to stand and when to use your skills, instead of clicking all day.\n\n• [b]Tab[/b]: turn it on or off.\n• [b]Mouse wheel up[/b] = [b]Single target[/b]: strikes your main target. For the leader or the tough one.\n• [b]Mouse wheel down[/b] = [b]Multi target[/b]: sweeps, aimed where they catch the most enemies. If nobody is close enough to sweep, it strikes instead.\n• [b]R[/b]: change who your main target is. This also aims your own left clicks when the mouse isn't on an enemy.\n\nRules:\n• It only fights enemies that are already after you. It never starts a fight.\n• Your own clicks always win. Auto waits while you hold a mouse button.\n• It never switches style on its own. You choose."
+		},
+		{
+			"group": "Combat",
+			"title": "Attack speed",
+			"text": "In the Stats tab you can set your attack speed from [b]-5[/b] (Harder) to [b]+5[/b] (Faster).\n\n• Each step [b]Faster[/b]: attacks come 15% sooner, but each hit does 15% less.\n• Each step [b]Harder[/b]: attacks come 15% slower, but each hit does 15% more.\n\nDamage over time stays about the same. It's about how you like to fight. Fast attacks and sweeps push you toward [b]Fury[/b]; heavy attacks and strikes toward [b]Precision[/b] (see Becoming)."
+		},
+		{
+			"group": "Combat",
+			"title": "Skills and ranks",
+			"text": "Every class has three skills: [b]E[/b], [b]Q[/b] and [b]F[/b]. Q is always a self heal. F (also Space or a side mouse button) is the big one.\n\n[b]Skills get better as you use them.[/b] No points to spend.\n• Rank 2 after 10 uses\n• Rank 3 after 30 uses\n• Rank 4 after 70 uses\n• Rank 5 after 150 uses\n\nEach rank makes the skill stronger (more damage, longer, farther: it depends on the skill). The Stats tab shows each skill's rank and how close you are to the next one. Hover a skill there for details."
+		},
+		{
+			"group": "Combat",
+			"title": "Classes",
+			"text": "You pick a class when you make a character. Every class shares Strike, Sweep and a self heal on Q. What makes each one different:",
+			"live": "classes"
+		},
+		{
+			"group": "Combat",
+			"title": "Enemies",
+			"text": "Four kinds of enemy:\n• [b]{name:enemy_trash}[/b] (green): weak, and lots of them. About 100 health.\n• [b]{name:enemy_thug}[/b] (blue): tougher pack leaders. About 600 health.\n• [b]{name:enemy_master}[/b] (purple): strong leaders deeper in. About 1,500 health.\n• [b]{name:enemy_boss}[/b] (gold): the big ones. About 6,000 health.\n(Harder zones make all of them tougher.)\n\n[b]Packs[/b]: a leader ({name:enemy_thug_one} or {name:enemy_master_one}) with 8-20 small ones, gathered at camps, valleys and hills. Sweep the small ones, strike the leader.\n\n[b]Noticing you[/b]: each enemy notices you from a certain range; tougher ones notice from farther. Hit one from far away and it comes for you, and so do its friends.\n\n[b]Damage types[/b]: each enemy hits with one damage type. Deeper zones use more of the special ones. Armor of the right type soaks it (see Damage types)."
+		},
+		{
+			"group": "Combat",
+			"title": "Bosses",
+			"text": "Every zone has [b]two {name:enemy_boss}[/b]. The first waits in the far corner. The second shows up near you once enough enemies in the zone are down.\n\nWhat to expect:\n• A [b]roar[/b] the first time it sees you.\n• [b]Big moves you can dodge[/b]: a red circle fills up, then it hits whoever is still inside. Keep moving, step out of lanes, find the gaps in a rain of circles, and back off when a huge ring forms around the boss itself.\n• [b]Rage[/b] at 66% and 33% health: it calls helpers, moves faster and attacks more often.\n\n[b]Beat both bosses to unlock the next zone.[/b] A zone with both bosses down counts as cleared, and its map then shows every enemy left."
+		},
+		{
+			"group": "Combat",
+			"title": "Rivals",
+			"text": "The small enemy that kills you doesn't forget it.\n\n• If a [b]{name:enemy_trash_one}[/b] kills you, it grows into a named [b]Rival[/b] boss right there (\"... who slew you\"). Its health and hits are built from [b]your[/b] stats, and it copies a version of your best skill.\n• It stays in that zone and is waiting every time you come back.\n• If it kills you again, it grows stronger and its title changes.\n• [b]Beat it[/b]: a Chronicle entry, a trophy, gear that remembers it, and a pull toward Steadfast. Leaving its zone while it lives pulls you toward Swift.\n• Rivals born in a Trial Ground wait in your next Trial Ground of that kind.\n\nRivals are personal: each player has their own."
+		},
+		{
+			"group": "Stats and gear",
+			"title": "Damage types",
+			"text": "There are five damage types. {el:physical} is the normal one; the other four are special:",
+			"live": "elements"
+		},
+		{
+			"group": "Stats and gear",
+			"title": "Stats explained",
+			"text": "Gear is made from [b]materials[/b], and every material carries [b]attributes[/b]. The same attribute does something different depending on what you put it in:\n\n[b]Hardness[/b]\n• Weapon: more base damage. +6 Strike and +3 Sweep per point (before the 1.5x / 0.75x).\n• Armor: resists {el:physical} damage. Every armor piece also has its own built-in hardness (Plate 10, Helm 3, Boots 1...).\n\n[b]{el:physical}[/b] (mostly from metal)\n• Weapon: +5 Strike and +2.5 Sweep per point.\n• Armor: counts toward {el:physical} resistance, just like hardness.\n\n[b]Elements[/b]: {el:radiant}, {el:shadow}, {el:nature}, {el:storm}\n• Weapon: +5 extra damage of that type on every hit, per point.\n• Armor: resists that type of damage.\n• Potion: a 30-second [b]ward[/b] against that type.\n\n[b]Swiftness[/b]\n• Weapon: attacks 4% faster per point.\n• Armor: +2% move speed per point.\n• Potion: +3% haste for 30 seconds per point.\n\n[b]Vitality[/b]\n• Weapon: [b]lifesteal[/b], heals you 0.4 per hit per point.\n• Armor: +4 max health per point.\n• Potion: heals 8 more per point.\n\n[b]How resistance works[/b]\nResistance = points / (points + 20). So 10 points = 33%, 20 points = 50%, 60 points = 75%. It never reaches 100%, so every point helps a bit less than the last. Potion wards are stronger: points / (points + 10).\n\n[b]Quality[/b]\nEvery attribute gets [b]x1.25[/b] for each quality level. Quality comes from where the resource was found (see Gathering).\n\n[b]Other numbers in the Stats tab[/b]\n• [b]Hit / Sweep[/b]: your damage per Strike and per Sweep right now.\n• [b]Attack time[/b]: seconds between Strikes / between Sweeps.\n• [b]Move[/b]: how fast you run.\n• [b]Lifesteal[/b]: health back on each hit.\n• [b]Boost[/b]: your current damage boost (some skills stack this, up to x2)."
+		},
+		{
+			"group": "Stats and gear",
+			"title": "Materials",
+			"text": "Raw resources are refined into materials at the Smith and the Chemist. Here is what one unit of each material carries at the lowest quality:",
+			"live": "materials"
+		},
+		{
+			"group": "Stats and gear",
+			"title": "Gear slots and races",
+			"text": "Your [b]race[/b] decides which gear slots you have. Some races wear every armor piece; others give up a slot for more ring slots. Rings are small, but every slot counts, and skill rings stack.\n\nRaces in this world:",
+			"live": "races"
+		},
+		{
+			"group": "Stats and gear",
+			"title": "Crafting",
+			"text": "[b]How to make something[/b]\n1. Go to the [b]Smith[/b] (weapons, armor, rings) or the [b]Chemist[/b] (potions) at Home.\n2. Pick a [b]recipe[/b]. It needs some main material and sets the item's shape.\n3. Pick the [b]quality[/b] of the main material.\n4. Fill the open [b]slots[/b] with [b]any[/b] refined material you like. That's where you make it yours: a gem of {el:shadow} in a blade gives {el:shadow} damage; the same gem in armor resists {el:shadow}.\n\n[b]Cost[/b]: basic recipes cost 5 gold + 3 per quality.\n\n[b]Better recipes[/b] come only from shrine trials (see Shrines and Trials), never from shops. Each trial level teaches a much stronger version: about x1.6 at level I, x2.4 at II, x4.6 at IV and x11.4 at VIII, with more slots and faster attacks. They cost 15 gold per level + 5 per quality.\n\n[b]Gear has a story[/b]: every item remembers who made it, where its recipe came from, and what it has been through (see Chronicle).\n\nYou can only change gear in town. Online, you can give gear to friends.\n\nThe recipes the shops know:",
+			"live": "recipes"
+		},
+		{
+			"group": "Stats and gear",
+			"title": "Potions",
+			"text": "Potions are made at the Chemist. Press [b]1[/b] to drink your oldest one.\n\n• [b]Draught[/b]: a quick heal (30), one slot.\n• [b]Elixir[/b]: a strong heal (50), two slots.\n\nWhat you put in the slots adds to it: vitality heals more, an element gives a 30-second ward against that damage type, swiftness gives 30 seconds of haste. The Wary trait makes potions heal more."
+		},
+		{
+			"group": "The world",
+			"title": "Zones",
+			"text": "Home sits in the middle. [b]Zones 1 to 10[/b] spiral out around it (a golden ratio spiral), each one bigger than the last.\n\n• [b]Gates[/b] join zones that touch. A gate stays locked until the zone behind it is unlocked.\n• [b]Beat both bosses[/b] in a zone to unlock the next one.\n• Leave a zone and come back in the same play session: it's just as you left it.\n• Resources start in Zone 2. Deeper zones have better quality resources and more special damage types.\n• Big zones (3 and up) have fast-travel stops, so you can jump back to any zone you've unlocked.\n• Clearing Zone 10 with a party makes it a Legend."
+		},
+		{
+			"group": "The world",
+			"title": "Home",
+			"text": "Your town and your break room.\n\n• [b]Deposit Shrine[/b]: bank your gold and resources, start your rest.\n• [b]Return Portal[/b]: back to where you left, once the rest is over.\n• [b]Smith[/b]: refine ore, treesilver and geodes; make weapons, armor and rings.\n• [b]Chemist[/b]: refine herbs and orchids; make potions.\n• [b]Inn[/b]: treats that last until your next rest, and a bigger satchel.\n• [b]Fast-travel stop[/b], the [b]Hall of Legends[/b], the [b]Real Place[/b] ring, and the people you've rescued (see Helpers).\n\nInn treats:",
+			"live": "inn"
+		},
+		{
+			"group": "The world",
+			"title": "Helpers",
+			"text": "Some people need rescuing. Each one is held at a camp in their zone, guarded by a {name:enemy_master_one} and its pack. Clear the guards, walk up and press [b]G[/b]. They then wait for you at Home.\n\n• [b]Zone 2: the Cook.[/b] Takes over the Inn's three treats. Cooking starts when your break starts and the meal is served when you leave. The longer you let them cook, the better: 1 minute is weak, 4 minutes is full power (+25% damage, +75% energy regen, +30% max health). The cook also refines your stored herbs.\n• [b]Zone 3: the Smith's assistant.[/b] Refines all your stored ore and treesilver while you rest, with a bonus (+1 for every 3 made).\n• [b]Zone 4: the Alchemist's assistant.[/b] The same for herbs and orchids."
+		},
+		{
+			"group": "The world",
+			"title": "Gathering",
+			"text": "Walk up to a resource and press [b]G[/b]. Getting hit stops you. Your pet gathers too.\n\nWhat you can find:\n• [b]Ore[/b]: refine 3 at the Smith into an ingot.\n• [b]Herbs[/b]: refine 3 at the Chemist into a tonic.\n• [b]Treesilver[/b] (rarer): refine 1 at the Smith into a bar.\n• [b]Cliff Orchids[/b] (rare): refine 1 at the Chemist into an essence.\n• [b]Geodes[/b], only in caverns. Refine 2 at the Smith into a gem.\n\n[b]Quality[/b] = zone number - 1 (Zone 2 gives quality 1, Zone 3 quality 2...). Zone 1 has no resources.\n\n[b]Satchel[/b]: holds 40 resources. The Inn sells 3 upgrades of +20 room each (60 gold). Banking at the Deposit Shrine moves everything to your storehouse at Home, which has no limit. The Smith and Chemist refine from both.\n\nNames change with the world you're playing in, but the rules are the same."
+		},
+		{
+			"group": "The world",
+			"title": "Fast travel",
+			"text": "Big zones (Zone 3 and up) have [b]waystations[/b]: one just inside each gate, and more spread across the zone. Home has one too.\n\n• Walk up to a waystation to wake it up. It's remembered.\n• Step onto one to open the travel list: any waystation you've found, in any zone you've unlocked, plus Home."
+		},
+		{
+			"group": "The world",
+			"title": "Map",
+			"text": "Press [b]M[/b].\n\n• [b]At Home[/b]: first the town map. Press M again for the whole spiral of zones, showing what you've explored. Once more closes it.\n• [b]In a zone[/b]: only ground you've explored is shown. You'll see gates, landmarks, waystations, shrines, where you fell (red X) and where bosses fell (gold ring). Once the zone is cleared, it shows every enemy left.\n• Left click zooms in, right click zooms out, the mouse wheel too. Hover anything to see what it is.\n• You can still walk with the map open, but clicks go to the map."
+		},
+		{
+			"group": "The world",
+			"title": "Shrines and Trials",
+			"text": "From Zone 2 on you'll find [b]shrines[/b]. Press [b]G[/b] at one for a short trial. No sound needed.\n\n• [b]Pass[/b]: a gate opens to a small [b]Trial Ground[/b]. Clear it, and the last enemy drops a [b]Sigil[/b]. That earns the next level of that trial, and teaches its better recipe.\n• [b]Fail[/b]: the shrine fades and shows up somewhere else in the zone. Try again any time.\n• Trials adjust to you: they settle where you pass about 85% of the time.\n\n[b]The ladder[/b]: each kind of trial has levels I to VIII. Each level teaches a much stronger recipe. The next level only opens after a wait, like spaced practice:\nlevel I any time, then 1 day, 3 days, 1 week, 2 weeks, 1 month, 2 months and 6 months. Trials and Trial Grounds get harder each level.\n\nYour trials:",
+			"live": "trials"
+		},
+		{
+			"group": "The world",
+			"title": "Landmarks",
+			"text": "From Zone 4 on, zones have big set pieces. Names change with the world; here are the Fantasy ones:\n\n• [b]Stronghold[/b] (Keep): take it and it becomes a forward camp.\n• [b]Neutral town[/b] (Free Town): no fighting inside. A trader, a quest board, and a place to rest.\n• [b]Cavern[/b] (Cave): a dark dungeon with geodes and rare ore (see Caverns).\n• [b]Event town[/b] (Market): defend it from a raid for 3 minutes.\n• [b]Monument[/b] (Fallen Statue): seen from far away, with shrines nearby.\n• [b]Rift[/b] (Dark Rift): keeps spawning enemies until its guardians fall.\n\nEveryone sees the same landmarks in the same places. What happened to them is saved with your party (or with you, solo)."
+		},
+		{
+			"group": "The world",
+			"title": "Caverns",
+			"text": "A cavern is a dark maze of tunnels behind a cavern entrance.\n\n• Only a small circle of light around each player.\n• [b]Ore veins[/b] one quality better than the zone, and [b]geodes[/b] (refine at the Smith into gems: a strong material for any recipe's slots).\n• Enemies in the tunnels and a [b]Cavern Lord[/b] in the deepest chamber. Beat them all to clear it.\n• Come back later: fewer enemies, but fresh veins.\n• Sometimes your Rivals from the zone above are hiding down here.\n• The way out is right where you came in."
+		},
+		{
+			"group": "The world",
+			"title": "Real Places",
+			"text": "The [b]Real Place[/b] ring at Home opens a real neighborhood as a battlefield, with enemy packs in its yards, streets and lots. Clear every pack to finish it. Solo only for now, and nothing there is saved.\n\nA [b]director[/b] watches how hard you're being pushed:\n• [b]Calm[/b]: no hordes. Loot, heal, catch your breath.\n• [b]Build-up[/b]: hordes rush you from off screen, each one bigger.\n• [b]Peak[/b]: no more hordes. Fight off what's left, then it goes calm again.\nDo well and the next cycle is bigger; nearly die and it eases off. Hordes don't count toward clearing the place."
+		},
+		{
+			"group": "You",
+			"title": "Becoming",
+			"text": "Six sliders that move on their own with [b]how you play[/b]. No points to spend. Each end gives a small edge (up to about 12%), so neither side is wrong. The Becoming tab shows where you are.",
+			"live": "traits"
+		},
+		{
+			"group": "You",
+			"title": "Your pet",
+			"text": "Your [b]{name:pet}[/b] floats after you and gathers resources near you into your satchel. It never fights, but enemies will go after it if it's the closest target. If it's knocked out, it comes back after a while.\n\nIt grows from how you treat it:\n• [b]Stress[/b] rises when it's hit or enemies are close, and calms faster when you're near.\n• [b]Overwhelm[/b]: too many hits before it calms down and it hides behind you and stops gathering for a bit.\n• [b]Sturdy[/b]: hard knocks it gets through with you near make it tougher, but slower.\n• [b]Skittish[/b]: being overwhelmed again and again (worst when you're far away). Calm time with you heals it. Never permanent.\n• [b]Bond[/b]: feeding it, resting at Home together and protecting it. High Bond = faster, gathers from farther and quicker, and at 80+ gathers two things at once.\n• [b]Food[/b] goes down while you're out. Press [b]T[/b] near it to feed it a herb from your satchel.\n• [b]Tonics[/b] (refined herbs) are a real treat: fully fed and calm, a big Bond boost, healed, and well fed for a while (faster, gathers quicker, +20% health).\n\nGive it a name in the pet window ([b]K[/b]) or the Chronicle ([b]J[/b])."
+		},
+		{
+			"group": "You",
+			"title": "Chronicle and gear memory",
+			"text": "The game remembers what you did and shows it back to you.\n\n• [b]The Chronicle[/b] ([b]J[/b]): a journal that writes itself. At each rest (going Home after 5+ minutes out) you can add one line of your own.\n• [b]Recipes remember[/b] the day you earned them, the zone, how many tries the trial took, and how close the Trial Ground came to killing you.\n• [b]Gear remembers[/b] who made it (and for whom), and keeps a record while you wear it: kills, bosses, Rivals, and times it saved you. Records earn titles."
+		},
+		{
+			"group": "Friends",
+			"title": "Playing online",
+			"text": "• The [b]host[/b] picks a [b]party[/b] on the start screen: a new one or one you've played before. The party's progress (open zones, cleared zones, legends) is what everyone plays with.\n• Every member keeps a copy, so [b]any[/b] of you can host next time and carry on.\n• [b]Your own things stay yours[/b]: gold, gear, loot, pet, traits, story and skill ranks. Zones you open with a party also open in your solo game.\n• [b]F7[/b]: invite Steam friends (host). [b]P[/b]: rejoin the party. When someone in your zone goes through a gate, press [b]Y[/b] to follow or [b]N[/b] to stay.\n• Clear [b]Zone 10[/b] together and the party becomes a [b]Legend[/b]: its name goes up in the Hall of Legends at Home.\n\nSome things are solo only for now, like Real Places."
+		},
+		{
+			"group": "Friends",
+			"title": "Worlds",
+			"text": "The same game can be played in different [b]worlds[/b]. A world changes names, looks, races and enemy types, but [b]never the rules[/b]. A Sprite in Fantasy is a Harvest Drone in Sci-Fi; they do the same thing.\n\nWorlds you can play:",
+			"live": "worlds"
+		}
+	]
+}

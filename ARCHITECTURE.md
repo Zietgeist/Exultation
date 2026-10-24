@@ -80,3 +80,8 @@ Trials, Zones, Story, Rivals, Traits, Travel (fast_travel.gd), Party, Landmarks.
 
 ## Farmland (open_field map, Zone 1 and "Overgrown Fields")
 - `terrain_generator.gd` `_layout_farmland`: river with bridges (`_layout_river`), fenced fields (wall type "fence" + crop "deco" rows + a pack site style "field" that the spawner fills with a herd, `SITE_PACKS.field`), barns (piece kind "barn", look from `props.gd barn()`). All saved/rebuilt like other pieces.
+
+## Guide (character window C -> Guide tab)
+- `guide.json`: the hand-written topics (group, title, text with [b] BBCode). Tokens: `{el:shadow}`, `{name:enemy_trash}`, `{class:tank}`, `{bag_min}`/`{bag_max}`, so names follow the skin.
+- `guide.gd`: loads it and writes the "live" parts from game data (classes, races, materials, recipes, Inn, trials, traits, worlds, zone damage types). Those stay correct by themselves.
+- Add or change a system -> update its topic in `guide.json` (hand-written numbers there do NOT update themselves).
