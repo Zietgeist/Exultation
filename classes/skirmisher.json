@@ -15,7 +15,7 @@
 			"params": {"amount": 35}, "per_rank": {"amount": 7},
 			"about": "Heal yourself."},
 		"F": {"id": "whirlwind", "name": "Whirlwind", "cost": 6, "effect": "whirlwind",
-			"params": {"duration": 3, "damage_per_second": 90, "radius": 4, "speed_bonus": 0.3},
+			"params": {"duration": 3, "damage_per_second": 90, "radius": 6, "speed_bonus": 0.3},
 			"per_rank": {"duration": 0.5, "damage_per_second": 10},
 			"about": "Spin for 3s, hitting everything close by. You move faster while spinning."}
 	}
