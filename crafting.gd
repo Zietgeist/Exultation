@@ -11,7 +11,18 @@ extends Node
 ##      swiftness                     weapon: faster attacks              armor: move faster          potion: haste
 ##      vitality                      weapon: heal a little on each hit   armor: more max health      potion: bigger heal
 ##    So Sunleaf (radiant) in armor = absorbs radiant damage. In a blade = radiant damage. Mix and match.
-##  - Quality multiplies every attribute by 1.25 per level (no upper limit).
+##  - Quality multiplies every attribute by 1.25 per level (no upper limit), AND the item's own power
+##    (weapon damage, armor hardness, potion healing): same recipe, better metal = a stronger item.
+##
+## WEAPON TYPES: Sword, Saber, Katana, Zweihander, Cleaver, Greataxe, Spear, Halberd, Mace, Dagger.
+##   Each one always plays the same way (speed, reach, sweep width); materials decide how strong it is.
+##
+## THE SHRINE LADDER (trials.gd) alternates, for every trial kind:
+##   odd levels  (I, III, V, VII)   a better RECIPE for its family (Precision: every weapon type)
+##   even levels (II, IV, VI, VIII) a better MATERIAL: Treasured, then Heirloom, Legendary, Mythic.
+##   Special materials are made at the Smith / Chemist from plain ones. They're much stronger and each
+##   family carries a SPECIAL EFFECT (gear_fx.gd): Ingot = Sunder, Tulip = Bloom, Gem = Prism,
+##   Treesilver = Gale, Orchid = Thornskin. Put them in any creative slot.
 
 signal changed
 
@@ -61,19 +72,42 @@ const ORCHID_ELEMENTS = ["nature", "storm", "radiant", "shadow"]
 # Single strikes hit much harder than sweeps (Oct 2026): strikes for big foes, sweeps for crowds.
 const ST_MULT = 1.5
 const AOE_MULT = 0.75
+const QUALITY_POWER = 1.25	# each quality step: the item itself is this much stronger (and so is every attribute)
 
 # ---------- Base recipes ----------
 # need: {material: count}  The quality you pick applies to the main material.
 const BASES = {
-	"blade": {label = "Blade", shop = "smith", slot = "weapon", need = {"ingot": 2}, slots = 2,
+	# Weapons (cone: lower = a wider sweep; auto_sweep: auto-attack sweeps once this many are close)
+	"blade": {label = "Sword", shop = "smith", slot = "weapon", need = {"ingot": 2}, slots = 2,
 		stats = {st = 100.0, aoe = 50.0, cone = 0.3, targets = 4, st_cd = 2.0, aoe_cd = 1.0, reach = 10.0, auto_sweep = 3},
 		about = "Balanced. Auto-attack sweeps at 3+ enemies."},
+	"saber": {label = "Saber", shop = "smith", slot = "weapon", need = {"ingot": 2}, slots = 2,
+		stats = {st = 85.0, aoe = 45.0, cone = 0.1, targets = 5, st_cd = 1.6, aoe_cd = 0.9, reach = 9.0, auto_sweep = 3},
+		about = "Quick, wide slashes. Auto-attack sweeps at 3+ enemies."},
+	"katana": {label = "Katana", shop = "smith", slot = "weapon", need = {"ingot": 2}, slots = 2,
+		stats = {st = 110.0, aoe = 40.0, cone = 0.4, targets = 3, st_cd = 1.6, aoe_cd = 1.1, reach = 11.0, auto_sweep = 4},
+		about = "Fast, hard strikes and a narrow sweep. Auto-attack sweeps at 4+ enemies."},
+	"zweihander": {label = "Zweihander", shop = "smith", slot = "weapon", need = {"ingot": 4}, slots = 2,
+		stats = {st = 140.0, aoe = 90.0, cone = -0.2, targets = 7, st_cd = 2.8, aoe_cd = 1.8, reach = 13.0, auto_sweep = 2},
+		about = "Huge and slow: the widest, longest sweeps. Auto-attack sweeps at 2+ enemies."},
 	"cleaver": {label = "Cleaver", shop = "smith", slot = "weapon", need = {"ingot": 3}, slots = 2,
 		stats = {st = 80.0, aoe = 75.0, cone = 0.0, targets = 7, st_cd = 2.4, aoe_cd = 1.3, reach = 9.0, auto_sweep = 2},
 		about = "Wide, heavy sweeps. Slower. Auto-attack sweeps at just 2+ enemies."},
 	"spear": {label = "Spear", shop = "smith", slot = "weapon", need = {"ingot": 2}, slots = 2,
 		stats = {st = 140.0, aoe = 30.0, cone = 0.6, targets = 2, st_cd = 1.8, aoe_cd = 1.0, reach = 14.0, auto_sweep = 5},
 		about = "Long reach, narrow sweep. Auto-attack only sweeps at 5+ enemies: it mostly strikes."},
+	"greataxe": {label = "Greataxe", shop = "smith", slot = "weapon", need = {"ingot": 4}, slots = 2,
+		stats = {st = 125.0, aoe = 100.0, cone = -0.1, targets = 9, st_cd = 3.0, aoe_cd = 2.0, reach = 10.0, auto_sweep = 2},
+		about = "Crushing, slow sweeps that cut through a crowd. Auto-attack sweeps at 2+ enemies."},
+	"halberd": {label = "Halberd", shop = "smith", slot = "weapon", need = {"ingot": 3}, slots = 2,
+		stats = {st = 130.0, aoe = 65.0, cone = 0.2, targets = 5, st_cd = 2.2, aoe_cd = 1.4, reach = 15.0, auto_sweep = 3},
+		about = "Long reach AND a solid sweep, but slow. Auto-attack sweeps at 3+ enemies."},
+	"mace": {label = "Mace", shop = "smith", slot = "weapon", need = {"ingot": 3}, slots = 2,
+		stats = {st = 115.0, aoe = 55.0, cone = 0.3, targets = 4, st_cd = 2.2, aoe_cd = 1.2, reach = 9.0, auto_sweep = 3, stun_chance = 0.15},
+		about = "Heavy blows: strikes have a 15% chance to stun for a second. Auto-attack sweeps at 3+ enemies."},
+	"dagger": {label = "Dagger", shop = "smith", slot = "weapon", need = {"ingot": 1}, slots = 2,
+		stats = {st = 70.0, aoe = 30.0, cone = 0.5, targets = 2, st_cd = 1.0, aoe_cd = 0.7, reach = 7.0, auto_sweep = 5},
+		about = "The fastest strikes, short reach. Auto-attack only sweeps at 5+ enemies."},
 	"vest": {label = "Vest", shop = "smith", slot = "chest", need = {"ingot": 2}, slots = 2,
 		stats = {hardness = 2.0, move = 0.0}, about = "Light chest armor, room to customize."},
 	"plate": {label = "Plate", shop = "smith", slot = "chest", need = {"ingot": 4}, slots = 1,
@@ -111,7 +145,7 @@ const BASES = {
 # stronger every level: power x (1 + 0.5 N + 0.1 N^2) -> I x1.6, II x2.4, IV x4.6, VIII x11.4,
 # plus more creative slots and faster attacks. Recipe ids look like "adv:precision:3".
 const ADVANCED = {
-	"precision": {base = "blade", label = "Masterwork Blade"},
+	"precision": {base = "blade", label = "Masterwork Blade", any_weapon = true},	# Masterwork <any weapon>
 	"numbers": {base = "plate", label = "Tally Plate", move = 0.0},
 	"sorting": {base = "ring", label = "Prism Ring"},
 	"typing": {base = "boots", label = "Windrunner Boots"},
@@ -126,8 +160,102 @@ const GOLD_PER_QUALITY = 3
 const ADVANCED_GOLD_PER_LEVEL = 15
 
 
-func advanced_id(ability: String, level: int) -> String:
+## "adv:precision:3" (the family's own base) or "adv:precision:3:katana" (Precision: any weapon type).
+func advanced_id(ability: String, level: int, weapon := "") -> String:
+	if weapon != "" and weapon != ADVANCED[ability].base:
+		return "adv:%s:%d:%s" % [ability, level, weapon]
 	return "adv:%s:%d" % [ability, level]
+
+
+## Weapon type ids, in shop order.
+func weapon_types() -> Array:
+	return BASES.keys().filter(func(id): return BASES[id].slot == "weapon")
+
+
+# ---------- The shrine ladder: recipes on odd levels, special materials on even levels ----------
+const TIER_WORDS = ["", "Treasured", "Heirloom", "Legendary", "Mythic"]
+const TREASURE = {precision = "ingot", numbers = "essence", sorting = "gem", typing = "silverbar", logic = "tonic"}	# trial kind -> its special material
+const TREASURE_NICK = {ingot = "Ingot", tonic = "Tulip", gem = "Gem", silverbar = "Treesilver", essence = "Orchid"}
+const FX = {ingot = "sunder", tonic = "bloom", gem = "prism", silverbar = "gale", essence = "thornskin"}	# each special material's effect (gear_fx.gd)
+const FX_WORDS = {sunder = "Sundering", bloom = "Blooming", prism = "Prismatic", gale = "Galeborn", thornskin = "Thorned"}
+
+
+## The best recipe level a trial kind has taught you: I, III, V, VII (0 = none yet).
+func recipe_level(ability: String) -> int:
+	var l = Trials.level(ability)
+	return l if l % 2 == 1 else l - 1
+
+
+## The best special material a trial kind has taught you: 1 Treasured (level II) ... 4 Mythic (VIII). 0 = none.
+func material_tier(ability: String) -> int:
+	return int(Trials.level(ability) / 2)
+
+
+## What earning level `level` of a trial kind gives you (for the Sigil message).
+func ladder_reward_text(ability: String, level: int) -> String:
+	if level % 2 == 1:
+		var fam = ADVANCED[ability]
+		var what = "Masterwork weapons %s (any weapon type)" % ROMAN[level] if fam.get("any_weapon", false) else recipe(advanced_id(ability, level)).label
+		return "New recipe: %s." % what
+	var base = TREASURE[ability]
+	return "New material: %s %s (make it at the %s from %d %s)." % [TIER_WORDS[level / 2], TREASURE_NICK[base],
+		"Smith" if _refine_shop(base) == "smith" else "Chemist", treasure_cost(level / 2), MATERIAL_LABELS.get(base, base)]
+
+
+func is_treasured(mat: String) -> bool:
+	return mat.length() > 3 and mat[0] == "t" and mat[1].is_valid_int() and mat[2] == "_"
+
+
+func treasure_cost(tier: int) -> int:
+	return 2 + 2 * tier		# plain units of the same quality: 4, 6, 8, 10
+
+
+func treasure_gold(tier: int) -> int:
+	return 10 * tier
+
+
+func _refine_shop(material: String) -> String:
+	for raw in REFINE:
+		if REFINE[raw].to == material:
+			return REFINE[raw].shop
+	return ""
+
+
+## Special materials this shop can make right now: [{ability, base, q, tier, have, cost, gold, name, result, fx}]
+func treasure_options(shop: String) -> Array:
+	var out = []
+	for ability in TREASURE:
+		var tier = material_tier(ability)
+		var base = TREASURE[ability]
+		if tier < 1 or _refine_shop(base) != shop:
+			continue
+		for e in stash_list():
+			if e.mat != base:
+				continue
+			out.append({ability = ability, base = base, q = e.q, tier = tier, have = e.count, cost = treasure_cost(tier),
+				gold = treasure_gold(tier), name = e.name, result = material_name("t%d_%s" % [tier, base], e.q), fx = FX[base]})
+	return out
+
+
+## Make one special material from plain ones (banked gold too). Returns true if made.
+func make_treasure(base: String, q: int, tier: int) -> bool:
+	if stash_count(base, q) < treasure_cost(tier) or not GameState.spend_gold(treasure_gold(tier)):
+		return false
+	_take(base, q, treasure_cost(tier))
+	var key = "t%d_%s:%d" % [tier, base, q]
+	stash[key] = stash.get(key, 0) + 1
+	save()
+	Traits.on_refine()	# Keeper
+	return true
+
+
+## A readable name for an attribute: "Hardness", "Shadow", "Sunder".
+func attr_label(k: String) -> String:
+	if k.begins_with("fx_"):
+		return k.substr(3).capitalize()
+	if k in ELEMENTS:
+		return SkinManager.element_label(k)
+	return k.capitalize()
 
 
 func power(level: int) -> float:
@@ -143,13 +271,19 @@ func recipe(id: String) -> Dictionary:
 	if _adv_cache.has(id):
 		return _adv_cache[id]
 	var bits = id.split(":")
-	if bits.size() != 3 or bits[0] != "adv" or not ADVANCED.has(bits[1]):
+	if bits.size() < 3 or bits.size() > 4 or bits[0] != "adv" or not ADVANCED.has(bits[1]):
 		ErrorLog.fail("Unknown recipe id: " + id)
 		return BASES.blade
 	var ability = bits[1]
 	var level = clampi(int(bits[2]), 1, 8)
 	var fam = ADVANCED[ability]
-	var b = BASES[fam.base].duplicate(true)
+	var base_id = fam.base
+	if bits.size() == 4:
+		if not fam.get("any_weapon", false) or not BASES.has(bits[3]) or BASES[bits[3]].slot != "weapon":
+			ErrorLog.fail("Unknown recipe id: " + id)
+			return BASES.blade
+		base_id = bits[3]
+	var b = BASES[base_id].duplicate(true)
 	var m = power(level)
 	var st = b.stats
 	for k in ["st", "aoe", "hardness", "heal"]:
@@ -163,12 +297,12 @@ func recipe(id: String) -> Dictionary:
 	if fam.base == "ring":
 		st.hardness = 1.0 * level
 	if fam.base == "boots":
-		st.move = 0.03 + 0.015 * level
-		st.phase_mobs = true	# shrine boots (from level I): walk through enemies
+		st.move = 0.03 + 0.015 * level	# (walking through enemies moved to wings: flying)
 	if fam.has("move"):
 		st.move = fam.move
 	b.slots = mini(b.slots + 1 + int(level / 2.0), 6)
-	b.label = "%s %s" % [fam.label, ROMAN[level]]
+	b.label = "%s %s" % [("Masterwork " + BASES[base_id].label) if fam.get("any_weapon", false) else fam.label, ROMAN[level]]
+	b.weapon_type = base_id
 	b.about = "Level %d recipe (from %s trials): power x%.1f, %d creative slots." % [level, ability.capitalize(), m, b.slots]
 	b.advanced = true
 	b.ability = ability
@@ -179,18 +313,23 @@ func recipe(id: String) -> Dictionary:
 var _adv_cache = {}
 
 
-## Recipe ids a shop shows: its basic ones, plus the best advanced level you've earned.
+## Recipe ids a shop shows: its basic ones, plus the best recipe level the shrines have taught you
+## (odd levels: I, III, V, VII). Precision's Masterwork recipe works for every weapon type.
 func shop_recipes(shop: String) -> Array:
 	var out = []
 	for id in BASES:
 		if BASES[id].shop == shop:
 			out.append(id)
 	for ability in ADVANCED:
-		var l = Trials.level(ability)
-		if l > 0:
-			var id = advanced_id(ability, l)
-			if recipe(id).shop == shop:
-				out.append(id)
+		var l = recipe_level(ability)
+		if l <= 0:
+			continue
+		if ADVANCED[ability].get("any_weapon", false):
+			for w in weapon_types():
+				if BASES[w].shop == shop:
+					out.append(advanced_id(ability, l, w))
+		elif recipe(advanced_id(ability, l)).shop == shop:
+			out.append(advanced_id(ability, l))
 	return out
 
 
@@ -262,6 +401,10 @@ func save():
 # ---------- Materials ----------
 
 func material_name(mat: String, q: int) -> String:
+	if is_treasured(mat):	# "Treasured Tulip (Moonleaf)"
+		var base = mat.substr(3)
+		var words = material_name(base, q).split(" ")
+		return "%s %s (%s)" % [TIER_WORDS[clampi(int(mat[1]), 1, 4)], TREASURE_NICK.get(base, base.capitalize()), " ".join(words.slice(0, maxi(1, words.size() - 1)))]
 	var skinned = SkinManager.list_name("materials", mat, q)
 	if skinned != null:
 		return skinned
@@ -273,6 +416,14 @@ func material_name(mat: String, q: int) -> String:
 
 ## Attributes of ONE unit of a refined material. This is the "logic" table.
 func material_attributes(mat: String, q: int) -> Dictionary:
+	if is_treasured(mat):	# special material: the plain one x (1 + tier), plus its family's special effect
+		var tier = clampi(int(mat[1]), 1, 4)
+		var base = mat.substr(3)
+		var t = material_attributes(base, q)
+		for k in t:
+			t[k] *= 1.0 + tier
+		t["fx_" + FX.get(base, "sunder")] = tier * (1.0 + 0.1 * (q - 1))
+		return t
 	var a = {}
 	match mat:
 		"ingot":		# metal: hard, a little physical bite (more as quality rises)
@@ -422,7 +573,13 @@ func design(base_id: String, q: int, slot_mats: Array) -> Dictionary:
 	var words = material_name(base.need.keys()[0], q).split(" ")
 	var main_name = " ".join(words.slice(0, max(1, words.size() - 1)))	# "Copper ingot" -> "Copper"
 	var title = "%s %s" % [main_name, base.label]
-	if strongest != "":
+	var fx_word = ""
+	for k in attrs:
+		if k.begins_with("fx_"):
+			fx_word = FX_WORDS.get(k.substr(3), "")
+	if fx_word != "":	# a special material outshines everything else in the name
+		title = fx_word + " " + title
+	elif strongest != "":
 		title = ATTRIBUTE_WORDS.get(strongest, "") + " " + title
 	return {base = base_id, slot = base.slot, quality = q, name = title, attrs = attrs, made_from = made_from}
 
@@ -631,7 +788,7 @@ func armor_totals() -> Dictionary:
 		if it.slot == "weapon" or it.slot == "potion":
 			continue
 		var stats = recipe(it.base).stats
-		hardness += stats.hardness
+		hardness += stats.hardness * pow(QUALITY_POWER, maxi(0, int(it.get("quality", 1)) - 1))
 		move += stats.move
 		if stats.get("phase_mobs", false):
 			phase_mobs = true
@@ -647,6 +804,10 @@ func armor_totals() -> Dictionary:
 	e.move = move + a.get("swiftness", 0.0) * 0.02
 	e.max_health = a.get("vitality", 0.0) * 4.0
 	e.phase_mobs = phase_mobs
+	e.fx = {}
+	for k in a:
+		if k.begins_with("fx_"):
+			e.fx[k.substr(3)] = a[k]
 	return e
 
 
@@ -671,12 +832,17 @@ func effects(item: Dictionary) -> Dictionary:
 	var a = item.attrs
 	var base = recipe(item.base)
 	var s = base.stats
-	var e = {}
+	var qp = pow(QUALITY_POWER, maxi(0, int(item.get("quality", 1)) - 1))	# better metal, stronger item
+	var e = {fx = {}}
+	for k in a:	# special effects (from special materials), any item but potions
+		if k.begins_with("fx_") and item.slot != "potion":
+			e.fx[k.substr(3)] = e.fx.get(k.substr(3), 0.0) + a[k]
 	match item.slot:
 		"weapon":
 			var hard = a.get("hardness", 0.0)
-			e.st = (s.st + hard * 6.0 + a.get("physical", 0.0) * 5.0) * ST_MULT
-			e.aoe = (s.aoe + hard * 3.0 + a.get("physical", 0.0) * 2.5) * AOE_MULT
+			e.st = (s.st * qp + hard * 6.0 + a.get("physical", 0.0) * 5.0) * ST_MULT
+			e.aoe = (s.aoe * qp + hard * 3.0 + a.get("physical", 0.0) * 2.5) * AOE_MULT
+			e.stun_chance = float(s.get("stun_chance", 0.0))
 			e.cone = s.cone
 			e.targets = s.targets
 			e.reach = s.reach
@@ -691,7 +857,7 @@ func effects(item: Dictionary) -> Dictionary:
 			e.lifesteal = a.get("vitality", 0.0) * 0.4
 		"head", "shoulders", "chest", "hands", "feet", "ring":
 			e.resist = {}
-			var phys = s.hardness + a.get("hardness", 0.0) + a.get("physical", 0.0)
+			var phys = s.hardness * qp + a.get("hardness", 0.0) + a.get("physical", 0.0)
 			e.resist["physical"] = phys / (phys + 20.0)
 			for el in ELEMENTS:
 				if el != "physical" and a.get(el, 0.0) > 0.0:
@@ -699,7 +865,7 @@ func effects(item: Dictionary) -> Dictionary:
 			e.move = s.move + a.get("swiftness", 0.0) * 0.02
 			e.max_health = a.get("vitality", 0.0) * 4.0
 		"potion":
-			e.heal = s.heal + a.get("vitality", 0.0) * 8.0
+			e.heal = s.heal * qp + a.get("vitality", 0.0) * 8.0
 			e.ward = {}		# short resistances (30 s)
 			for el in ELEMENTS:
 				if a.get(el, 0.0) > 0.0:
@@ -720,6 +886,9 @@ func describe(item: Dictionary) -> String:
 				lines.append("+%d %s damage per hit" % [e.element_bonus[el], SkinManager.element_label(el)])
 			if e.lifesteal > 0.0:
 				lines.append("Heals %.1f per hit" % e.lifesteal)
+			if e.stun_chance > 0.0:
+				lines.append("Strikes: %d%% chance to stun" % roundi(e.stun_chance * 100))
+			lines.append_array(preload("res://gear_fx.gd").describe(e.fx))
 		"head", "shoulders", "chest", "hands", "feet", "ring":
 			for el in e.resist:
 				lines.append("Resists %d%% %s" % [roundi(e.resist[el] * 100), SkinManager.element_label(el)])
@@ -729,6 +898,7 @@ func describe(item: Dictionary) -> String:
 				lines.append("Walk through enemies")
 			if e.max_health > 0.0:
 				lines.append("+%d max health" % e.max_health)
+			lines.append_array(preload("res://gear_fx.gd").describe(e.fx))
 			var rs = recipe(item.base).stats
 			for k in SKILL_STATS:
 				if rs.get(k, 0.0) > 0.0:

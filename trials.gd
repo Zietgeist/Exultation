@@ -6,7 +6,8 @@ extends Node
 ##   fail -> the shrine fades and shows up somewhere else in the zone (try again any time).
 ##
 ## THE LADDER: each ability has levels 1-8. Level 0 recipes come from the shop keepers.
-## Earning level N teaches that ability's level-N recipe (much stronger each level).
+## Odd levels (I, III, V, VII) teach a better recipe; even levels (II, IV, VI, VIII) a better special
+## material: Treasured, Heirloom, Legendary, Mythic (crafting.gd recipe_level / material_tier).
 ## The next level only opens after a wait, growing like spaced-repetition review:
 ##   level 1 any time, level 2 a day after level 1, then 3 days, 1 week, 2 weeks, 1 month,
 ##   2 months, 6 months. Trials and Trial Grounds get harder with each level.
@@ -196,8 +197,7 @@ func complete(id: String, extra := {}):
 	levels[id] = {level = l, cleared = now()}
 	_save()
 	Story.sigil_earned(id, l, extra)
-	var recipe = Crafting.advanced_id(id, l)
-	var text = "Sigil of %s %s! New recipe: %s." % [ability_name(id), ROMAN[l], Crafting.recipe(recipe).label]
+	var text = "Sigil of %s %s! %s" % [ability_name(id), ROMAN[l], Crafting.ladder_reward_text(id, l)]
 	if l < MAX_LEVEL:
 		text += " Next %s trial opens in %s." % [ability_name(id), wait_text(id)]
 	GameState.notify(text)

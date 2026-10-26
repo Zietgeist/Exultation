@@ -21,10 +21,16 @@ static func quality_color(q: int) -> Color:
 static func kind_of(it: Dictionary) -> String:
 	var base = str(it.get("base", ""))
 	if base.begins_with("adv:"):
-		base = Crafting.ADVANCED.get(base.get_slice(":", 1), {}).get("base", "blade")
+		base = base.get_slice(":", 3) if base.get_slice_count(":") == 4 else Crafting.ADVANCED.get(base.get_slice(":", 1), {}).get("base", "blade")
 	match base:
 		"blade", "cleaver", "spear", "plate", "ring":
 			return base
+		"saber", "katana", "zweihander", "dagger":
+			return "blade"
+		"greataxe", "mace":
+			return "cleaver"
+		"halberd":
+			return "spear"
 		"vest":
 			return "chest"
 		"helm":

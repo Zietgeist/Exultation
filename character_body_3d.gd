@@ -226,6 +226,7 @@ func _physics_process(delta):
 	
 	st_cooldown -= delta
 	aoe_cooldown -= delta
+	fx.tick(delta)
 	
 	var typing = GameState.typing()	# typing a note or a name: don't walk
 	if not typing and (Input.is_action_pressed("ui_right") or Input.is_key_pressed(KEY_D)):
@@ -242,7 +243,7 @@ func _physics_process(delta):
 	if direction.length() > 0:
 		direction = direction.normalized()
 
-	var speed_now = SPEED * (1.0 + haste + skill_haste)
+	var speed_now = SPEED * (1.0 + haste + skill_haste) * fx.speed_mult()	# Gale
 	var ditch = GameState.ditch_at(global_position, self)	# slow patches
 	if ditch:
 		speed_now *= ditch.get_slow_factor()
@@ -341,9 +342,11 @@ func single_target_attack(forced = null):
 		if randf() < Traits.crit_chance():	# Precision
 			damage *= 2.0
 			_float_text("Critical!", Color(1, 0.9, 0.3))
+		damage *= fx.damage_mult(closest)	# Sunder
 		_show_beam(closest.global_position, _beam_color())
 		closest.take_damage(damage)
 		_on_hit()
+		fx.after_hit(self, closest, damage, true)	# Prism, Mace stun
 		Traits.on_strike()
 		if health < MAX_HEALTH * 0.3:
 			Traits.on_hurt_fight()
@@ -376,9 +379,10 @@ func aoe_attack(aim := Vector3.ZERO):
 	if targets.size() > 0 and health < MAX_HEALTH * 0.3:
 		Traits.on_hurt_fight()
 	for enemy in targets:
-		var damage = (aoe_damage * get_damage_multiplier() + _element_damage() * 0.5) * Traits.damage_mult(health / MAX_HEALTH)
+		var damage = (aoe_damage * get_damage_multiplier() + _element_damage() * 0.5) * Traits.damage_mult(health / MAX_HEALTH) * fx.damage_mult(enemy)
 		enemy.take_damage(damage)
 		_on_hit()
+		fx.after_hit(self, enemy, damage, false)
 
 var last_attacker = ""	# who hit us last (for the death message)
 var last_attacker_node = null	# the enemy itself (rivals are born from what kills you)
@@ -403,6 +407,7 @@ func take_damage(amount, source = null):
 	if element != "physical" and source and "tier" in source:
 		last_attacker = SkinManager.name_of(source.TIER_IDS[source.tier] + "_one") + " (" + SkinManager.element_label(element) + ")"
 	var raw = amount
+	fx.reflect(source, raw)	# Thornskin
 	amount *= 1.0 - resistance(element)
 	amount *= Traits.damage_taken_mult()	# Steadfast
 	amount = skills.absorb(amount)	# shield
@@ -817,6 +822,7 @@ var ward = {}				# potion: short extra resistances
 var ward_time = 0.0
 var haste = 0.0
 const MAX_RESIST = 0.8
+var fx = preload("res://gear_fx.gd").new()	# special effects from special materials (Sunder, Bloom, Prism...)
 
 
 ## Read what's equipped (Crafting) and set up the character to match.
@@ -836,7 +842,9 @@ func apply_gear():
 		gear_aoe_cd = e.aoe_cd
 		element_bonus = e.element_bonus
 		lifesteal = e.lifesteal
-	else:	# bare hands
+	var weapon_fx = Crafting.effects(w).fx if w else {}
+	var weapon_stun = Crafting.effects(w).stun_chance if w else 0.0
+	if w == null:	# bare hands
 		weapon_name = "Fists"
 		weapon_st_base = 100.0 * Crafting.ST_MULT
 		weapon_aoe_base = 50.0 * Crafting.AOE_MULT
@@ -850,6 +858,10 @@ func apply_gear():
 		lifesteal = 0.0
 	var t = Crafting.armor_totals()
 	armor_resist = t.resist
+	var all_fx = t.fx.duplicate()
+	for k in weapon_fx:
+		all_fx[k] = all_fx.get(k, 0.0) + weapon_fx[k]
+	fx.set_gear(all_fx, weapon_stun)
 	var old_max = MAX_HEALTH
 	var stats = class_def.get("stats", {})
 	MAX_HEALTH = (BASE_MAX_HEALTH * stats.get("health", 1.0) + t.max_health) * (1.0 + GameState.buff_bonus("tonic")) * Traits.health_mult()

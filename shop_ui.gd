@@ -131,11 +131,36 @@ func _refine_section():
 			_rebuild.call_deferred())
 		row.add_child(all)
 		content.add_child(row)
+	_treasure_section()
 	var stash = Crafting.stash_list()
 	var parts = []
 	for s in stash:
 		parts.append("%s x%d" % [s.name, s.count])
 	_text("Materials: " + (", ".join(parts) if parts.size() > 0 else "none yet"), Color(0.75, 0.85, 1.0))
+
+
+## Special materials (Treasured, Heirloom...): taught by even shrine levels, made from plain ones.
+func _treasure_section():
+	var opts = Crafting.treasure_options(shop)
+	if opts.is_empty():
+		return
+	_title("Special materials", 20)
+	for o in opts:
+		var row = HBoxContainer.new()
+		var lbl = Label.new()
+		lbl.text = "%d %s + %d gold   →   %s   [%s]" % [o.cost, o.name, o.gold, o.result, " ".join(preload("res://gear_fx.gd").describe({o.fx: o.tier * (1.0 + 0.1 * (o.q - 1))}))]
+		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		row.add_child(lbl)
+		var make = Button.new()
+		make.text = "Make (you have %d)" % o.have
+		make.disabled = o.have < o.cost or GameState.gold_banked < o.gold
+		make.pressed.connect(func():
+			if Crafting.make_treasure(o.base, o.q, o.tier):
+				GameState.notify("Made: " + o.result)
+			_rebuild.call_deferred())
+		row.add_child(make)
+		content.add_child(row)
 
 
 func _make_section():
@@ -207,7 +232,7 @@ func _make_section():
 			var attrs = Crafting.material_attributes(stash[i].mat, stash[i].q)
 			var bits = []
 			for k in attrs:
-				bits.append("%s %.0f" % [k, attrs[k]])
+				bits.append("%s %s" % [Crafting.attr_label(k), ("%.1f" % attrs[k]) if k.begins_with("fx_") else ("%.0f" % attrs[k])])
 			pick.add_item("%s x%d   [%s]" % [stash[i].name, stash[i].count, ", ".join(bits)])
 		pick.select(sel_slots[s] + 1 if sel_slots[s] < stash.size() else 0)
 		var slot_index = s

@@ -59,7 +59,7 @@ Trials, Zones, Story, Rivals, Traits, Travel (fast_travel.gd), Party, Landmarks,
 
 ## Physics layers
 - Layer 1: walls, props, players. Layer 3: enemies (set in `enemy.gd` `_ready`). Enemies collide with 1 and 3.
-- The player always hits layer 1; it hits layer 3 unless worn gear has `phase_mobs` (Windrunner Boots, the shrine boots), then it walks through enemies.
+- The player always hits layer 1; it hits layer 3 unless worn gear has `phase_mobs` (nothing sets it since Oct 2026: walking through enemies moved to flying with wings).
 - Enemy pathing (`pathing.gd`): Trash walks straight. Thug/Master/Boss check every ~0.5 s if a wall is in the way; if so, A* on a 2 m grid (StaticBody3D = solid, remembered 20 s) gives waypoints. Too far apart (>96 m box) = walk straight.
 - Hills (rubble piles in Zombie) are sloped convex mounds, not walls: anyone can climb over at 25% speed (`GameState.HILL_SPEED`, checked after move_and_slide via `GameState.on_hill`). Pathing ignores them.
 
@@ -99,3 +99,13 @@ Trials, Zones, Story, Rivals, Traits, Travel (fast_travel.gd), Party, Landmarks,
   Caches and stones are personal (`Regions.done`).
 - Feature foes carry meta "landmark" = "feature" (the spawner never saves or sleeps them). Their kills count toward the
   2nd boss; a region boss adds 10% of `min_clear` (like closing a rift).
+
+## Crafting (`crafting.gd`, `gear_fx.gd`)
+- Item = recipe TYPE (BASES: 10 weapon types, armor, rings, potions) x main material QUALITY (x1.25 per step on the
+  item's own power AND every attribute) + creative-slot materials (attributes; special materials add effects).
+- Shrine ladder alternates: odd levels = better recipes (`recipe_level`), even levels = special material tiers
+  (`material_tier`: Treasured, Heirloom, Legendary, Mythic; stash ids like `t2_ingot`). Precision's Masterwork recipe
+  covers every weapon type: ids `adv:precision:<level>:<weapon>` (3-part ids still mean the family's own base).
+- Special effects live in item attrs as `fx_<name>` and are applied by `gear_fx.gd` (one per player, `player.fx`).
+  Add an effect: material family in `Crafting.FX`, numbers + `describe` + hook in `gear_fx.gd`.
+

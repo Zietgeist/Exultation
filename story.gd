@@ -175,14 +175,18 @@ static func _ordinal(n: int) -> String:
 ## Crafting calls this on every new item.
 func stamp_crafted(item: Dictionary, recipe_id: String):
 	item.story = {maker = player_name, day = day(), date = Time.get_date_string_from_system()}
-	if origins.has(recipe_id):
-		item.story.origin = origins[recipe_id].duplicate()
+	var key = ":".join(recipe_id.split(":").slice(0, 3)) if recipe_id.begins_with("adv:") else recipe_id	# "adv:precision:3:katana" came from Precision III
+	if origins.has(key):
+		item.story.origin = origins[key].duplicate()
 	item.life = {kills = 0, bosses = 0, rivals = 0, saves = 0, first_worn = ""}
 
 
 ## An enemy died in my zone while I'm there: every piece I wear remembers it.
 func on_kill(enemy):
 	Landmarks.on_kill(enemy)	# quest board hunts
+	var me = Zones.player
+	if me and is_instance_valid(me) and "fx" in me:
+		me.fx.on_kill(me, enemy)	# Bloom, Gale (only if I hit it lately)
 	var boss = "tier" in enemy and enemy.tier == 3
 	for it in Crafting.equipped_items():
 		var life = _life(it)
