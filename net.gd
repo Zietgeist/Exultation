@@ -294,7 +294,7 @@ func _enter_zone(path: String, key: String, layout: Dictionary, entry: Vector3, 
 		if not GameState.is_unlocked(z):
 			GameState.unlocked_zones.append(z)
 	if not layout.is_empty():
-		var memory = GameState.zone_memory.get(path, {})
+		var memory = GameState.zone_memory_of(path)	# keeps my own explored map (fog)
 		memory.erase("spawner")
 		for part in layout:
 			memory[part] = layout[part]

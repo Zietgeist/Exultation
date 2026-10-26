@@ -8,8 +8,8 @@ extends Node3D
 ##   - Host (or solo) only: wakes each region's BOSS and its guards when someone reaches the heart,
 ##     wakes CHAMPIONS and springs AMBUSHES, and runs the horde DIRECTOR (zone_director.gd).
 ##     Beating a region boss frees the region and counts toward the zone's 2nd boss.
-##   - What happened (region bosses down, champions beaten, ambushes sprung) lasts this play
-##     session, like the zone's enemies (GameState.zone_memory "features"). Joined players get it
+##   - What happened (region bosses down, champions beaten, ambushes sprung) is saved with the zone
+##     (GameState zone memory "features", saved to disk). Joined players get it
 ##     when they come in (Net._layout_of) and as it happens (Net.feature_event -> net_event).
 ## Caches and story stones are personal: everyone opens and reads their own (Regions.done).
 
@@ -54,7 +54,7 @@ func _ready():
 	pois = Regions.pois_for_zone(zone_path)
 	for id in Regions.freed(zone_path):	# freed in an earlier play session (saved with you / your party)
 		bosses_down[id] = true
-	var saved = GameState.zone_memory.get(zone_path, {}).get("features", null)
+	var saved = GameState.zone_memory_of(zone_path).get("features", null)
 	if saved is Dictionary:
 		for id in saved.get("bosses_down", []):
 			bosses_down[id] = true

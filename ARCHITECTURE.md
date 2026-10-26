@@ -36,6 +36,11 @@ Read this before big changes. Keep it short; update it when a rule changes.
 ## Saves
 - Every system asks `Account.path("its_file.cfg")` for where to save. Each character has its own
   folder: `user://characters/<id>/`. Account-wide things (controls, settings, play time) stay in `user://`.
+- ZONES are saved too (`GameState` "Zone memory"): each spiral zone's memory (spawner, terrain, obstacles, fog,
+  features) goes to `zones/<Zone>.dat` (zstd-compressed `store_var`), in the character folder, or in
+  `user://parties/<id>_zones/` while a party is active. Saved on unload, every 5 min, and on quit; read lazily
+  with `GameState.zone_memory_of(path)` (never read `zone_memory` directly). Clearing a zone resets its save.
+  Bump `ZONE_SAVE_VERSION` if a saved part's shape changes (old saves then start fresh, loudly).
 
 ## Errors
 - Fail loudly: `ErrorLog.fail(...)` / `ErrorLog.warn(...)`. They show in the red banner and

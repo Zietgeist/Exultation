@@ -8,9 +8,10 @@ extends Node
 ##   PEAK      stress maxed out (big hits, swarmed, low health) or enough hordes: no more,
 ##             fight off what's left, then it goes CALM again
 ## It ADAPTS: a peak reached without dropping low -> the next cycle is bigger; a close call -> smaller.
-## Horde kills count toward the zone's 2nd boss. No hordes at a player standing somewhere safe
-## (a gate, a fast-travel stop, a town), near a region boss that's still standing, or low on health.
-## Hordes find their way around walls (smart_path). The warning ("from the north!") comes with the first one.
+## Horde kills count toward the zone's 2nd boss. Nowhere out here is safe from them (only Home has no
+## hordes): low health is part of the drama. Taken strongholds' guards shoot them at the gates
+## (lm_stronghold.gd). Hordes find their way around walls (smart_path). The warning ("from the north!")
+## comes with the first one; a build-up that can't find anywhere to send a horde goes calm and tries later.
 
 const GRACE = 120.0
 const CALM_TIME = Vector2(150.0, 240.0)
@@ -27,7 +28,6 @@ const STRESS_PER_CLOSE = 1.5	# per enemy within CLOSE beyond the first 2, per se
 const CLOSE = 10.0
 const STRESS_DRAIN = 6.0
 const CALM_AFTER = 3.0
-const LOW_HEALTH = 0.3
 const STRENGTH_RANGE = Vector2(0.6, 2.0)
 const PUT_AWAY = 220.0			# idle horde enemies this far from everyone are removed
 
@@ -61,7 +61,7 @@ func _physics_process(delta):
 				_start_build_up()
 		State.BUILD_UP:
 			_build_time += delta
-			if _wave == 0 and _build_time >= MAX_BUILD:	# never got a horde out (everyone stayed somewhere safe): try later
+			if _wave == 0 and _build_time >= MAX_BUILD:	# never found a spot to send a horde from: try later
 				_calm()
 				return
 			if _wave > 0 and (stress >= PEAK or _build_time >= MAX_BUILD or _wave >= MAX_WAVES):
@@ -92,8 +92,6 @@ func _measure(who: Array, delta: float):
 			_since_hurt = 0.0
 		_last_hp[id] = m.health
 		_lowest = minf(_lowest, share)
-		if share < LOW_HEALTH and state == State.BUILD_UP:
-			stress = PEAK
 		var close = _enemies_on(m, CLOSE)
 		if close > 2:
 			stress += minf(close - 2, 8) * STRESS_PER_CLOSE * delta
@@ -140,28 +138,10 @@ func _calm():
 	print("Zone director: calm for %ds" % roundi(_t))
 
 
-## Is this player somewhere a horde shouldn't come (low on health, safe ground, or a region boss fight)?
-func _sheltered(m) -> bool:
-	if "health" in m and m.health < m.MAX_HEALTH * LOW_HEALTH:
-		return true	# already in trouble: no horde on top of it
-	var sp = features._spawner()
-	if sp and sp.in_safe_spot(m.global_position):
-		return true
-	if Landmarks.in_safe(m):
-		return true
-	for r in features.regions:
-		if not features.bosses_down.has(r.id) and m.global_position.distance_to(features.to_global(r.heart)) < Regions.HEART_RADIUS + 30.0:
-			return true
-	return false
-
-
 func _send_horde(who: Array):
 	if _horde.size() >= MAX_HORDE_ALIVE:
 		return
-	var open = who.filter(func(m): return not _sheltered(m))
-	if open.is_empty():
-		return	# everyone's somewhere safe: try again in a moment
-	var target = open.pick_random()
+	var target = who.pick_random()	# nowhere is safe out here (only Home has no hordes)
 	var spots = []
 	for i in randi_range(2, 3):	# from two or three directions
 		var s = _offscreen_spot(target)
@@ -204,8 +184,6 @@ func _offscreen_spot(target):
 		if sp:
 			if sp.clamp_to_map(p).distance_to(p) > 0.5:
 				continue	# off the map
-			if sp.in_safe_spot(p):
-				continue
 		var local = features.to_local(p)
 		if Landmarks.blocks(features.zone_path, local, 8.0) or Regions.in_heart(features.zone_path, local, 8.0):
 			continue

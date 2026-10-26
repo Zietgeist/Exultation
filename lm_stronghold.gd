@@ -5,9 +5,12 @@ extends "res://lm_base.gd"
 ## bank (deposit = a proper rest), a Smith, a campfire and a fast-travel stop.
 ## A taken stronghold is safe ground (no enemies spawn or fight inside), and a Survivor there asks
 ## you to recruit guards: press V (Parley) near Trash or Thugs; about half join (landmarks.gd).
-## Guards you bring back stand watch on the walls.
+## Guards you bring back stand watch on the walls, and SHOOT at enemies that come near the walls
+## (hordes at the gates): twice a second, each guard hits the nearest one in reach (host only).
 
 const HALF = 34.0
+const GUARD_REACH = 26.0	# a guard on the wall shoots enemies this close to it
+const GUARD_DAMAGE = 14.0	# per guard, per shot (two shots a second)
 var _camp_built := false
 var _guards_shown := 0
 var _guard_nodes := []
@@ -151,3 +154,44 @@ func _show_guards():
 func tick(_dt: float):
 	if _camp_built:
 		_show_guards()
+		_guards_fight()
+
+
+## Each guard shoots the nearest enemy that comes within reach of the walls.
+func _guards_fight():
+	if Net.is_client() or _guards_shown <= 0:
+		return
+	var foes = Zones.all(self, "enemy").filter(func(e): return is_instance_valid(e) and e.health > 0 and not e.is_queued_for_deletion() and global_position.distance_to(e.global_position) < HALF + GUARD_REACH)
+	if foes.is_empty():
+		return
+	for i in range(0, _guard_nodes.size(), 2):	# bodies (heads in between)
+		var from = _guard_nodes[i].global_position + Vector3(0, 1.4, 0)
+		var best = null
+		var best_d = GUARD_REACH
+		for e in foes:
+			var d = from.distance_to(e.global_position)
+			if d < best_d and e.health > 0:
+				best = e
+				best_d = d
+		if best:
+			_shot(from, best.global_position + Vector3(0, 1.0, 0))
+			best.take_damage(GUARD_DAMAGE)
+
+
+func _shot(a: Vector3, b: Vector3):
+	var mi = MeshInstance3D.new()
+	var bm = BoxMesh.new()
+	bm.size = Vector3(0.08, 0.08, a.distance_to(b))
+	mi.mesh = bm
+	var m = StandardMaterial3D.new()
+	m.albedo_color = Color(0.7, 0.85, 1.0, 0.9)
+	m.emission_enabled = true
+	m.emission = Color(0.6, 0.8, 1.0)
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mi.material_override = m
+	Zones.root_of(self).add_child(mi)
+	mi.global_position = (a + b) / 2.0
+	mi.look_at_from_position(mi.global_position, b, Vector3.UP)
+	var tw = mi.create_tween()
+	tw.tween_property(m, "albedo_color:a", 0.0, 0.25)
+	tw.tween_callback(mi.queue_free)

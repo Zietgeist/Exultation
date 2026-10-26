@@ -24,6 +24,12 @@ func typing() -> bool:
 
 func _process(delta: float) -> void:
 	_tick_gold(delta)
+	_zone_autosave -= delta
+	if _zone_autosave <= 0.0:	# the zone you're in is saved to disk every few minutes (and when you leave or quit)
+		_zone_autosave = ZONE_AUTOSAVE
+		var z = Zones.local_zone()
+		if z and z.path in ZONE_ORDER and not "#" in z.key:
+			remember_zone(z)
 	if is_overfilled:
 		orb_overfill_timer -= delta
 		if orb_overfill_timer <= 0.0:
@@ -173,6 +179,7 @@ func on_boss_killed(bosses_killed_here: int, here := ""):
 		return
 	if here == "":
 		here = Zones.local_path()
+	_zones_to_reset[here] = true	# cleared: it starts fresh the next time it's saved / you come back
 	var i = ZONE_ORDER.find(here)
 	if i == -1:
 		return
@@ -214,6 +221,7 @@ func unlock_personal(scene_path: String):
 ## Play with a party's open zones (list), or your own again (null).
 func use_party(list):
 	unlocked_zones = list if list != null else personal_unlocked
+	zone_memory = {}	# zone saves are per party / per character: load the right ones
 	zone_unlocked.emit("")	# doors refresh
 
 
@@ -329,15 +337,77 @@ func spawn_home_portal():
 const HOME_ARRIVAL = Vector3(0, 1, 8)	# next to the Deposit Shrine
 
 
-# ---------------- Zone memory (this play session only) ----------------
-# Leaving a zone and coming back keeps its kill counts and its map layout.
-# Quitting the game starts fresh.
-var zone_memory = {}	# scene path -> {spawner = {...}, obstacles = [...], terrain = [...]}
+# ---------------- Zone memory (saved to disk) ----------------
+# Leaving a zone and coming back keeps its layout, enemies, kills, explored map and regions,
+# and so does quitting: each spiral zone is saved to its own file (with your party when you host,
+# otherwise with your character). Saved when you leave a zone, every few minutes, and when you quit.
+# Clearing a zone (both bosses) resets it: next time you go in it's a fresh battlefield.
+var zone_memory = {}	# scene path -> {spawner = {...}, obstacles = [...], terrain = [...], fog = ..., features = {...}}
+var _zones_to_reset = {}	# cleared this session: forget them when they're next saved
+var _zone_autosave = ZONE_AUTOSAVE
+const ZONE_AUTOSAVE = 300.0
+const ZONE_SAVE_VERSION = 1
 
 
-## Save a loaded zone's state (Zones calls this when a zone is unloaded).
-func remember_zone(z):
+## A zone's memory: from this session, or from its save file (loaded the first time it's asked for).
+func zone_memory_of(path: String) -> Dictionary:
+	if not zone_memory.has(path):
+		zone_memory[path] = _load_zone_file(path)
+	return zone_memory[path]
+
+
+func _zone_file(path: String) -> String:
+	var zone_name = path.get_file().get_basename()
+	if Party.active():
+		return "%s/%s_zones/%s.dat" % [Party.DIR, Party.current.id, zone_name]
+	return Account.path("zones/%s.dat" % zone_name)
+
+
+func _load_zone_file(path: String) -> Dictionary:
+	if not path in ZONE_ORDER:
+		return {}
+	var file = _zone_file(path)
+	if not FileAccess.file_exists(file):
+		return {}
+	var f = FileAccess.open_compressed(file, FileAccess.READ, FileAccess.COMPRESSION_ZSTD)
+	if f == null:
+		ErrorLog.warn("Couldn't open the zone save %s (error %d): the zone starts fresh" % [file, FileAccess.get_open_error()])
+		return {}
+	var data = f.get_var()
+	if not data is Dictionary or int(data.get("version", 0)) != ZONE_SAVE_VERSION or not data.get("memory") is Dictionary:
+		ErrorLog.warn("Zone save %s is from another version: the zone starts fresh" % file)
+		return {}
+	return data.memory
+
+
+func _save_zone_file(path: String):
+	if not path in ZONE_ORDER:
+		return
+	var file = _zone_file(path)
+	var memory = zone_memory.get(path, {})
+	if memory.is_empty():
+		if FileAccess.file_exists(file):
+			DirAccess.remove_absolute(file)
+		return
+	DirAccess.make_dir_recursive_absolute(file.get_base_dir())
+	var f = FileAccess.open_compressed(file, FileAccess.WRITE, FileAccess.COMPRESSION_ZSTD)
+	if f == null:
+		ErrorLog.fail("Couldn't save the zone to %s (error %d)" % [file, FileAccess.get_open_error()])
+		return
+	f.store_var({version = ZONE_SAVE_VERSION, memory = memory})
+	f.close()
+
+
+## Save a loaded zone's state (Zones calls this when a zone is unloaded with leaving = true;
+## also the autosave and quitting).
+func remember_zone(z, leaving := false):
 	if z == null or z.path == "res://Home.tscn" or z.root == null:
+		return
+	if _zones_to_reset.has(z.path):	# cleared: the enemies regroup, next time it's fresh
+		if leaving:
+			_zones_to_reset.erase(z.path)
+		zone_memory.erase(z.path)
+		_save_zone_file(z.path)
 		return
 	var memory = {}
 	var parts = {"spawner": "zone_spawner", "obstacles": "zone_obstacles", "terrain": "zone_terrain", "fog": "zone_fog", "features": "zone_features"}
@@ -346,6 +416,15 @@ func remember_zone(z):
 		if node:
 			memory[part] = node.save_state()
 	zone_memory[z.path] = memory
+	_save_zone_file(z.path)
+
+
+## Quitting: save every zone that's running.
+func _notification(what):
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		for z in Zones.zones.values():
+			if not "#" in z.key:
+				remember_zone(z)
 
 
 ## Old name: save the local player's zone.
@@ -358,7 +437,7 @@ func saved_zone_part(node: Node, part: String):
 	if node.owner == null:
 		ErrorLog.fail("saved_zone_part: %s has no owner scene, can't look up its memory" % node.name)
 		return null
-	var memory = zone_memory.get(node.owner.scene_file_path, {})
+	var memory = zone_memory_of(node.owner.scene_file_path)
 	return memory.get(part, null)
 
 
@@ -523,7 +602,7 @@ func is_zone_cleared(path: String) -> bool:
 	if z:
 		var sp = Zones.first(z.root, "zone_spawner")
 		return sp != null and sp.bosses_killed >= BOSSES_TO_UNLOCK
-	var mem = zone_memory.get(path, {}).get("spawner", null)
+	var mem = zone_memory_of(path).get("spawner", null)
 	return mem != null and mem.bosses_killed >= BOSSES_TO_UNLOCK
 
 

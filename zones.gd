@@ -138,7 +138,7 @@ func load_zone(path: String, on_screen := false, key := ""):
 ## Save a zone's state (kills, layout, fog) and remove it.
 func unload(z):
 	if not "#" in z.key:	# one-off copies (Trial Grounds) aren't remembered
-		GameState.remember_zone(z)
+		GameState.remember_zone(z, true)
 	zones.erase(z.key)
 	z.queue_free()
 	print("Zones: unloaded ", z.key, " (still running: ", zones.keys(), ")")

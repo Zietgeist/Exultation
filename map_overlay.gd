@@ -174,7 +174,7 @@ func _draw_world(font):
 			draw_rect(screen, LOCKED)
 			status = "locked"
 		else:
-			var fog = GameState.zone_memory.get(p, {}).get("fog", null)
+			var fog = GameState.zone_memory_of(p).get("fog", null)
 			_draw_fog_cells(screen, r.size / 2.0, fog, LAYOUT.fog_cell(p))
 			if GameState.is_zone_cleared(p):
 				status = "cleared"
