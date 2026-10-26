@@ -46,10 +46,13 @@ static func allowed() -> Array:
 
 
 ## Zone 1: open field. Later zones: random pick from what the world allows.
+## Zones with regions never pick the island (its sea would drown the outer regions).
 static func pick(scene_path: String) -> String:
 	var list = allowed()
 	if scene_path == "res://Zone1.tscn":
 		return "open_field" if "open_field" in list else list[0]
+	if Regions.has_regions(scene_path) and list.size() > 1:
+		list = list.filter(func(t): return t != "island")
 	return list.pick_random()
 
 

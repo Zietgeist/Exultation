@@ -137,6 +137,7 @@ func _ready():
 	get_parent().add_child.call_deferred(load("res://inventory_ui.gd").new())
 	get_parent().add_child.call_deferred(load("res://chronicle_ui.gd").new())
 	get_parent().add_child.call_deferred(load("res://travel_ui.gd").new())
+	get_parent().add_child.call_deferred(load("res://region_compass.gd").new())	# big zones: arrow to the nearest region heart
 
 func _on_notice(text: String):
 	notice_label.text = text
@@ -209,6 +210,10 @@ func _process(delta):
 		kill_label.text = ""	# no enemies here (Home)
 
 	zone_label.text = GameState.current_zone
+	if player and is_instance_valid(player) and player.is_inside_tree():	# big zones: which region you're in
+		var rg = Regions.at(Zones.local_path(), player.global_position)
+		if not rg.is_empty():
+			zone_label.text += "  ·  " + rg.name
 
 	# Pomodoro flow timer
 	flow_label.text = SessionManager.flow_text()

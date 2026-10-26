@@ -2,6 +2,8 @@ extends Node3D
 ## Builds a zone's terrain from a MAP TEMPLATE (map_templates.gd): open field, rolling hills, forest,
 ## river, ruins, rails or island. Zone 1 is an open field; later zones pick one the world skin allows.
 ## Every piece is saved as data, so the layout is remembered for the whole play session.
+## Huge zones (Regions.has_regions) are built region by region: each square of the region grid uses
+## its own template (forest here, ruins there), and the regions' hearts stay clear (region_heart.gd).
 ## Hills: ore gathers around them (and rare Cliff Orchids on top).
 ## Trees grow in groves: herbs gather around them, and ancient trees can hold Treesilver.
 ## Pack sites: camps (a ring of huts around a fire) and valleys (a ring of mountains with 1-2 ways in).
@@ -32,6 +34,9 @@ var _keep_out = []	# Rect2s (x, z) that layouts claimed: rivers, rooms, rail lan
 var _rail_lanes = []	# [[a, b], ...] track center lines (rails maps): scrap metal lies along them
 var _rooms = []		# [{c, w, d}] ruined rooms (ruins maps): rubble with ore inside
 var _half := Vector2(45, 45)
+var _area := Rect2()	# while building one region: only place things in here (empty = the whole map)
+var _layout_scale := 1.0	# while building regions: rail yards and streams shrink with the region's share of terrain
+const REGION_TERRAIN_BOOST = 1.25	# zones with regions get a little more terrain than the usual cap
 
 
 func _ready():
@@ -45,6 +50,9 @@ func _ready():
 	for l in Landmarks.for_zone(owner.scene_file_path if owner else ""):	# and landmarks
 		var r = l.size + 8.0
 		_keep_out.append(Rect2(l.pos.x - r, l.pos.z - r, r * 2.0, r * 2.0))
+	for rg in Regions.for_zone(owner.scene_file_path if owner else ""):	# and region hearts (built when you come near)
+		var r = Regions.HEART_RADIUS + 6.0
+		_keep_out.append(Rect2(rg.heart.x - r, rg.heart.z - r, r * 2.0, r * 2.0))
 	var saved = GameState.saved_zone_part(self, "terrain")
 	if saved != null:
 		for t in saved:
@@ -61,23 +69,27 @@ func _ready():
 	var def = MAPS.get_def(template)
 	var m = GameState.obstacle_multiplier(self)
 	_quality = GameState.zone_quality(path) if owner else 0
-	match def.layout:
-		"island": _layout_island()
-		"river": _layout_river()
-		"rooms": _layout_rooms(roundi(6 * m))
-		"lanes": _layout_lanes()
-		"fences": _layout_fences(roundi(4 * m))
-		"farmland": _layout_farmland(m)
-	spawn_sites(mini(roundi(SITES_PER_SCALE * GameState.zone_area_scale(self)), MAX_SITES))
-	spawn_hills(roundi(def.hills * m))
-	spawn_groves(roundi(def.groves * m), Vector2i(6, 12) if template == "forest" else Vector2i(4, 9))
-	if _quality > 0:
-		spawn_resources()
-	for i in range(roundi(def.ditches * m)):
-		var p = get_clear_pos(2.5)
-		_make_ditch({p = p, sx = 4.0, sz = 4.0, w = false, r = randf_range(0, TAU)})
-	spawn_clusters("low", roundi(def.low * m))
-	spawn_clusters("solid", roundi(def.solid * m))
+	var regions = Regions.for_zone(path)
+	if not regions.is_empty():
+		_build_regions(def, m, regions)
+	else:
+		match def.layout:
+			"island": _layout_island()
+			"river": _layout_river()
+			"rooms": _layout_rooms(roundi(6 * m))
+			"lanes": _layout_lanes()
+			"fences": _layout_fences(roundi(4 * m))
+			"farmland": _layout_farmland(m)
+		spawn_sites(mini(roundi(SITES_PER_SCALE * GameState.zone_area_scale(self)), MAX_SITES))
+		spawn_hills(roundi(def.hills * m))
+		spawn_groves(roundi(def.groves * m), Vector2i(6, 12) if template == "forest" else Vector2i(4, 9))
+		if _quality > 0:
+			spawn_resources()
+		for i in range(roundi(def.ditches * m)):
+			var p = get_clear_pos(2.5)
+			_make_ditch({p = p, sx = 4.0, sz = 4.0, w = false, r = randf_range(0, TAU)})
+		spawn_clusters("low", roundi(def.low * m))
+		spawn_clusters("solid", roundi(def.solid * m))
 	if _quality > 0:	# shrine trials from Zone 2 on
 		for i in range(shrine_count()):
 			_make_shrine({p = get_clear_pos(5.0), ability = Trials.due_abilities().pick_random()})
@@ -87,8 +99,54 @@ func _ready():
 
 
 func _announce():
-	var zone = GameState.ZONE_NAMES.get(owner.scene_file_path if owner else "", "")
-	GameState.notify("%s: %s" % [zone, MAPS.label(template)])
+	var path = owner.scene_file_path if owner else ""
+	var zone = GameState.ZONE_NAMES.get(path, "")
+	var regions = Regions.for_zone(path)
+	if regions.is_empty():
+		GameState.notify("%s: %s" % [zone, MAPS.label(template)])
+	else:
+		GameState.notify("%s: %d regions to explore (see the map, M)" % [zone, regions.size()])
+
+
+## Huge zones: the zone's big river (if its template has one) runs across everything, then every
+## region builds its own template's shape, hills, groves, mud and walls inside its own square.
+## Pack sites, resources and shrines are then spread over the whole zone as usual.
+func _build_regions(def: Dictionary, m: float, regions: Array):
+	if def.layout == "river":
+		_layout_river()
+	var rm = m * REGION_TERRAIN_BOOST / regions.size()
+	_layout_scale = clampf(rm / 4.0, 0.3, 1.0)	# Zone 7: full size; Zones 9-10 (many small shares): smaller yards and streams
+	for r in regions:
+		_area = r.rect
+		var rd = MAPS.get_def(r.template)
+		match rd.layout:
+			"river": _layout_river()	# a stream across this region
+			"rooms": _layout_rooms(_some(6 * rm))
+			"lanes": _layout_lanes()
+			"fences": _layout_fences(_some(4 * rm))
+			"farmland": _layout_farmland(rm, false)
+		spawn_hills(_some(rd.hills * rm))
+		spawn_groves(_some(rd.groves * rm), Vector2i(6, 12) if r.template == "forest" else Vector2i(4, 9))
+		for i in range(_some(rd.ditches * rm)):
+			_make_ditch({p = get_clear_pos(2.5), sx = 4.0, sz = 4.0, w = false, r = randf_range(0, TAU)})
+		spawn_clusters("low", _some(rd.low * rm))
+		spawn_clusters("solid", _some(rd.solid * rm))
+	_area = Rect2()
+	_layout_scale = 1.0
+	spawn_sites(mini(roundi(SITES_PER_SCALE * GameState.zone_area_scale(self)), MAX_SITES))
+	if _quality > 0:
+		spawn_resources()
+
+
+## A count from a fraction: 2.3 -> 2, or 3 three times in ten (small regions still get their share).
+func _some(x: float) -> int:
+	return floori(x) + (1 if randf() < x - floorf(x) else 0)
+
+
+## Where the current layout may build: one region's square, or the whole map.
+func _bounds() -> Rect2:
+	var whole = Rect2(-_half, _half * 2.0)
+	return whole.intersection(_area) if _area.has_area() else whole
 
 
 ## Snapshot of the layout, so it can be rebuilt exactly.
@@ -182,8 +240,13 @@ func nearest_land(pos: Vector3) -> Vector3:
 func get_clear_pos(pad := 0.0, road_pad := -1.0) -> Vector3:
 	var pos = Vector3.ZERO
 	var half = map_half_size(8.0)  # extra margin: clusters scatter up to 4 units
+	var lo = -half
+	var hi = half
+	if _area.has_area():	# building one region: only inside its square
+		lo = lo.max(_area.position + Vector2(8, 8))
+		hi = hi.min(_area.end - Vector2(8, 8))
 	for attempt in range(40):
-		pos = Vector3(randf_range(-half.x, half.x), 0, randf_range(-half.y, half.y))
+		pos = Vector3(randf_range(lo.x, hi.x), 0, randf_range(lo.y, hi.y))
 		if pos.length() >= CLEAR_RADIUS and is_free(pos, pad, road_pad):
 			return pos
 	return pos
@@ -310,9 +373,12 @@ func _layout_island():
 
 ## River: a winding band of slow water across the map, with 2-3 bridges.
 func _layout_river():
-	var along_x = _half.x > _half.y	# the river runs the long way across the map
-	var length = _half.x if along_x else _half.y	# half the river's length
-	var span = _half.y if along_x else _half.x
+	var bnd = _bounds()	# the whole map, or one region's square
+	var bh = bnd.size / 2.0
+	var bc = Vector3(bnd.get_center().x, 0, bnd.get_center().y)
+	var along_x = bh.x > bh.y	# the river runs the long way across the map
+	var length = bh.x if along_x else bh.y	# half the river's length
+	var span = bh.y if along_x else bh.x
 	var center = randf_range(-0.3, 0.3) * span
 	var amp = 0.12 * span
 	var phase = randf() * TAU
@@ -320,12 +386,12 @@ func _layout_river():
 	var bridges = []
 	for i in range(randi_range(2, 3)):
 		bridges.append(randf_range(-length * 0.8, length * 0.8))
-	var step = max(3.0, length / 150.0)	# huge zones: fewer, longer pieces (at most ~300)
+	var step = max(3.0, length / (150.0 * _layout_scale))	# huge zones: fewer, longer pieces (at most ~300)
 	var piece = step + 1.0
 	var t = -length + 2.0	# stay inside the walls
 	while t <= length - 2.0:
 		var c = center + amp * sin(t * wave * TAU / 4.0 + phase)
-		var p = Vector3(c, 0, t) if not along_x else Vector3(t, 0, c)
+		var p = bc + (Vector3(c, 0, t) if not along_x else Vector3(t, 0, c))
 		if bridges.any(func(b): return abs(t - b) < 3.0):
 			pass	# bridge here: dry crossing
 		elif not _near_gate(p):
@@ -334,7 +400,7 @@ func _layout_river():
 		t += step
 	for bt in bridges:
 		var c = center + amp * sin(bt * wave * TAU / 4.0 + phase)
-		var p = Vector3(c, 0.2, bt) if not along_x else Vector3(bt, 0.2, c)
+		var p = bc + (Vector3(c, 0.2, bt) if not along_x else Vector3(bt, 0.2, c))
 		_make_deco({p = p, s = Vector3(12, 0.12, 4.5) if not along_x else Vector3(4.5, 0.12, 12), c = "bridge", f = Color(0.45, 0.32, 0.2)})
 
 
@@ -346,14 +412,15 @@ const FARM_BARNS = 2.5
 const MAX_FARM_BARNS = 25
 const CROP_COLORS = [Color(0.72, 0.62, 0.25), Color(0.35, 0.55, 0.22), Color(0.45, 0.35, 0.22)]	# wheat, greens, ploughed
 
-func _layout_farmland(m: float):
-	_layout_river()
+func _layout_farmland(m: float, with_river := true):
+	if with_river:
+		_layout_river()
 	var want = mini(roundi(FARM_FIELDS * m) + 2, MAX_FARM_FIELDS)
 	var made = 0
 	for i in range(want * 4):
 		if made >= want:
 			break
-		var big = minf(_half.x, _half.y)	# small zones (Zone 1 is 60 x 100 m) get smaller fields
+		var big = minf(_bounds().size.x, _bounds().size.y) / 2.0	# small zones (Zone 1 is 60 x 100 m) get smaller fields
 		var w = randf_range(14.0, clampf(big * 0.7, 16.0, 40.0))
 		var d = randf_range(12.0, clampf(big * 0.55, 14.0, 30.0))
 		var pad = maxf(w, d) / 2.0 + 3.0
@@ -467,16 +534,19 @@ func _layout_rooms(count: int):
 
 ## Rails: long parallel walls make lanes, with crossings here and there. Tracks run down each lane.
 func _layout_lanes():
-	var along_x = _half.x >= _half.y
+	var bnd = _bounds()	# the whole map, or one region's square
+	var bh = bnd.size / 2.0
+	var bc = bnd.get_center()
+	var along_x = bh.x >= bh.y
 	# Huge zones get a rail YARD (at most 600 long, 240 wide) somewhere on the map, not rails everywhere
-	var long = min(_half.x if along_x else _half.y, YARD_HALF_LONG)
-	var wide = min(_half.y if along_x else _half.x, YARD_HALF_WIDE)
-	var room_l = (_half.x if along_x else _half.y) - long
-	var room_w = (_half.y if along_x else _half.x) - wide
+	var long = min(bh.x if along_x else bh.y, YARD_HALF_LONG * _layout_scale)
+	var wide = min(bh.y if along_x else bh.x, YARD_HALF_WIDE * _layout_scale)
+	var room_l = (bh.x if along_x else bh.y) - long
+	var room_w = (bh.y if along_x else bh.x) - wide
 	var off_l = randf_range(-room_l, room_l) * 0.8
 	var off_w = randf_range(-room_w, room_w) * 0.8
 	var at = func(t: float, w: float) -> Vector3:	# lane coordinates -> map
-		return Vector3(t + off_l, 0, w + off_w) if along_x else Vector3(w + off_w, 0, t + off_l)
+		return Vector3(t + off_l + bc.x, 0, w + off_w + bc.y) if along_x else Vector3(w + off_w + bc.x, 0, t + off_l + bc.y)
 	var spacing = 13.0
 	var c = -wide + spacing * 0.75
 	var lines = []

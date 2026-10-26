@@ -175,6 +175,10 @@
 			]
 		}
 	],
+	"regions": {
+		"adjectives": ["Kepler", "Helios", "Vega", "Orion", "Echo", "Delta", "Sigma", "Nova", "Cobalt", "Ion", "Zenith", "Tau", "Omega", "Polaris", "Rigel", "Lumen", "Argon", "Cinder", "Halo", "Quasar"],
+		"nouns": {"open_field": ["Plain", "Flats", "Expanse", "Basin"], "rolling_hills": ["Dunes", "Ridges", "Drifts", "Dune Sea"], "forest": ["Biodome", "Fungal Grove", "Spore Forest"], "river": ["Canal", "Coolant Channels", "Spillway", "Runoff"], "ruins": ["Crash Site", "Wreckfield", "Debris Field", "Hulk"], "rails": ["Maglev Lines", "Transit Yard", "Railgrid", "Freight Spur"]}
+	},
 	"terrain": {
 		"templates": [
 			"open_field",

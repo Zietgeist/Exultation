@@ -239,6 +239,10 @@
 			]
 		}
 	],
+	"regions": {
+		"adjectives": ["Ashen", "Hollow", "Bleak", "Silent", "Sunken", "Broken", "Red", "Grey", "Pale", "Iron", "Thorn", "Raven", "Ember", "Frost", "Gloom", "Bright", "Wild", "Lost", "Old", "Salt", "Storm", "Black", "Gold", "Far", "Weeping", "Burnt", "Howling", "Crooked", "Bitter", "Whispering"],
+		"nouns": {"open_field": ["Meadows", "Fields", "Pastures", "Vale"], "rolling_hills": ["Downs", "Fells", "Heights", "Hills"], "forest": ["Woods", "Weald", "Thicket", "Wildwood"], "river": ["Fens", "Marsh", "Riverlands", "Shallows"], "ruins": ["Ruins", "Remnants", "Fallen Halls", "Old Walls"], "rails": ["Hedgerows", "Lanes", "Crossroads", "Byways"]}
+	},
 	"terrain": {
 		"templates": [
 			"open_field",

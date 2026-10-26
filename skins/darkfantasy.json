@@ -173,6 +173,10 @@
 			]
 		}
 	],
+	"regions": {
+		"adjectives": ["Ashen", "Weeping", "Cursed", "Hollow", "Bleeding", "Forsaken", "Grave", "Wailing", "Black", "Bone", "Raven", "Withered", "Starving", "Silent", "Sunken", "Pale", "Rotting", "Hanged", "Mourning", "Thorned"],
+		"nouns": {"open_field": ["Moor", "Wastes", "Barrens", "Heath"], "rolling_hills": ["Barrows", "Cairns", "Downs", "Mounds"], "forest": ["Blackwood", "Gloomwood", "Thornwood", "Deadwood"], "river": ["Mire", "Bog", "Drownings", "Fen"], "ruins": ["Cathedral", "Crypts", "Ruins", "Abbey"], "rails": ["Gallows Road", "Hangman's Way", "Pilgrim Road", "Gibbet Lane"]}
+	},
 	"terrain": {
 		"templates": [
 			"open_field",

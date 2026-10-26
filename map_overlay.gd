@@ -5,6 +5,8 @@ extends Control
 ## - In a zone: the ground you've explored (the rest stays dark), with you, gates, landmarks you've
 ##   found, fast-travel stops, shrines, where you fell (red X) and where bosses fell (gold ring).
 ##   Once you've cleared it (both bosses down), it also shows every enemy left.
+##   Big zones: region borders and names (where you've been), region hearts (gold once freed),
+##   and the caches, story stones and champions' camps you've seen (regions.gd, zone_features.gd).
 ## Zoom: left click zooms in on that spot, right click zooms out, mouse wheel too.
 ## Hover the mouse over anything on the map to see what it is.
 ## While the map is open, clicks go to the map (no attacks). You can still walk.
@@ -295,6 +297,7 @@ func _draw_zone(path: String, font, cleared := true):
 		draw_colored_polygon(PackedVector2Array([c + Vector2(0, -9), c + Vector2(8, 0), c + Vector2(0, 9), c + Vector2(-8, 0)]), GOLD)
 		draw_polyline(PackedVector2Array([c + Vector2(0, -9), c + Vector2(8, 0), c + Vector2(0, 9), c + Vector2(-8, 0), c + Vector2(0, -9)]), Color(0.3, 0.1, 0.0), 1.5)
 		_tip(c, "%s (boss)\n%d%% health%s" % [SkinManager.name_of("enemy_boss_one"), roundi(b[1] * 100.0), "  -  resting" if b[2] else ""], 12.0)
+	_draw_regions(path, fit, font, seen, cleared)
 	# Landmarks you've found
 	for l in Zones.local_all("landmark"):
 		if not (cleared or l._found or Landmarks.state(path, l.info.id).has("found")):
@@ -350,6 +353,59 @@ func _draw_zone(path: String, font, cleared := true):
 	if player:
 		draw_circle(_to_screen(fit, player.global_position), 5, Color.WHITE)
 		_tip(_to_screen(fit, player.global_position), "You")
+
+
+## Big zones: region borders, names, hearts, and the encounters you've seen.
+func _draw_regions(path: String, fit: Dictionary, font, seen: Callable, cleared: bool):
+	var feat = Zones.local_first("zone_features")
+	if feat == null:
+		return
+	var g = Regions.grid(path)
+	if g.cols > 0:
+		var line = Color(1, 1, 1, 0.13)
+		for i in range(1, g.cols):
+			var x = -g.half.x + i * g.cell.x
+			draw_line(_to_screen(fit, Vector3(x, 0, -g.half.y)), _to_screen(fit, Vector3(x, 0, g.half.y)), line, 1.0)
+		for j in range(1, g.rows):
+			var z = -g.half.y + j * g.cell.y
+			draw_line(_to_screen(fit, Vector3(-g.half.x, 0, z)), _to_screen(fit, Vector3(g.half.x, 0, z)), line, 1.0)
+		for r in feat.regions:
+			var heart = feat.to_global(r.heart)
+			var been = cleared or Regions.entered.has(path + "|" + r.id)
+			var freed = feat.bosses_down.has(r.id)
+			if been:
+				var mid = _to_screen(fit, Vector3(r.rect.get_center().x, 0, r.rect.get_center().y))
+				var name_col = Color(r.color.lightened(0.45), 0.75)
+				draw_string_outline(font, mid + Vector2(-120, -14), r.name, HORIZONTAL_ALIGNMENT_CENTER, 240, 13, 4, Color(0, 0, 0, 0.7))
+				draw_string(font, mid + Vector2(-120, -14), r.name, HORIZONTAL_ALIGNMENT_CENTER, 240, 13, name_col)
+			if not (been or seen.call(heart)):
+				continue
+			var c = _to_screen(fit, heart)
+			var col = GOLD if freed else r.color
+			draw_circle(c, 5.0, col)
+			draw_arc(c, 9.0, 0, TAU, 20, col, 2.0)
+			_tip(c, "Heart of %s\n%s · %s\n%s" % [Regions.the(r), Regions.template_label(r), SkinManager.element_label(r.element),
+				"Freed" if freed else "Its boss waits here (freeing it counts toward the 2nd boss)"], 12.0)
+	for poi in feat.pois:
+		if poi.kind == "ambush":
+			continue
+		var p = feat.to_global(poi.pos)
+		if not seen.call(p):
+			continue
+		var c = _to_screen(fit, p)
+		match poi.kind:
+			"cache":
+				var done = Regions.is_done(path, poi.id)
+				draw_rect(Rect2(c - Vector2(3.5, 3.5), Vector2(7, 7)), Color(0.5, 0.5, 0.5) if done else Color(1.0, 0.8, 0.25))
+				_tip(c, "Supply cache" + (" (empty)" if done else "\nWalk up to open it"))
+			"stone":
+				draw_circle(c, 3.5, Color(0.6, 0.85, 1.0))
+				_tip(c, "Story stone" + ("\n" + Regions.lore(path, poi) if Regions.is_done(path, poi.id) else "\nWalk up to read it"))
+			"champion":
+				var beaten = feat.pois_done.has(poi.id)
+				var col = Color(0.55, 0.55, 0.55) if beaten else Color(1.0, 0.4, 0.3)
+				draw_colored_polygon(PackedVector2Array([c + Vector2(0, -6), c + Vector2(5, 0), c + Vector2(0, 6), c + Vector2(-5, 0)]), col)
+				_tip(c, "Champion's camp" + (" (beaten)" if beaten else "\nA champion and its escorts"))
 
 
 # ---------- Hover labels ----------

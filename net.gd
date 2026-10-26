@@ -278,7 +278,7 @@ func _send_into(id: int, path: String, key: String, from_path: String, spot, inf
 
 func _layout_of(z) -> Dictionary:
 	var layout = {}
-	var parts = {"terrain": "zone_terrain", "obstacles": "zone_obstacles"}
+	var parts = {"terrain": "zone_terrain", "obstacles": "zone_obstacles", "features": "zone_features"}	# features: region bosses down, encounters done
 	for part in parts:
 		var node = Zones.first(z.root, parts[part])
 		if node:
@@ -765,6 +765,26 @@ func _party_event(kind: String, path: String):
 @rpc("authority", "call_remote", "reliable")
 func _party_legend():
 	Party.become_legend.call_deferred()
+
+
+# ---------------- Regions and encounters (zone_features.gd) ----------------
+
+## Host: something happened in a big zone (region boss down, ambush, horde...); joined players there see it too.
+func feature_event(node, event: String, data: Dictionary):
+	if not is_host():
+		return
+	var key = Zones.key_of(node)
+	for peer in _peers_in(key):
+		_feature_event.rpc_id(peer, key, event, data)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _feature_event(key: String, event: String, data: Dictionary):
+	if Zones.local_key() != key:
+		return
+	var f = Zones.local_first("zone_features")
+	if f:
+		f.net_event(event, data)
 
 
 # ---------------- Landmarks (landmarks.gd, lm_*.gd) ----------------

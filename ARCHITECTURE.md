@@ -43,7 +43,7 @@ Read this before big changes. Keep it short; update it when a rule changes.
 
 ## Autoloads (global systems)
 ErrorLog, Account, GameState, SessionManager, SkinManager, Crafting, Classes, Net, SteamLink,
-Trials, Zones, Story, Rivals, Traits, Travel (fast_travel.gd), Party, Landmarks.
+Trials, Zones, Story, Rivals, Traits, Travel (fast_travel.gd), Party, Landmarks, Regions, Helpers.
 
 ## Keeping files manageable
 - The biggest scripts are `character_body_3d.gd` (~900 lines) and `net.gd` (~740). That's fine for now.
@@ -85,3 +85,17 @@ Trials, Zones, Story, Rivals, Traits, Travel (fast_travel.gd), Party, Landmarks.
 - `guide.json`: the hand-written topics (group, title, text with [b] BBCode). Tokens: `{el:shadow}`, `{name:enemy_trash}`, `{class:tank}`, `{bag_min}`/`{bag_max}`, so names follow the skin.
 - `guide.gd`: loads it and writes the "live" parts from game data (classes, races, materials, recipes, Inn, trials, traits, worlds, zone damage types). Those stay correct by themselves.
 - Add or change a system -> update its topic in `guide.json` (hand-written numbers there do NOT update themselves).
+
+## Big zones: regions, encounters, hordes (`regions.gd` autoload "Regions", `zone_features.gd`)
+- Zone 6 and up (`Regions.is_big`): encounters every ~260 m (cache, story stone, champion, ambush) and the
+  horde director (`zone_director.gd`, host only). Zone 7 and up (`Regions.has_regions`): a grid of regions
+  (~900 m each: Zone 7 = 2x2 ... Zone 10 = 8x8), each with a name (skin "regions" words), a map template,
+  an element and a heart (`region_heart.gd`) where a region boss waits.
+- All of it is SEEDED from the zone path (like landmarks), so it's the same for everyone and isn't sent online.
+  Hearts and encounters are only built near players (`zone_features.gd` streams them) - keep it that way for Zone 10.
+- `terrain_generator.gd` builds region zones square by square (`_build_regions`, `_area`, `_bounds()`); hearts are keep-out.
+- State this session: `zone_features.save_state()` (region bosses down, champions/ambushes done) is a zone-memory part
+  ("features") and goes to joined players with the layout. Events: `Net.feature_event` -> `zone_features.net_event`.
+  Caches and stones are personal (`Regions.done`).
+- Feature foes carry meta "landmark" = "feature" (the spawner never saves or sleeps them). Their kills count toward the
+  2nd boss; a region boss adds 10% of `min_clear` (like closing a rift).

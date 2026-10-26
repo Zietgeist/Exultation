@@ -38,6 +38,7 @@ Traits="*res://traits.gd"
 Travel="*res://fast_travel.gd"
 Party="*res://party.gd"
 Landmarks="*res://landmarks.gd"
+Regions="*res://regions.gd"
 Helpers="*res://helpers.gd"
 
 [global_group]

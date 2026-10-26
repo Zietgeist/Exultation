@@ -55,7 +55,7 @@
 		{
 			"group": "Combat",
 			"title": "Enemies",
-			"text": "Four kinds of enemy:\n• [b]{name:enemy_trash}[/b] (green): weak, and lots of them. About 100 health.\n• [b]{name:enemy_thug}[/b] (blue): tougher pack leaders. About 600 health.\n• [b]{name:enemy_master}[/b] (purple): strong leaders deeper in. About 1,500 health.\n• [b]{name:enemy_boss}[/b] (gold): the big ones. About 6,000 health.\n(Harder zones make all of them tougher.)\n\n[b]Packs[/b]: a leader ({name:enemy_thug_one} or {name:enemy_master_one}) with 8-20 small ones, gathered at camps, valleys and hills. Sweep the small ones, strike the leader.\n\n[b]Noticing you[/b]: each enemy notices you from a certain range; tougher ones notice from farther. Hit one from far away and it comes for you, and so do its friends.\n\n[b]Damage types[/b]: each enemy hits with one damage type. Deeper zones use more of the special ones. Armor of the right type soaks it (see Damage types)."
+			"text": "Four kinds of enemy:\n• [b]{name:enemy_trash}[/b] (green): weak, and lots of them. About 100 health.\n• [b]{name:enemy_thug}[/b] (blue): tougher pack leaders. About 600 health.\n• [b]{name:enemy_master}[/b] (purple): strong leaders deeper in. About 1,500 health.\n• [b]{name:enemy_boss}[/b] (gold): the big ones. About 6,000 health.\nNormal enemies are just as tough in every zone. Deeper zones have more of them, more special damage types, and bigger things to fight: landmarks, region bosses and champions.\n\n[b]Packs[/b]: a leader ({name:enemy_thug_one} or {name:enemy_master_one}) with 8-20 small ones, gathered at camps, valleys and hills. Sweep the small ones, strike the leader.\n\n[b]Noticing you[/b]: each enemy notices you from a certain range; tougher ones notice from farther. Hit one from far away and it comes for you, and so do its friends.\n\n[b]Damage types[/b]: each enemy hits with one damage type. Deeper zones use more of the special ones. Armor of the right type soaks it (see Damage types)."
 		},
 		{
 			"group": "Combat",
@@ -104,7 +104,22 @@
 		{
 			"group": "The world",
 			"title": "Zones",
-			"text": "Home sits in the middle. [b]Zones 1 to 10[/b] spiral out around it (a golden ratio spiral), each one bigger than the last.\n\n• [b]Gates[/b] join zones that touch. A gate stays locked until the zone behind it is unlocked.\n• [b]Beat both bosses[/b] in a zone to unlock the next one.\n• Leave a zone and come back in the same play session: it's just as you left it.\n• Resources start in Zone 2. Deeper zones have better quality resources and more special damage types.\n• Big zones (3 and up) have fast-travel stops, so you can jump back to any zone you've unlocked.\n• Clearing Zone 10 with a party makes it a Legend."
+			"text": "Home sits in the middle. [b]Zones 1 to 10[/b] spiral out around it (a golden ratio spiral), each one bigger than the last.\n\n• [b]Gates[/b] join zones that touch. A gate stays locked until the zone behind it is unlocked.\n• [b]Beat both bosses[/b] in a zone to unlock the next one.\n• Leave a zone and come back in the same play session: it's just as you left it.\n• Resources start in Zone 2. Deeper zones have better quality resources and more special damage types.\n• Big zones (3 and up) have fast-travel stops, so you can jump back to any zone you've unlocked.\n• Zone 6 and up have encounters and hordes; Zone 7 and up are split into regions (see Regions, Encounters, Hordes).\n• Clearing Zone 10 with a party makes it a Legend."
+		},
+		{
+			"group": "The world",
+			"title": "Regions",
+			"text": "From [b]Zone 7[/b] on, zones are so big they're split into [b]regions[/b]: Zone 7 has 4, Zone 8 has 9, Zone 9 has 25 and Zone 10 has 64. Each one is about a minute and a half to walk across.\n\n• Every region has its own [b]name[/b], its own [b]map type[/b] (forest here, ruins there) and its own [b]damage type[/b]: about half its enemies use it. The top of your screen shows which region you're in.\n• In the middle of each region is its [b]heart[/b]: a set piece around a glowing [b]beacon[/b]. The region's [b]boss[/b] (a big {name:enemy_master_one}) and its guards wait there.\n• [b]Beat the region boss to free the region.[/b] The beacon turns gold, you get a little gold and resources, and it counts as [b]10% of the kills[/b] needed for the zone's 2nd boss. So freeing regions is a way to call the 2nd boss without clearing everything.\n• An [b]arrow[/b] on your screen points to the heart of your region (or the nearest region still to free), with the distance.\n• The map (M) shows region borders, the names of regions you've been to, and their hearts (gold once freed).\n\nFreed regions last for this play session, like the zone's enemies."
+		},
+		{
+			"group": "The world",
+			"title": "Encounters",
+			"text": "From [b]Zone 6[/b] on there's always something close: about every [b]30 seconds of walking[/b] you'll find one of these.\n\n• [b]Supply cache[/b]: walk up to it and it opens. A little gold and a few resources from this zone. Everyone opens their own.\n• [b]Story stone[/b]: walk up to read it. A piece of this world's past; the words go in your Chronicle.\n• [b]Champion's camp[/b]: a named champion (a tough {name:enemy_thug_one} or {name:enemy_master_one}) with a few escorts. Beat it for a reward.\n• [b]Ambush[/b]: hidden. Step in the wrong place and a pack jumps out all around you.\n\nCaches, stones and champions' camps you've seen show on the map (M). Finding them pulls you toward Wanderer."
+		},
+		{
+			"group": "The world",
+			"title": "Hordes",
+			"text": "From [b]Zone 6[/b] on, a [b]director[/b] keeps the pace up, like in Real Places:\n\n• [b]Calm[/b]: a few quiet minutes to explore and loot. The first one starts when you arrive.\n• [b]Build-up[/b]: \"Something's coming... a horde!\" Hordes rush in from off screen every few seconds, each one bigger. A {name:enemy_thug_one} leads from the 2nd horde, a {name:enemy_master_one} from the 3rd.\n• [b]Peak[/b]: when you're hurt badly or swarmed (or after a few hordes), it stops sending more. Fight off the rest, then it goes calm again.\n\nIt adapts: handle a cycle easily and the next one is bigger; nearly die and it eases off. With friends, hordes are bigger and go after any of you.\nNo hordes come while you stand somewhere safe (a gate, a fast-travel stop, a town) or while you fight a region boss. Horde kills count toward the zone's 2nd boss."
 		},
 		{
 			"group": "The world",

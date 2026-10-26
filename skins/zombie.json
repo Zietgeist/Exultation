@@ -213,6 +213,10 @@
 			]
 		}
 	],
+	"regions": {
+		"adjectives": ["Miller's", "Cedar", "Pine", "Oak", "Maple", "Fairview", "Riverside", "Hollow", "Dead Man's", "Quiet", "Burnt", "Lonely", "Old", "North", "South", "Elm", "Rusty", "Abandoned", "Lakeside", "Sunny"],
+		"nouns": {"open_field": ["Fields", "Farms", "Acres", "Orchards"], "rolling_hills": ["Hills", "Ridge", "Bluffs"], "forest": ["Woods", "Pines", "Thicket", "Campground"], "river": ["Creek", "Flats", "Bottoms", "Floodplain"], "ruins": ["Town", "Suburbs", "Strip Mall", "Blocks"], "rails": ["Rail Yard", "Freight Line", "Sidings", "Depot"]}
+	},
 	"terrain": {
 		"templates": [
 			"open_field",

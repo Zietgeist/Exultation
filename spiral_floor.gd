@@ -172,6 +172,12 @@ func _place_stations():
 		spots.append(p)
 	_build_lines(spots)
 	Landmarks.build(self, path)	# strongholds, towns, caverns... (Zone 4 and up)
+	if Regions.is_big(path):	# regions, encounters and hordes (Zone 6 and up)
+		var f = Node3D.new()
+		f.set_script(load("res://zone_features.gd"))
+		f.zone_path = path
+		f.name = "ZoneFeatures"
+		add_child(f)
 	Helpers.place_captives(self, path)	# a captive to free (cook: Zone 2, assistants: Zones 3-4)
 
 

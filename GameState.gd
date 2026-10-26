@@ -340,7 +340,7 @@ func remember_zone(z):
 	if z == null or z.path == "res://Home.tscn" or z.root == null:
 		return
 	var memory = {}
-	var parts = {"spawner": "zone_spawner", "obstacles": "zone_obstacles", "terrain": "zone_terrain", "fog": "zone_fog"}
+	var parts = {"spawner": "zone_spawner", "obstacles": "zone_obstacles", "terrain": "zone_terrain", "fog": "zone_fog", "features": "zone_features"}
 	for part in parts:
 		var node = Zones.first(z.root, parts[part])
 		if node:

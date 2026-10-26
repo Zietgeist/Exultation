@@ -752,6 +752,7 @@ func describe(item: Dictionary) -> String:
 
 
 # ---------- Enemy damage types per zone ----------
+const REGION_ELEMENT_SHARE = 0.5	# zones with regions: this share of enemies use their region's element
 const ZONE_ELEMENTS = {
 	"res://Zone1.tscn": ["physical"],
 	"res://Zone2.tscn": ["physical", "physical", "physical", "radiant"],
@@ -766,7 +767,12 @@ const ZONE_ELEMENTS = {
 }
 
 ## Pick a damage type for an enemy in this zone. Bosses always carry the zone's element.
-func roll_enemy_element(scene_path: String, is_boss: bool) -> String:
+## In a zone with regions, pass where it stands: half the time it uses its region's element.
+func roll_enemy_element(scene_path: String, is_boss: bool, pos = null) -> String:
+	if pos != null and not is_boss and randf() < REGION_ELEMENT_SHARE:
+		var r = Regions.at(scene_path, pos)
+		if not r.is_empty():
+			return r.element
 	var list = ZONE_ELEMENTS.get(scene_path, ["physical", "physical", ELEMENTS[1 + randi() % 4]])
 	if is_boss:
 		var special = list.filter(func(x): return x != "physical")

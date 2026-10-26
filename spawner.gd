@@ -375,13 +375,13 @@ func _spawn_boss_near_player(count := 1):
 func _make_enemy(t: int, pos: Vector3):
 	_count_spawn(t)
 	pos = _out_of_camps(pos)
-	return _instantiate(t, pos, -1, _roll_element(t))
+	return _instantiate(t, pos, -1, _roll_element(t, pos))
 
 
 ## Add an enemy that waits as data until the player comes near, and count it.
-## Damage type for a new enemy in this zone.
-func _roll_element(t: int) -> String:
-	return Crafting.roll_enemy_element(owner.scene_file_path if owner else "", t == 3)
+## Damage type for a new enemy in this zone (in a zone with regions, its spot picks the region).
+func _roll_element(t: int, pos = null) -> String:
+	return Crafting.roll_enemy_element(owner.scene_file_path if owner else "", t == 3, pos)
 
 
 func _place_dormant(t: int, pos: Vector3, h := -1.0, element := ""):
@@ -391,7 +391,7 @@ func _place_dormant(t: int, pos: Vector3, h := -1.0, element := ""):
 	pos = _out_of_safe_spots(pos)
 	pos.y = ENEMY_REST_HEIGHT
 	if element == "":
-		element = _roll_element(t)
+		element = _roll_element(t, pos)
 	pos = clamp_to_map(pos)
 	for i in 6:	# pushed off the map edge and clamped back in? try another way round
 		if not in_safe_spot(pos):
