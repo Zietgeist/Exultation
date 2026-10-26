@@ -36,8 +36,10 @@ func build():
 	var right = Vector3(f.z, 0, -f.x)
 	npc(right * 9.0 - f * 4.0, Landmarks.word("trader"), "rare materials", "trader", ui, Color(0.8, 0.7, 0.3))
 	var board = npc(-right * 9.0 - f * 4.0, Landmarks.word("board"), "jobs for gold", "board", ui, Color(0.55, 0.45, 0.35))
-	board.get_child(0).visible = false	# a board, not a person: hide the body, show a sign instead
-	box(Vector3(4, 3, 0.4), -right * 9.0 - f * 4.0 + Vector3(0, 1.8, 0), mat("lm_board", Color(0.45, 0.32, 0.2)), false)
+	for part in board.get_children():	# a board, not a person: hide the body AND the hat, show a sign instead
+		if part is MeshInstance3D:
+			part.visible = false
+	box(Vector3(4, 3, 0.4), -right * 9.0 - f * 4.0 + Vector3(0, 1.8, 0), mat("lm_board", Color(0.45, 0.32, 0.2)), false, atan2(f.x, f.z))	# faces the square
 	bank_spot(-f * 12.0, "Inn\n(step in: bank gold and rest)")
 	label("Safe ground: no fighting inside the walls", Vector3(0, 3, 0) + f * (HALF - 3.0), 28, Color(0.7, 1.0, 0.8))
 
