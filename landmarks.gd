@@ -359,12 +359,14 @@ func _finish(q: Dictionary):
 
 # ---------------- Recruiting guards (the survivor at a taken stronghold) ----------------
 ## While the job is on you go out DISGUISED: enemies don't notice you and auto-attack is off.
-##   V = Parley: talk to the Trash or Thug nearest you. About half agree and head to the stronghold.
-##   The rest see through it: they attack, your disguise drops and you're back in combat.
+##   V = Parley: talk to the Trash and Thugs near you, up to RECRUIT_GROUP at once (the closest first).
+##   The group decides together: about half the time they ALL agree and head to the stronghold.
+##   Otherwise they see through it: they attack, your disguise drops and you're back in combat.
 ##   Out of disguise, V puts it back on (once nothing is chasing you). Attacking also drops it.
 
 const RECRUIT_NEED = 10
 const RECRUIT_CHANCE = 0.5
+const RECRUIT_GROUP = 5		# one V talks to this many at once (if they're close)
 const PARLEY_RANGE = 8.0
 const PARLEY_WAIT = 1.2
 var _parley_wait := 0.0
@@ -407,39 +409,44 @@ func parley(p) -> void:
 	if not disguised:
 		_redisguise(p)
 		return
-	var best = null
-	var best_d = PARLEY_RANGE
+	var near = []	# [distance, enemy]
 	for e in Zones.all(p, "enemy"):
 		if not is_instance_valid(e) or e.health <= 0 or e.tier > 1 or not e.rival.is_empty() or e.has_meta("landmark") or e.has_meta("refused"):
 			continue
 		var d = p.global_position.distance_to(e.global_position)
-		if d < best_d:
-			best = e
-			best_d = d
-	if best == null:
+		if d < PARLEY_RANGE:
+			near.append([d, e])
+	if near.is_empty():
 		p._float_text("No one to talk to (get close to a Trash or Thug)", Color(0.85, 0.85, 0.85))
 		return
+	near.sort_custom(func(a, b): return a[0] < b[0])
+	var group = []
+	for pair in near.slice(0, mini(RECRUIT_GROUP, recruit.need - recruit.have)):
+		group.append(pair[1])
 	_parley_wait = PARLEY_WAIT
-	if randf() < RECRUIT_CHANCE:
-		recruit.have += 1
+	if randf() < RECRUIT_CHANCE:	# the whole group agrees
+		for e in group:
+			recruit.have += 1
+			_say_over(e, "I'll join you!", Color(0.6, 1.0, 0.6))
+			e.set_meta("recruited", true)	# no loot: it isn't dying, it's leaving
+			if e.mirror:
+				Net.hit_enemy(e.net_id, e.MAX_HEALTH * 10.0)
+			else:
+				e.die()
 		_save()
-		_say_over(best, "I'll join you!", Color(0.6, 1.0, 0.6))
-		best.set_meta("recruited", true)	# no loot: it isn't dying, it's leaving
-		if best.mirror:
-			Net.hit_enemy(best.net_id, best.MAX_HEALTH * 10.0)
-		else:
-			best.die()
+		var joined = ("%d of them join you! " % group.size()) if group.size() > 1 else ""
 		if recruit.have >= recruit.need:
-			GameState.notify("%d guards recruited! Head back to %s." % [recruit.have, recruit.name])
+			GameState.notify("%s%d guards recruited! Head back to %s." % [joined, recruit.have, recruit.name])
 		else:
-			GameState.notify("Recruited %d / %d" % [recruit.have, recruit.need])
-	else:
-		_say_over(best, "Never!", Color(1.0, 0.5, 0.4))
-		best.set_meta("refused", true)
+			GameState.notify("%sRecruited %d / %d" % [joined, recruit.have, recruit.need])
+	else:	# they all see through it
+		for e in group:
+			_say_over(e, "Never!", Color(1.0, 0.5, 0.4))
+			e.set_meta("refused", true)
+			if not e.mirror:
+				e.aggroed = true
+				e.player = p
 		set_disguise(false, "Found out! Fight back, then press V to put your disguise back on.")
-		if not best.mirror:
-			best.aggroed = true
-			best.player = p
 
 
 func _say_over(e, text: String, c: Color):
