@@ -251,7 +251,7 @@ func champion_title(path: String, poi: Dictionary, tier: int) -> String:
 
 
 func boss_title(r: Dictionary) -> String:
-	return "%s Lord of %s" % [SkinManager.name_of("enemy_master_one"), the(r)]
+	return "%s Lord of %s" % [SkinManager.name_of("enemy_boss_one"), the(r)]
 
 
 # ---------------- Working it out (seeded) ----------------

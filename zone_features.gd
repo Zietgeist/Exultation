@@ -28,7 +28,7 @@ const CHAMPION_WAKE = 55.0
 const AMBUSH_TRIGGER = 14.0		# step this close to a hidden ambush and it springs
 const FOE_DROP = 320.0			# host: a group nobody is fighting, this far from everyone, is put away (comes back later)
 const REGION_CREDIT = 0.1		# a region boss counts as this share of the kills needed for the 2nd boss
-const BOSS_HEALTH = 2.0			# region boss: a Master this many times tougher
+const BOSS_HEALTH = 1.0			# region boss: a real Boss (boss_kit.gd moves and rages), as tough as a zone boss
 const CHAMPION_HEALTH = 1.6
 const GUARDS = Vector2i(6, 9)	# Trash around a region boss (plus one Thug)
 const ESCORTS = Vector2i(4, 6)	# Trash around a champion
@@ -260,8 +260,8 @@ func _ring(center: Vector3, count: int, r_min: float, r_max: float) -> Array:
 
 func _wake_region_boss(r: Dictionary):
 	var group = []
-	var boss = _spawn(2, r.heart + Vector3(0, 0, 5), BOSS_HEALTH, Regions.boss_title(r), r.element, false)
-	boss.no_count = true	# not one of the zone's two bosses, and can't be turned
+	var boss = _spawn(3, r.heart + Vector3(0, 0, 5), BOSS_HEALTH, Regions.boss_title(r), r.element, false)	# title first: the boss kit keeps it
+	boss.no_count = true	# not one of the zone's two bosses
 	boss.enemy_died.connect(func(_t): _region_boss_down(r))
 	group.append(boss)
 	group.append(_spawn(1, r.heart + Vector3(5, 0, -6)))
