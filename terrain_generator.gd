@@ -105,7 +105,11 @@ func _announce():
 	if regions.is_empty():
 		GameState.notify("%s: %s" % [zone, MAPS.label(template)])
 	else:
-		GameState.notify("%s: %d regions to explore (see the map, M)" % [zone, regions.size()])
+		var freed = Regions.freed(path).size()
+		if freed > 0:
+			GameState.notify("%s: %d of %d regions free (saved progress)" % [zone, freed, regions.size()])
+		else:
+			GameState.notify("%s: %d regions to explore (see the map, M)" % [zone, regions.size()])
 
 
 ## Huge zones: the zone's big river (if its template has one) runs across everything, then every

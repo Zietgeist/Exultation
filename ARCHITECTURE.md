@@ -97,6 +97,9 @@ Trials, Zones, Story, Rivals, Traits, Travel (fast_travel.gd), Party, Landmarks,
 - State this session: `zone_features.save_state()` (region bosses down, champions/ambushes done) is a zone-memory part
   ("features") and goes to joined players with the layout. Events: `Net.feature_event` -> `zone_features.net_event`.
   Caches and stones are personal (`Regions.done`).
+- SAVED between sessions (big zones): freed regions + zone bosses beaten (`Regions.progress/record`, party or
+  `regions.cfg`); the spawner empties freed regions and starts with their credit (`_apply_saved_regions`).
+  Clearing the zone resets it. Regions entered are saved too (map names).
 - Feature foes carry meta "landmark" = "feature" (the spawner never saves or sleeps them). Their kills count toward the
   2nd boss; a region boss adds 10% of `min_clear` (like closing a rift).
 

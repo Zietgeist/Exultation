@@ -138,7 +138,12 @@ func _setup_zone_targets():
 	MAX_TRASH = target_total - MAX_THUGS - MAX_MASTERS - MAX_BOSSES
 	print("Zone size x%.1f: %d enemies this visit (2nd boss after %d kills). Trash %d, Thugs %d, Masters %d, Bosses %d" % [
 		zone_scale, target_total, min_clear, MAX_TRASH, MAX_THUGS, MAX_MASTERS, MAX_BOSSES])
+	var path = Zones.path_of(self)
+	if Regions.is_big(path):	# big zones remember progress between play sessions (regions.gd)
+		bosses_killed = mini(Regions.bosses_down(path), MAX_BOSSES - 1)
 	_initial_spawn()
+	if Regions.is_big(path):
+		_apply_saved_regions(path)
 	targets_ready = true
 	_stream()
 
@@ -178,13 +183,36 @@ func _initial_spawn():
 			at_sites += 1
 		_place_pack(leaders[i], sizes[i], spot[0], spot[1])
 	print("Packs: %d (%d at camps/valleys/hills, %d roaming)" % [leaders.size(), at_sites, leaders.size() - at_sites])
-	# 1st Boss: the farthest of several random spots
+	# 1st Boss: the farthest of several random spots (unless it was beaten in an earlier session)
+	if bosses_killed > 0:
+		return
 	var best = Vector3.ZERO
 	for i in range(20):
 		var p = _random_spot(entry, 0.0)
 		if p.distance_to(entry) > best.distance_to(entry):
 			best = p
 	_place_dormant(3, best)
+
+
+## Regions freed in earlier play sessions stay free: their sleeping packs are gone, and each one's
+## share still counts toward the 2nd boss (zone_features.REGION_CREDIT).
+func _apply_saved_regions(path: String):
+	var freed = Regions.freed(path)
+	if freed.is_empty() and bosses_killed == 0:
+		return
+	var removed = 0
+	for k in _buckets.keys():
+		var keep = []
+		for d in _buckets[k]:
+			var r = Regions.at(path, d.p)
+			if d.t != 3 and not r.is_empty() and freed.has(r.id):
+				removed += 1
+			else:
+				keep.append(d)
+		_buckets[k] = keep
+	target_total -= removed
+	total_killed += roundi(min_clear * preload("res://zone_features.gd").REGION_CREDIT) * freed.size()
+	print("Saved progress: %d regions free (%d sleeping foes gone), %d boss(es) already beaten" % [freed.size(), removed, bosses_killed])
 
 
 ## How many Trash in each of n packs: 8-20 each, adding up to total.
@@ -652,6 +680,8 @@ func _on_enemy_died(tier):
 		2: masters_killed += 1
 		3:
 			bosses_killed += 1
+			if Regions.is_big(Zones.path_of(self)) and not Net.is_client():	# saved (cleared: the zone resets)
+				Regions.record(Zones.path_of(self), "", bosses_killed)
 			if Zones.first(self, "player"):	# credit for players who are here (online, each counts their own)
 				GameState.on_boss_killed(bosses_killed, Zones.path_of(self))
 			if bosses_killed == MAX_BOSSES and Zones.first(self, "player"):

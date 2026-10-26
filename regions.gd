@@ -12,6 +12,11 @@ extends Node
 ##
 ## Everything here is worked out from the zone (seeded), like landmarks and fast-travel stops, so
 ## every player sees the same world on every visit and nothing needs sending online.
+##
+## SAVED PROGRESS (big zones): freed regions and a beaten 1st boss last between play sessions, with
+## your party (online) or with you (solo). A freed region stays free: next visit its packs are gone and
+## its share still counts toward the 2nd boss. Clearing the zone (both bosses) resets it: the enemies
+## regroup, so the zone is a fresh battlefield again. Regions you've walked into stay named on the map.
 ## Positions are in the zone's own coordinates (its center is 0, 0).
 
 const LAYOUT = preload("res://world_layout.gd")
@@ -61,7 +66,86 @@ const LORE = [
 
 var _cache := {}		# path + skin -> {grid, regions, pois}
 var done := {}			# YOUR finished encounters this play session: "path|id" -> true (caches, stones)
-var entered := {}		# regions you've walked into this play session: "path|region id" -> true
+var entered := {}		# regions you've walked into (saved): "path|region id" -> true
+var _personal := {}		# solo progress (saved): path -> {freed = {region id: date}, bosses = 0}
+
+var SAVE_PATH: String:	# this character's save (Account)
+	get:
+		return Account.path("regions.cfg")
+
+
+func _ready():
+	load_character()
+
+
+func load_character():
+	done = {}
+	var cfg = ConfigFile.new()
+	if cfg.load(SAVE_PATH) == OK:
+		entered = cfg.get_value("regions", "entered", {})
+		_personal = cfg.get_value("regions", "progress", {})
+	else:
+		entered = {}
+		_personal = {}
+
+
+func _save():
+	var cfg = ConfigFile.new()
+	cfg.set_value("regions", "entered", entered)
+	cfg.set_value("regions", "progress", _personal)
+	if cfg.save(SAVE_PATH) != OK:
+		ErrorLog.fail("Regions: couldn't save " + SAVE_PATH)
+
+
+# ---------------- Saved progress (party or personal) ----------------
+
+## {freed = {region id: date}, bosses = n} for a zone (the party's when playing with friends).
+func progress(path: String) -> Dictionary:
+	if Party.active():
+		return Party.current.get("regions", {}).get(path, {})
+	return _personal.get(path, {})
+
+
+func freed(path: String) -> Dictionary:
+	return progress(path).get("freed", {})
+
+
+func bosses_down(path: String) -> int:
+	return int(progress(path).get("bosses", 0))
+
+
+## Host or solo: remember a freed region / a beaten zone boss. Joined players' games leave it to the host.
+func record(path: String, freed_id := "", bosses := -1):
+	if Party.active() and Net.is_client():
+		return
+	var p = progress(path).duplicate(true)
+	if freed_id != "":
+		var f = p.get("freed", {})
+		f[freed_id] = Time.get_date_string_from_system()
+		p.freed = f
+	if bosses >= 0:
+		p.bosses = bosses
+	if bosses >= 2:	# zone cleared: it resets, the enemies regroup for next time
+		p = {}
+	_store(path, p)
+
+
+func _store(path: String, p: Dictionary):
+	if Party.active():
+		if not Party.current.has("regions"):
+			Party.current.regions = {}
+		Party.current.regions[path] = p
+		Party.save()
+		Net.send_party(Party.current)
+	else:
+		_personal[path] = p
+		_save()
+
+
+## You walked into a region (saved, so the map keeps its name).
+func mark_entered(path: String, id: String):
+	entered[path + "|" + id] = true
+	_save()
 
 
 # ---------------- Which zones get what ----------------

@@ -52,6 +52,8 @@ func _ready():
 	add_to_group("zone_features")
 	regions = Regions.for_zone(zone_path)
 	pois = Regions.pois_for_zone(zone_path)
+	for id in Regions.freed(zone_path):	# freed in an earlier play session (saved with you / your party)
+		bosses_down[id] = true
 	var saved = GameState.zone_memory.get(zone_path, {}).get("features", null)
 	if saved is Dictionary:
 		for id in saved.get("bosses_down", []):
@@ -161,7 +163,7 @@ func _track_region():
 	var key = zone_path + "|" + r.id
 	var what = "%s · %s" % [Regions.template_label(r), SkinManager.element_label(r.element)]
 	if not Regions.entered.has(key):
-		Regions.entered[key] = true
+		Regions.mark_entered(zone_path, r.id)
 		if not first_check:
 			GameState.notify("Entering %s  (%s)" % [Regions.the(r), what])
 		Story.once("region:" + key, "Walked into %s in %s." % [Regions.the(r), GameState.ZONE_NAMES.get(zone_path, "")])
@@ -274,6 +276,7 @@ func _region_boss_down(r: Dictionary):
 	var sp = _spawner()
 	if sp:
 		sp.total_killed += roundi(sp.min_clear * REGION_CREDIT)	# like closing a rift
+	Regions.record(zone_path, r.id)	# saved: it stays free next time too
 	_announce("region_freed", {id = r.id, by = Landmarks.who()})
 
 

@@ -80,7 +80,7 @@ func select(id: String):
 	if SkinManager.current_race != c.race:
 		ErrorLog.fail("Account: %s's race '%s' isn't in the %s world any more" % [c.name, c.race, c.skin])
 	GameState.player_class = Classes.normalize(c["class"])
-	for system in [GameState, Crafting, Story, Traits, Rivals, Trials, Travel, Landmarks, Classes, Helpers]:
+	for system in [GameState, Crafting, Story, Traits, Rivals, Trials, Travel, Landmarks, Classes, Helpers, Regions]:
 		system.load_character()
 	if Story.player_name != c.name:	# a new character: its name goes in its own story
 		Story.player_name = c.name
