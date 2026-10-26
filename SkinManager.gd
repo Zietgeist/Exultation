@@ -191,6 +191,8 @@ func race_slots() -> Array:
 	for s in race().slots:
 		out.append({slot = s.slot, accepts = s.get("accepts", s.slot), count = int(s.get("count", 1)),
 			label = s.get("label", slot_label(s.get("accepts", s.slot)))})
+	if not out.any(func(r): return r.accepts == "wings"):	# every race has a Wings slot (Scarlet's Wings)
+		out.append({slot = "wings", accepts = "wings", count = 1, label = slot_label("wings")})
 	return out
 
 

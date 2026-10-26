@@ -308,6 +308,12 @@ func _draw_zone(path: String, font, cleared := true):
 		draw_arc(c, r, 0, TAU, 32, col, 2.0)
 		_tip(c, l.info.name + "\n" + ("Landmark - done" if Landmarks.state(path, l.info.id).has("taken") else "Landmark - go explore it"), r + 4.0)
 		draw_string(font, c + Vector2(-130, -r - 6), l.info.name, HORIZONTAL_ALIGNMENT_CENTER, 260, 14, col)
+	# Daddy's Spot (Zone 2): always shown
+	for d in Zones.local_all("daddy_camp"):
+		var c = _to_screen(fit, d.global_position)
+		draw_circle(c, 6.0, Color(1.0, 0.55, 0.7))
+		draw_arc(c, 10.0, 0, TAU, 20, Color(1.0, 0.55, 0.7), 2.0)
+		_tip(c, "Daddy's Spot\nBeat Daddy for Scarlet's Wings. Don't get too close: tickles!" if not d.beaten_this_session else "Daddy's Spot\n(Daddy's resting)", 12.0)
 	# A captive to free (helpers.gd): always shown, so you know where to go
 	for n in Zones.local_all("npc"):
 		if str(n.get("shop")).begins_with("captive:"):

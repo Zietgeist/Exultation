@@ -179,6 +179,25 @@ func _place_stations():
 		f.name = "ZoneFeatures"
 		add_child(f)
 	Helpers.place_captives(self, path)	# a captive to free (cook: Zone 2, assistants: Zones 3-4)
+	if path == "res://Zone2.tscn":	# Daddy's Spot (daddy.gd): beat him for Scarlet's Wings
+		var d = Node3D.new()
+		d.set_script(load("res://daddy.gd"))
+		d.name = "DaddysSpot"
+		d.position = _daddy_spot(path)
+		add_child(d)
+
+
+## Where Daddy waits in Zone 2: the same spot for everyone (seeded), away from the gates and the middle.
+func _daddy_spot(path: String) -> Vector3:
+	var half = get_half_size()
+	var rng = RandomNumberGenerator.new()
+	rng.seed = hash(path + "daddy")
+	var p = Vector3(half.x * 0.5, 0, half.y * 0.5)
+	for attempt in 40:
+		p = Vector3(rng.randf_range(-0.6, 0.6) * half.x, 0, rng.randf_range(-0.6, 0.6) * half.y)
+		if p.length() > 20.0 and LAYOUT.gates(path).all(func(g): return Vector2(g.pos.x - p.x, g.pos.z - p.z).length() > 30.0):
+			break
+	return p
 
 
 ## Rail (Zombie): a track up on pillars. Tube (Sci-Fi): a glass tube. Portal (Fantasy): nothing.

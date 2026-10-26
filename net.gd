@@ -376,6 +376,17 @@ func _roster(r: Dictionary):
 func hurt_player(id: int, amount: float, enemy):
 	_hurt.rpc_id(id, amount, enemy.net_id if enemy and "net_id" in enemy else 0)
 
+## Stun another player (Daddy's tickles): their own game does it.
+func stun_player(id: int, seconds: float, text: String):
+	_stun_player.rpc_id(id, clampf(seconds, 0.0, 10.0), text.left(40))
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _stun_player(seconds: float, text: String):
+	if Zones.player and not travelling:
+		Zones.player.stun(clampf(seconds, 0.0, 10.0), text.left(40))	# never trust big numbers from the network
+
+
 func heal_player(id: int, amount: float):
 	_heal.rpc_id(id, amount)
 
@@ -765,6 +776,26 @@ func _party_event(kind: String, path: String):
 @rpc("authority", "call_remote", "reliable")
 func _party_legend():
 	Party.become_legend.call_deferred()
+
+
+# ---------------- Small zone set pieces (by group) ----------------
+
+## Host: tell the joined players in `node`'s zone; their copy of the group's first node gets net_event().
+func group_event(node, group: String, event: String, data: Dictionary):
+	if not is_host():
+		return
+	var key = Zones.key_of(node)
+	for peer in _peers_in(key):
+		_group_event.rpc_id(peer, key, group, event, data)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _group_event(key: String, group: String, event: String, data: Dictionary):
+	if Zones.local_key() != key or not group in ["daddy_camp"]:	# only groups that expect it
+		return
+	var n = Zones.local_first(group)
+	if n and n.has_method("net_event"):
+		n.net_event(event, data)
 
 
 # ---------------- Regions and encounters (zone_features.gd) ----------------

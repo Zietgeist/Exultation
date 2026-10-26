@@ -43,6 +43,8 @@ static func kind_of(it: Dictionary) -> String:
 			return "feet"
 		"draught", "elixir":
 			return "potion"
+		"scarlet_wings":
+			return "wings"
 	return str(it.get("slot", "ring"))
 
 
@@ -61,7 +63,7 @@ static func item_color(it: Dictionary) -> Color:
 ## The icon for an empty gear slot of this kind.
 static func slot_kind(accepts: String) -> String:
 	return {"weapon": "blade", "head": "head", "shoulders": "shoulders", "chest": "chest", "hands": "hands",
-		"feet": "feet", "ring": "ring", "implant": "implant"}.get(accepts, "ring")
+		"feet": "feet", "ring": "ring", "implant": "implant", "wings": "wings"}.get(accepts, "ring")
 
 
 static func draw(ci: CanvasItem, kind: String, r: Rect2, c: Color):
@@ -69,6 +71,10 @@ static func draw(ci: CanvasItem, kind: String, r: Rect2, c: Color):
 	var s = min(r.size.x, r.size.y)
 	var dark = c.darkened(0.45)
 	match kind:
+		"wings":
+			ci.draw_colored_polygon(PackedVector2Array([p.call(0.5, 0.45), p.call(0.08, 0.15), p.call(0.15, 0.6), p.call(0.4, 0.75)]), c)
+			ci.draw_colored_polygon(PackedVector2Array([p.call(0.5, 0.45), p.call(0.92, 0.15), p.call(0.85, 0.6), p.call(0.6, 0.75)]), c)
+			ci.draw_circle(p.call(0.5, 0.5), s * 0.07, dark)
 		"blade":
 			ci.draw_colored_polygon(PackedVector2Array([p.call(0.78, 0.12), p.call(0.88, 0.22), p.call(0.38, 0.72), p.call(0.28, 0.62)]), c)
 			ci.draw_line(p.call(0.2, 0.55), p.call(0.45, 0.8), dark, s * 0.08)

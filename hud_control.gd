@@ -177,6 +177,10 @@ func _process(delta):
 		health_bar.value = (player.health / player.MAX_HEALTH) * 100
 		energy_bar.value = (player.energy / player.MAX_ENERGY) * 100
 		speed_label.text = "Attack speed: %+d (C)" % player.speed_level
+		if player.flight.max_time > 0.0:	# wings worn
+			speed_label.text += ("   FLYING %d%%" if player.flight.flying else "   Wings %d%% (Shift)") % roundi(player.flight.share() * 100)
+		if player.stun_time > 0.0:
+			speed_label.text += "   STUNNED"
 		_update_pet()
 		if player.auto:
 			if player.disguised:

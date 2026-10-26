@@ -227,6 +227,8 @@ func _physics_process(delta):
 	st_cooldown -= delta
 	aoe_cooldown -= delta
 	fx.tick(delta)
+	if stun_time > 0.0:
+		stun_time -= delta
 	
 	var typing = GameState.typing()	# typing a note or a name: don't walk
 	if not typing and (Input.is_action_pressed("ui_right") or Input.is_key_pressed(KEY_D)):
@@ -238,7 +240,7 @@ func _physics_process(delta):
 	if not typing and (Input.is_action_pressed("ui_up") or Input.is_key_pressed(KEY_W)):
 		direction.z -= 1
 
-	if GameState.input_locked:
+	if GameState.input_locked or stun_time > 0.0:
 		direction = Vector3.ZERO
 	if direction.length() > 0:
 		direction = direction.normalized()
@@ -256,7 +258,9 @@ func _physics_process(delta):
 	if dash != null:
 		velocity.x = dash.x
 		velocity.z = dash.z
-	velocity.y += GRAVITY * delta
+	var wants_to_fly = Input.is_key_pressed(KEY_SHIFT) and not typing and not GameState.ui_open and stun_time <= 0.0
+	if not flight.update(self, delta, wants_to_fly):	# flying: it holds you up instead of gravity
+		velocity.y += GRAVITY * delta
 
 	var mouse_pos = get_viewport().get_mouse_position()
 	var cam = get_viewport().get_camera_3d()
@@ -317,6 +321,8 @@ func _physics_process(delta):
 ## A single strike. forced = the target auto-attack chose. Your own click: the enemy under
 ## (or near) the mouse wins; otherwise your main-target rule (R) picks one in reach.
 func single_target_attack(forced = null):
+	if flight.flying or stun_time > 0.0:
+		return	# no attacking from the air, or while stunned
 	var closest = forced
 	if closest == null:
 		var in_reach = []
@@ -356,6 +362,8 @@ func single_target_attack(forced = null):
 
 ## A sweep in front of you. aim = a direction to face first (auto-attack aims where it catches the most).
 func aoe_attack(aim := Vector3.ZERO):
+	if flight.flying or stun_time > 0.0:
+		return
 	if aim != Vector3.ZERO:
 		look_at(global_position + aim, Vector3.UP)
 	var enemies = Zones.all(self, "enemy")
@@ -393,7 +401,7 @@ func take_damage(amount, source = null):
 	if is_puppet:	# another player: their game takes the hit
 		Net.hurt_player(peer_id, amount, source)
 		return
-	if invulnerable_time > 0.0 or warded:
+	if invulnerable_time > 0.0 or warded or flight.flying:	# nothing reaches you up in the air
 		return
 	if disguised:	# something hit you: they know what you are now
 		Landmarks.set_disguise(false, "Found out! Fight back, then press V to put your disguise back on.")
@@ -499,6 +507,17 @@ func die(cause := ""):
 	for enemy in Zones.all(self, "enemy"):
 		enemy.aggroed = false
 	died.emit(cause)
+
+## Stunned for a while (Daddy's tickles). On another player's stand-in: their game does it.
+func stun(seconds: float, text := "Stunned!"):
+	if is_puppet:
+		Net.stun_player(peer_id, seconds, text)
+		return
+	if flight.flying:
+		return
+	stun_time = maxf(stun_time, seconds)
+	_float_text(text, Color(1.0, 0.55, 0.7))
+
 
 func get_damage_multiplier():
 	var pct = health / MAX_HEALTH * 100
@@ -823,6 +842,8 @@ var ward_time = 0.0
 var haste = 0.0
 const MAX_RESIST = 0.8
 var fx = preload("res://gear_fx.gd").new()	# special effects from special materials (Sunder, Bloom, Prism...)
+var flight = preload("res://wings_flight.gd").new()	# wings: hold Shift to fly
+var stun_time := 0.0	# stunned (Daddy's tickles): can't move, attack or use skills
 
 
 ## Read what's equipped (Crafting) and set up the character to match.
@@ -862,12 +883,14 @@ func apply_gear():
 	for k in weapon_fx:
 		all_fx[k] = all_fx.get(k, 0.0) + weapon_fx[k]
 	fx.set_gear(all_fx, weapon_stun)
+	if not is_puppet:
+		flight.set_wings(self, t.flight)
 	var old_max = MAX_HEALTH
 	var stats = class_def.get("stats", {})
 	MAX_HEALTH = (BASE_MAX_HEALTH * stats.get("health", 1.0) + t.max_health) * (1.0 + GameState.buff_bonus("tonic")) * Traits.health_mult()
 	health = clamp(health + (MAX_HEALTH - old_max), 1.0, MAX_HEALTH)
 	SPEED = BASE_SPEED * stats.get("speed", 1.0) * (1.0 + t.move) * Traits.move_mult()
-	if not is_puppet:	# Windrunner boots: enemies (physics layer 3) don't block you
+	if not is_puppet and not flight.flying:	# gear that walks through enemies (physics layer 3); flying does too
 		set_collision_mask_value(ENEMY_LAYER, not t.phase_mobs)
 	_refresh_damage()
 

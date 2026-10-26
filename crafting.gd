@@ -133,6 +133,10 @@ const BASES = {
 		stats = {hardness = 0.0, move = 0.0, shield_absorb = 0.08}, about = "+8% Shield strength. Stacks."},
 	"sap_ring": {label = "Sap Ring", shop = "smith", slot = "ring", need = {"silverbar": 2}, slots = 1,
 		stats = {hardness = 0.0, move = 0.0, self_heal = 0.08}, about = "+8% Self Heal. Stacks."},
+	# Wings: never sold. Scarlet's Wings come from beating Daddy in Zone 2 (daddy.gd, grant_wings).
+	"scarlet_wings": {label = "Scarlet's Wings", shop = "", slot = "wings", need = {}, slots = 0,
+		stats = {hardness = 0.0, move = 0.0, flight = 5.0},
+		about = "Scarlet's gift. Hold Shift to fly over walls, water and enemies for a few seconds. Nothing can hurt you up there, but you can't attack."},
 	"draught": {label = "Draught", shop = "chemist", slot = "potion", need = {"tonic": 1}, slots = 1,
 		stats = {heal = 30.0}, about = "A quick heal."},
 	"elixir": {label = "Elixir", shop = "chemist", slot = "potion", need = {"essence": 1}, slots = 2,
@@ -613,6 +617,25 @@ func craft(base_id: String, q: int, slot_mats: Array):
 	return item
 
 
+## Daddy is down (daddy.gd): your first wings. Returns false if you already have them.
+func grant_wings() -> bool:
+	if items.any(func(it): return it.base == "scarlet_wings"):
+		return false
+	var item = {base = "scarlet_wings", slot = "wings", quality = 1, name = "Scarlet's Wings", attrs = {},
+		made_from = ["a gift for beating Daddy"]}
+	Story.stamp_crafted(item, "scarlet_wings")
+	item.id = next_id
+	next_id += 1
+	item.made_on = Time.get_date_string_from_system()
+	item.made_in = GameState.ZONE_NAMES.get("res://Zone2.tscn", "Zone 2")
+	items.append(item)
+	var rs = slot_for(item)	# straight onto your back
+	if rs and equipped.has(rs.slot) and equipped[rs.slot].has(-1):
+		equipped[rs.slot][equipped[rs.slot].find(-1)] = item.id
+	save()
+	return true
+
+
 ## Unworn gear can be given to a party member (online). Worn gear is bound.
 func can_give(it: Dictionary) -> bool:
 	return not it.has("bound_to") and not is_equipped(it.id)
@@ -784,6 +807,7 @@ func armor_totals() -> Dictionary:
 	var hardness = 0.0
 	var move = 0.0
 	var phase_mobs = false
+	var flight = 0.0
 	for it in equipped_items():
 		if it.slot == "weapon" or it.slot == "potion":
 			continue
@@ -792,6 +816,7 @@ func armor_totals() -> Dictionary:
 		move += stats.move
 		if stats.get("phase_mobs", false):
 			phase_mobs = true
+		flight = maxf(flight, float(stats.get("flight", 0.0)))	# wings
 		for k in it.attrs:
 			a[k] = a.get(k, 0.0) + it.attrs[k]
 	var e = {resist = {}}
@@ -804,6 +829,7 @@ func armor_totals() -> Dictionary:
 	e.move = move + a.get("swiftness", 0.0) * 0.02
 	e.max_health = a.get("vitality", 0.0) * 4.0
 	e.phase_mobs = phase_mobs
+	e.flight = flight
 	e.fx = {}
 	for k in a:
 		if k.begins_with("fx_"):
@@ -864,6 +890,8 @@ func effects(item: Dictionary) -> Dictionary:
 					e.resist[el] = a[el] / (a[el] + 20.0)
 			e.move = s.move + a.get("swiftness", 0.0) * 0.02
 			e.max_health = a.get("vitality", 0.0) * 4.0
+		"wings":
+			e.flight = float(s.get("flight", 0.0))
 		"potion":
 			e.heal = s.heal * qp + a.get("vitality", 0.0) * 8.0
 			e.ward = {}		# short resistances (30 s)
@@ -903,6 +931,9 @@ func describe(item: Dictionary) -> String:
 			for k in SKILL_STATS:
 				if rs.get(k, 0.0) > 0.0:
 					lines.append("+%d%% %s" % [roundi(rs[k] * 100), SKILL_STATS[k]])
+		"wings":
+			lines.append("Hold Shift to fly for %ds (refills on the ground)" % roundi(e.flight))
+			lines.append("Up there: over walls, water and enemies, and nothing can hurt you (no attacking)")
 		"potion":
 			lines.append("Heals %d" % e.heal)
 			for el in e.ward:

@@ -112,3 +112,11 @@ Trials, Zones, Story, Rivals, Traits, Travel (fast_travel.gd), Party, Landmarks,
 - Special effects live in item attrs as `fx_<name>` and are applied by `gear_fx.gd` (one per player, `player.fx`).
   Add an effect: material family in `Crafting.FX`, numbers + `describe` + hook in `gear_fx.gd`.
 
+## Wings and Daddy (`wings_flight.gd`, `daddy.gd`)
+- Every race gets a "wings" slot (`SkinManager.race_slots` adds it). Wings items have `stats.flight` (seconds).
+- Flight lives in `player.flight`: hold Shift; it replaces gravity, lifts you to FLY_HEIGHT, turns off the enemy
+  collision layer, makes you immune, blocks attacks/skills, and clamps you inside the zone.
+- `player.stun(seconds, text)` (puppets: `Net.stun_player`). Daddy (Zone 2, `daddy.gd`) uses it; his death goes out
+  with `Net.group_event(node, "daddy_camp", ...)` and each player gets wings via `Crafting.grant_wings()`.
+- Per-skin wing looks: not yet (`wings_flight._make_wings` is one shape).
+

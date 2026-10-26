@@ -50,6 +50,8 @@ func setup(p, id: String):
 
 ## Press E, Q or F. Returns true if the skill went off.
 func use(key: String) -> bool:
+	if player.flight.flying or player.stun_time > 0.0:
+		return false	# not from the air, not while stunned
 	var s = Classes.skill(class_id, key)
 	if s.is_empty():
 		return false

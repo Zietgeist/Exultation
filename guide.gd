@@ -180,6 +180,8 @@ static func _recipes() -> String:
 	var shops = {"smith": [], "chemist": []}
 	for id in Crafting.BASES:
 		var b = Crafting.BASES[id]
+		if b.shop == "":
+			continue	# never sold (wings)
 		var need = []
 		for m in b.need:
 			need.append("%d %s" % [b.need[m], Crafting.MATERIAL_LABELS.get(m, m)])
