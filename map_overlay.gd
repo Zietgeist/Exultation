@@ -382,8 +382,10 @@ func _draw_regions(path: String, fit: Dictionary, font, seen: Callable, cleared:
 			if been:
 				var mid = _to_screen(fit, Vector3(r.rect.get_center().x, 0, r.rect.get_center().y))
 				var name_col = Color(r.color.lightened(0.45), 0.75)
-				draw_string_outline(font, mid + Vector2(-120, -14), r.name, HORIZONTAL_ALIGNMENT_CENTER, 240, 13, 4, Color(0, 0, 0, 0.7))
-				draw_string(font, mid + Vector2(-120, -14), r.name, HORIZONTAL_ALIGNMENT_CENTER, 240, 13, name_col)
+				var left = feat.foes_left.get(r.id, 0)
+				var label = "%s  ·  %s" % [r.name, ("%d foes" % left) if left > 0 else "cleared"]
+				draw_string_outline(font, mid + Vector2(-150, -14), label, HORIZONTAL_ALIGNMENT_CENTER, 300, 13, 4, Color(0, 0, 0, 0.7))
+				draw_string(font, mid + Vector2(-150, -14), label, HORIZONTAL_ALIGNMENT_CENTER, 300, 13, name_col if left > 0 else Color(0.6, 1.0, 0.6, 0.85))
 			if not (been or seen.call(heart)):
 				continue
 			var c = _to_screen(fit, heart)
@@ -392,6 +394,14 @@ func _draw_regions(path: String, fit: Dictionary, font, seen: Callable, cleared:
 			draw_arc(c, 9.0, 0, TAU, 20, col, 2.0)
 			_tip(c, "Heart of %s\n%s · %s\n%s" % [Regions.the(r), Regions.template_label(r), SkinManager.element_label(r.element),
 				"Freed" if freed else "Its boss waits here (freeing it counts toward the 2nd boss)"], 12.0)
+	# Packs still out there: their leaders, in regions you've been to (everywhere in a zone without regions)
+	for l in feat.leaders:
+		if g.cols > 0 and not (cleared or Regions.entered.has(path + "|" + l.r)):
+			continue
+		var c = _to_screen(fit, l.p)
+		var col = TIER_COLORS[clampi(l.t, 0, 3)]
+		draw_colored_polygon(PackedVector2Array([c + Vector2(0, -4), c + Vector2(4, 0), c + Vector2(0, 4), c + Vector2(-4, 0)]), col)
+		_tip(c, "A pack: a %s and its crowd" % SkinManager.name_of(["enemy_trash_one", "enemy_thug_one", "enemy_master_one"][clampi(l.t, 0, 2)]), 6.0)
 	for poi in feat.pois:
 		if poi.kind == "ambush":
 			continue

@@ -47,6 +47,16 @@ var _foes := {}			# host: region / encounter id -> [enemies it woke]
 var _region_id := ""	# the region the local player is in right now
 var _t := 0.0
 
+# Where the enemies are (host / solo: read from the spawner a slice at a time, so huge zones never hitch)
+const PACK_REACH = 300.0	# the arrow points to the nearest pack this close (else the next region heart)
+const INTEL_SLICE = 6000	# sleeping foes looked at per check (twice a second)
+var foes_left := {}			# region id ("" = zone without regions) -> foes still here (not bosses)
+var leaders := []			# [{p, t}]: pack leaders still here (Thugs and Masters)
+var _intel_keys := []
+var _intel_i := 0
+var _intel_counts := {}
+var _intel_leaders := []
+
 
 func _ready():
 	add_to_group("zone_features")
@@ -82,6 +92,7 @@ func _process(delta):
 	_stream_hearts(who)
 	_stream_pois(who)
 	_track_region()
+	_update_intel()
 	if not Net.is_client():
 		_host_tick(who)
 
@@ -172,14 +183,19 @@ func _track_region():
 		me._float_text(r.name, r.color.lightened(0.3))
 
 
-## The HUD arrow: your region's heart while its boss stands, otherwise the nearest region still to free.
-## {pos, text} or {} when there's nothing left.
+## The HUD arrow, so you always have somewhere to go (never a grid search):
+##   1. your region's heart while its boss stands,
+##   2. else the nearest pack (a leader and its crowd) within PACK_REACH,
+##   3. else the nearest region still to free,
+##   4. else the nearest pack anywhere.
+## {pos, text, color} or {} when there's nothing left.
 func compass_target(from: Vector3) -> Dictionary:
-	if regions.is_empty():
-		return {}
 	var here = Regions.at(zone_path, from)
 	if not here.is_empty() and not bosses_down.has(here.id):
 		return {pos = here.heart, text = "Heart of " + Regions.the(here), color = here.color}
+	var pack = _nearest_leader(from)
+	if not pack.is_empty() and Vector2(pack.p.x - from.x, pack.p.z - from.z).length() < PACK_REACH:
+		return _pack_target(pack)
 	var best = {}
 	var best_d = INF
 	for r in regions:
@@ -190,8 +206,64 @@ func compass_target(from: Vector3) -> Dictionary:
 			best = r
 			best_d = d
 	if best.is_empty():
-		return {}
+		return {} if pack.is_empty() else _pack_target(pack)
 	return {pos = best.heart, text = "Heart of " + Regions.the(best), color = best.color}
+
+
+func _pack_target(pack: Dictionary) -> Dictionary:
+	var who = SkinManager.name_of(["enemy_trash_one", "enemy_thug_one", "enemy_master_one"][clampi(pack.t, 0, 2)])
+	return {pos = to_local(pack.p), text = "A pack (%s)" % who, color = Color(1.0, 0.55, 0.45)}
+
+
+func _nearest_leader(from: Vector3) -> Dictionary:
+	var best = {}
+	var best_d = INF
+	for l in leaders:
+		var d = Vector2(l.p.x - from.x, l.p.z - from.z).length_squared()
+		if d < best_d:
+			best = l
+			best_d = d
+	return best
+
+
+## Count the foes left per region and find the pack leaders, a slice of the sleeping ones at a time.
+func _update_intel():
+	var sp = _spawner()
+	if sp == null or Net.is_client():
+		return	# joined players: the host has the enemies (their map shows less)
+	if _intel_keys.is_empty():
+		_intel_keys = sp._buckets.keys()
+		_intel_i = 0
+		_intel_counts = {}
+		_intel_leaders = []
+	var g = Regions.grid(zone_path)
+	var seen = 0
+	while _intel_i < _intel_keys.size() and seen < INTEL_SLICE:
+		for d in sp._buckets.get(_intel_keys[_intel_i], []):
+			_intel_add(g, d.p, d.t)
+			seen += 1
+		_intel_i += 1
+	if _intel_i < _intel_keys.size():
+		return
+	for e in Zones.all(self, "enemy"):	# the awake ones
+		if e.has_meta("from_spawner") and not e.is_queued_for_deletion():
+			_intel_add(g, e.global_position, e.tier)
+	foes_left = _intel_counts
+	leaders = _intel_leaders
+	_intel_keys = []
+
+
+func _intel_add(g: Dictionary, p: Vector3, t: int):
+	if t == 3:
+		return	# bosses have their own markers
+	var rid = ""
+	if g.cols > 0:
+		var cx = clampi(floori((p.x + g.half.x) / g.cell.x), 0, g.cols - 1)
+		var cz = clampi(floori((p.z + g.half.y) / g.cell.y), 0, g.rows - 1)
+		rid = regions[cz * g.cols + cx].id
+	_intel_counts[rid] = _intel_counts.get(rid, 0) + 1
+	if t >= 1:
+		_intel_leaders.append({p = p, t = t, r = rid})
 
 
 # ---------------- Host: bosses, champions, ambushes ----------------

@@ -340,12 +340,12 @@ const HOME_ARRIVAL = Vector3(0, 1, 8)	# next to the Deposit Shrine
 # ---------------- Zone memory (saved to disk) ----------------
 # Leaving a zone and coming back keeps its layout, enemies, kills, explored map and regions,
 # and so does quitting: each spiral zone is saved to its own file (with your party when you host,
-# otherwise with your character). Saved when you leave a zone, every few minutes, and when you quit.
+# otherwise with your character). Saved when you leave a zone, every 2 minutes, and when you quit.
 # Clearing a zone (both bosses) resets it: next time you go in it's a fresh battlefield.
 var zone_memory = {}	# scene path -> {spawner = {...}, obstacles = [...], terrain = [...], fog = ..., features = {...}}
 var _zones_to_reset = {}	# cleared this session: forget them when they're next saved
 var _zone_autosave = ZONE_AUTOSAVE
-const ZONE_AUTOSAVE = 300.0
+const ZONE_AUTOSAVE = 120.0	# also covers stopping the game from the editor (no "closing" step then)
 const ZONE_SAVE_VERSION = 1
 
 
