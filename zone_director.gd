@@ -8,15 +8,16 @@ extends Node
 ##   PEAK      stress maxed out (big hits, swarmed, low health) or enough hordes: no more,
 ##             fight off what's left, then it goes CALM again
 ## It ADAPTS: a peak reached without dropping low -> the next cycle is bigger; a close call -> smaller.
-## Horde kills count toward the zone's 2nd boss. No hordes while the target stands somewhere safe
-## (a gate, a fast-travel stop, a town) or near a region boss that's still standing.
+## Horde kills count toward the zone's 2nd boss. No hordes at a player standing somewhere safe
+## (a gate, a fast-travel stop, a town), near a region boss that's still standing, or low on health.
+## Hordes find their way around walls (smart_path). The warning ("from the north!") comes with the first one.
 
 const GRACE = 120.0
 const CALM_TIME = Vector2(150.0, 240.0)
 const WAVE_EVERY = Vector2(7.0, 11.0)
 const MAX_WAVES = 4
 const MAX_BUILD = 75.0
-const BASE_WAVE = 6			# first horde of a cycle (before strength and party size)
+const BASE_WAVE = 8			# first horde of a cycle (before strength and party size)
 const WAVE_GROW = 4			# each horde in the same cycle is this much bigger
 const MAX_HORDE_ALIVE = 60
 const SPAWN_DIST = Vector2(30.0, 42.0)
@@ -60,7 +61,10 @@ func _physics_process(delta):
 				_start_build_up()
 		State.BUILD_UP:
 			_build_time += delta
-			if stress >= PEAK or _build_time >= MAX_BUILD or _wave >= MAX_WAVES:
+			if _wave == 0 and _build_time >= MAX_BUILD:	# never got a horde out (everyone stayed somewhere safe): try later
+				_calm()
+				return
+			if _wave > 0 and (stress >= PEAK or _build_time >= MAX_BUILD or _wave >= MAX_WAVES):
 				_peak()
 				return
 			_t -= delta
@@ -114,8 +118,7 @@ func _start_build_up():
 	_build_time = 0.0
 	_lowest = 1.0
 	_t = 2.0
-	features._announce("horde", {text = "Something's coming... a horde!"})
-	print("Zone director: build-up (strength %.2f)" % strength)
+	print("Zone director: build-up (strength %.2f)" % strength)	# the warning goes out with the first horde
 
 
 func _peak():
@@ -137,8 +140,10 @@ func _calm():
 	print("Zone director: calm for %ds" % roundi(_t))
 
 
-## Is this player somewhere a horde shouldn't come (safe ground, or a region boss fight)?
+## Is this player somewhere a horde shouldn't come (low on health, safe ground, or a region boss fight)?
 func _sheltered(m) -> bool:
+	if "health" in m and m.health < m.MAX_HEALTH * LOW_HEALTH:
+		return true	# already in trouble: no horde on top of it
 	var sp = features._spawner()
 	if sp and sp.in_safe_spot(m.global_position):
 		return true
@@ -179,8 +184,14 @@ func _send_horde(who: Array):
 		var e = features._spawn(tiers[k], features.to_local(p))
 		e.aggroed = true
 		e.hunter = true		# comes straight for them, never gives up
+		e.smart_path = true	# and finds its way around fences, huts and walls (Trash too)
 		e.player = target
 		_horde.append(e)
+	if _wave == 1:	# the warning, with where it's coming from
+		var d = spots[0] - target.global_position
+		var from = ("north" if d.z < 0 else "south") if absf(d.z) > absf(d.x) else ("west" if d.x < 0 else "east")
+		features._announce("horde", {text = "A horde is coming from the %s!" % from})
+	print("Zone director: horde %d, %d foes" % [_wave, tiers.size()])
 
 
 ## A spot 30-42 m from the target, on land, not somewhere safe, and (for me) off screen.
